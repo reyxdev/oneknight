@@ -2,6 +2,7 @@
 // through Telegram, demo link, and signing in again in place when the session ends mid-work.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
+import { onboard } from "./nav.mjs";
 import { execSync } from "node:child_process";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
@@ -32,7 +33,7 @@ await pg.getByLabel("Ім'я").fill("Вхід E2E");
 await pg.getByLabel("Електронна пошта").fill(email);
 await pg.getByLabel("Код або посилання запрошення").fill("");
 await pg.getByRole("button", { name: "Створити акаунт" }).click();
-await pg.getByText("Вітаємо").waitFor();
+await onboard(pg);
 const userId = await pg.evaluate(async () => (await (await fetch("/api/auth/me")).json()).id);
 
 // Session ends while working: sign in again, back on the same screen.

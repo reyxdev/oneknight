@@ -36,11 +36,11 @@ export async function todoFor(orgId: string, perms: Permission[], now = new Date
         urgent: dsql<number>`count(*) filter (where ${orders.status} = 'new' and ${orders.createdAt} <= ${new Date(now.getTime() - URGENT_AFTER).toISOString()}::timestamptz)`.mapWith(Number),
       })
       .from(orders)
-      .where(eq(orders.organizationId, orgId));
+      .where(and(eq(orders.organizationId, orgId), eq(orders.isExample, false)));
     if (o && o.n > 0) out.push({ id: `newOrders:${o.n}:${o.urgent}`, tone: o.urgent ? "bad" : "warn", key: o.urgent ? "newOrdersUrgent" : "newOrders", params: { n: o.n, urgent: o.urgent }, screen: "orders", tab: "new" });
   }
   if (can("orders") || can("shipping")) {
-    const [w] = await db.select({ n: count() }).from(orders).where(and(eq(orders.organizationId, orgId), needsWaybill()));
+    const [w] = await db.select({ n: count() }).from(orders).where(and(eq(orders.organizationId, orgId), eq(orders.isExample, false), needsWaybill()));
     if (w && w.n > 0) out.push({ id: `noWaybill:${w.n}`, tone: "warn", key: "noWaybill", params: { n: w.n }, screen: "orders", tab: "nowaybill" });
   }
   if (can("site")) {
@@ -83,7 +83,7 @@ export async function toShip(orgId: string) {
   return db
     .select({ id: orders.id, number: orders.number, customerName: orders.customerName, totalKop: orders.totalKop, status: orders.status, waybill: orders.waybill, method: dsql<string>`${orders.delivery}->>'method'`, createdAt: orders.createdAt })
     .from(orders)
-    .where(and(eq(orders.organizationId, orgId), inArray(orders.status, ["confirmed", "paid"])))
+    .where(and(eq(orders.organizationId, orgId), eq(orders.isExample, false), inArray(orders.status, ["confirmed", "paid"])))
     .orderBy(orders.createdAt)
     .limit(50);
 }

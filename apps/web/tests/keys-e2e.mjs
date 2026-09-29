@@ -2,7 +2,7 @@
 // activates both in «Оплата», the admin sees the key as activated.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
-import { go } from "./nav.mjs";
+import { go, onboard } from "./nav.mjs";
 import { execSync } from "node:child_process";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
@@ -23,7 +23,7 @@ async function signup(name, email) {
   await pg.getByLabel("Електронна пошта").fill(email);
   await pg.getByLabel("Пароль").fill("keys e2e pass");
   await pg.getByRole("button", { name: "Створити акаунт" }).click();
-  await pg.getByText("Вітаємо").waitFor();
+  await onboard(pg);
   return pg;
 }
 const nav = (pg, name) => go(pg, name);

@@ -1,7 +1,7 @@
 // Admin adds a real site to a client; the client sees live monitoring. Needs the API with network access.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
-import { go } from "./nav.mjs";
+import { go, onboard } from "./nav.mjs";
 import { execSync } from "node:child_process";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
@@ -21,7 +21,7 @@ await pg.getByLabel("Телефон").fill("+380670001122");
 await pg.getByLabel("Електронна пошта").fill(email);
 await pg.getByLabel("Пароль").fill("site e2e pass");
 await pg.getByRole("button", { name: "Створити акаунт" }).click();
-await pg.getByText("Вітаємо").waitFor();
+await onboard(pg);
 await go(pg, "Сайт");
 ok(await pg.getByText("Сайту поки немає").waitFor({ timeout: 5000 }).then(() => true, () => false), "empty site state before any site");
 

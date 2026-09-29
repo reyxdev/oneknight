@@ -49,6 +49,8 @@ export const organizations = pgTable("organizations", {
   goalKop: integer("goal_kop"),
   /** When the «Перші кроки» reward (+7 days) was granted; granted once per business. */
   firstStepsRewardAt: timestamp("first_steps_reward_at", { withTimezone: true }),
+  /** Answers to the questions after sign-up (owner). Null = not answered yet: the panel asks first. */
+  onboarding: jsonb("onboarding").$type<{ hasSite: boolean; siteUrl?: string; sells: string[]; sellsOther?: string; delivery: string[]; channels: string[]; at: string }>(),
   createdAt: createdAt(),
 });
 
@@ -209,6 +211,8 @@ export const subscriptions = pgTable("subscriptions", {
   graceUntil: timestamp("grace_until", { withTimezone: true }),
   /** ONEKNIGHT itself is covered by an access key until this moment: renewals starting before it do not charge it. */
   coveredUntil: timestamp("covered_until", { withTimezone: true }),
+  /** Last trial-end reminder sent (days before the end: 3, then 1), so each goes once. */
+  trialReminded: smallint("trial_reminded"),
   createdAt: createdAt(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -357,6 +361,8 @@ export const orders = pgTable(
     waybill: text("waybill"),
     /** Nova Poshta document ref when the waybill was created from ONEKNIGHT (used for printing). */
     waybillRef: text("waybill_ref"),
+    /** «Приклад» in a new account: not counted anywhere, never sent to a carrier, gone with the first real order. */
+    isExample: boolean("is_example").notNull().default(false),
     ip: inet("ip"),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

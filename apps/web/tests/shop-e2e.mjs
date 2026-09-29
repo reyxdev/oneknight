@@ -2,7 +2,7 @@
 // public API (server prices), the order shows up and moves through statuses.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
-import { go } from "./nav.mjs";
+import { go, onboard } from "./nav.mjs";
 import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -25,7 +25,7 @@ await pg.getByLabel("Телефон").fill("+380670007788");
 await pg.getByLabel("Електронна пошта").fill(email);
 await pg.getByLabel("Пароль").fill("shop e2e pass");
 await pg.getByRole("button", { name: "Створити акаунт" }).click();
-await pg.getByText("Вітаємо").waitFor();
+await onboard(pg);
 await nav("Товари");
 ok(await pg.getByText("потрібен сайт").waitFor({ timeout: 5000 }).then(() => true, () => false), "products need a site first");
 

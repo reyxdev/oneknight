@@ -2,6 +2,7 @@
 // lists and «Нагадати завтра», «Відправити сьогодні», monthly goal. Data: the «Демо-магазин» seed.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
+import { onboard } from "./nav.mjs";
 import { execSync } from "node:child_process";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
@@ -22,7 +23,7 @@ await pg.getByLabel("Телефон").fill("+380670001313");
 await pg.getByLabel("Електронна пошта").fill(email);
 await pg.getByLabel("Пароль").fill("home e2e password");
 await pg.getByRole("button", { name: "Створити акаунт" }).click();
-await pg.getByText("Вітаємо").waitFor();
+await onboard(pg);
 const steps = pg.locator(".ok-steps");
 ok(await seen(steps.getByText("0 з 6")), "a new owner sees «Перші кроки» with nothing done");
 ok(!(await steps.getByRole("button", { name: "Отримати +7 днів" }).count()), "no reward before every step is done");

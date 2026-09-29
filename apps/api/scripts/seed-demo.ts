@@ -36,7 +36,7 @@ if (remove) {
 
 const now = Date.now();
 const DAY = 86_400_000;
-const [org] = await db.insert(organizations).values({ name: DEMO_NAME }).returning();
+const [org] = await db.insert(organizations).values({ name: DEMO_NAME, onboarding: { hasSite: true, sells: ["home"], delivery: ["novaposhta"], channels: ["instagram"], at: new Date().toISOString() } }).returning();
 const orgId = org!.id;
 await db.insert(memberships).values({ organizationId: orgId, userId: user.id, role: "owner" });
 await db.insert(subscriptions).values({ organizationId: orgId, status: "trial", trialEndsAt: addMonths(new Date(), 3), periodEnd: addMonths(new Date(), 3) });

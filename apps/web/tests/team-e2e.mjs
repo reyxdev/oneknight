@@ -1,6 +1,7 @@
 // Team: the owner invites a manager by link; the invitee signs up from the link and sees only permitted sections.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
+import { onboard } from "./nav.mjs";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
 const b = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox"] });
@@ -25,7 +26,7 @@ async function signup(ctx, url, name, email) {
 const navBtn = (pg, name) => pg.locator(".ok-side nav").getByRole("button", { name, exact: true });
 
 const owner = await signup(await b.newContext(), `${BASE}/app/?start=register`, "Власник E2E", `team-o${stamp}@test.oneknight.local`);
-await owner.getByText("Вітаємо").waitFor();
+await onboard(owner);
 await navBtn(owner, "Команда").click();
 await owner.getByLabel("Роль").selectOption("manager");
 await owner.getByRole("group", { name: "Права" }).getByRole("button", { name: "Товари" }).click(); // remove products from the default set

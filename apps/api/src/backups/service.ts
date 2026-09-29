@@ -30,7 +30,7 @@ async function collect(orgId: string) {
     .where(eq(memberships.organizationId, orgId));
   const siteRows = await db.select().from(sites).where(eq(sites.organizationId, orgId));
   const productRows = await db.select().from(products).where(eq(products.organizationId, orgId)).orderBy(asc(products.createdAt));
-  const orderRows = await db.select().from(orders).where(eq(orders.organizationId, orgId)).orderBy(asc(orders.createdAt));
+  const orderRows = await db.select().from(orders).where(and(eq(orders.organizationId, orgId), eq(orders.isExample, false))).orderBy(asc(orders.createdAt));
   const events = orderRows.length ? await db.select().from(orderEvents).where(inArray(orderEvents.orderId, orderRows.map((o) => o.id))).orderBy(asc(orderEvents.createdAt)) : [];
   const reviewRows = await db.select().from(reviews).where(eq(reviews.organizationId, orgId)).orderBy(asc(reviews.createdAt));
   const ticketRows = await db.select().from(tickets).where(eq(tickets.organizationId, orgId)).orderBy(asc(tickets.createdAt));

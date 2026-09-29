@@ -63,7 +63,8 @@ function Copy({ value }: { value: string }) {
   );
 }
 
-export function BillingScreen() {
+/** `onChange`: the account is re-read (the trial counter in the top bar). */
+export function BillingScreen({ onChange }: { onChange?: () => void }) {
   const d = useDict();
   const t = d.app.billing;
   const lang = useLang();
@@ -143,7 +144,12 @@ export function BillingScreen() {
         />
         <Stat label={s?.status === "trial" ? t.monthly : t.monthlyActive} icon="refresh" value={money(data.monthlyKop)} sub={data.discount ? fmt(t.discount, { p: data.discount.percent, n: data.discount.monthsLeft }) : s?.status === "trial" ? fmt(t.freeModules, { n: data.freeModulesLeft }) : undefined} />
       </div>
-      {!s && <Panel><p className="ok-muted">{t.none}</p></Panel>}
+      {!s && (
+        <Panel>
+          <p className="ok-muted">{t.none}</p>
+          <button type="button" className="btn btn-sm" style={{ justifySelf: "start" }} onClick={async () => { const r = await api("/billing/trial", { method: "POST" }); if (r.ok) { playSound("success"); void load(); onChange?.(); } }}>{t.startTrial}</button>
+        </Panel>
+      )}
 
       <Panel title={t.topUpTitle}>
         {!data.paymentsConfigured ? (

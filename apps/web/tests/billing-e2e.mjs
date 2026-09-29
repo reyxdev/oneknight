@@ -2,7 +2,7 @@
 // PAYMENT_RECIPIENT="Test recipient" PAYMENT_IBAN="UA000000000000000000000000000" npm start -w @oneknight/api
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
-import { go } from "./nav.mjs";
+import { go, onboard } from "./nav.mjs";
 import { execSync } from "node:child_process";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
@@ -22,7 +22,7 @@ await pg.getByLabel("Телефон").fill("+380670003344");
 await pg.getByLabel("Електронна пошта").fill(email);
 await pg.getByLabel("Пароль").fill("billing e2e pass");
 await pg.getByRole("button", { name: "Створити акаунт" }).click();
-await pg.getByText("Вітаємо").waitFor();
+await onboard(pg);
 await nav("Оплата");
 ok(await pg.getByText("Підписка ще не активна").waitFor({ timeout: 5000 }).then(() => true, () => false), "no subscription before the website launch");
 

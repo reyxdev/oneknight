@@ -1,7 +1,7 @@
 // Support flow: client creates a request with a screenshot, admin replies, client sees the reply.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
-import { go } from "./nav.mjs";
+import { go, onboard } from "./nav.mjs";
 import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -25,7 +25,7 @@ async function account(email, name) {
   await pg.getByLabel("Електронна пошта").fill(email);
   await pg.getByLabel("Пароль").fill("support e2e pass");
   await pg.getByRole("button", { name: "Створити акаунт" }).click();
-  await pg.getByText("Вітаємо").waitFor();
+  await onboard(pg);
   return pg;
 }
 const nav = (pg, name) => go(pg, name);

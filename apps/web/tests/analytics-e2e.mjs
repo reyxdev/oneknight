@@ -2,7 +2,7 @@
 // Instagram and Google, one sends a request and one buys; the account shows it in plain language.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
-import { go } from "./nav.mjs";
+import { go, onboard } from "./nav.mjs";
 import { execSync } from "node:child_process";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
@@ -24,7 +24,7 @@ await pg.getByLabel("Телефон").fill("+380670001212");
 await pg.getByLabel("Електронна пошта").fill(email);
 await pg.getByLabel("Пароль").fill("analytics e2e pass");
 await pg.getByRole("button", { name: "Створити акаунт" }).click();
-await pg.getByText("Вітаємо").waitFor();
+await onboard(pg);
 execSync(`npm run -s admin:grant -w @oneknight/api -- ${email}`);
 await pg.reload({ waitUntil: "networkidle" });
 await nav("Бізнеси");

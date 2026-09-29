@@ -37,7 +37,7 @@ async function sales(orgId: string, from: Date, to: Date) {
       cancelled: dsql<number>`count(*) filter (where ${orders.status} = 'cancelled')`.mapWith(Number),
     })
     .from(orders)
-    .where(and(eq(orders.organizationId, orgId), gte(orders.createdAt, from), lt(orders.createdAt, to)));
+    .where(and(eq(orders.organizationId, orgId), eq(orders.isExample, false), gte(orders.createdAt, from), lt(orders.createdAt, to)));
   return r!;
 }
 
@@ -61,7 +61,7 @@ async function series(orgId: string, period: Period, from: Date, now: Date) {
   const rows = await db
     .select({ b: bucket, revenueKop: dsql<number>`coalesce(sum(${orders.totalKop}), 0)`.mapWith(Number), orders: dsql<number>`count(*)`.mapWith(Number) })
     .from(orders)
-    .where(and(eq(orders.organizationId, orgId), gte(orders.createdAt, from), lt(orders.createdAt, now), dsql`${orders.status} <> 'cancelled'`))
+    .where(and(eq(orders.organizationId, orgId), eq(orders.isExample, false), gte(orders.createdAt, from), lt(orders.createdAt, now), dsql`${orders.status} <> 'cancelled'`))
     .groupBy(bucket);
   const by = new Map(rows.map((r) => [r.b, r]));
   // Noon of each day keeps the date right on the days the clock changes.

@@ -1,7 +1,7 @@
 // Password reset: the admin creates a one-time link, the person sets a new password with it and signs in.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
-import { go } from "./nav.mjs";
+import { go, onboard } from "./nav.mjs";
 import { execSync } from "node:child_process";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
@@ -22,7 +22,7 @@ async function signup(name, email) {
   await pg.getByLabel("Електронна пошта").fill(email);
   await pg.getByLabel("Пароль").fill("old e2e password");
   await pg.getByRole("button", { name: "Створити акаунт" }).click();
-  await pg.getByText("Вітаємо").waitFor();
+  await onboard(pg);
   return pg;
 }
 

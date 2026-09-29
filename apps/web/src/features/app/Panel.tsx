@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDict, useLang } from "@/i18n/provider";
-import { withLang } from "@/i18n";
+import { fmt, withLang } from "@/i18n";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { KnightMark } from "@/components/global/Logo";
 import type { Me } from "@/lib/api";
@@ -214,6 +214,11 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
               <b className="app-org">{adminMode ? t.nav.modeAdmin : org?.name ?? me.name}</b>
             )}
             {!adminMode && (allowed("orders") || allowed("products")) ? <Search go={(id, tab) => go(id as Screen, tab ?? null)} inputRef={searchRef} /> : <span className="ok-grow" />}
+            {!adminMode && me.subscription?.status === "trial" && allowed("billing") && (
+              <button type="button" className="app-trial" onClick={() => go("billing")}>
+                {fmt(t.billing.trialBadge, { n: Math.max(0, Math.ceil((new Date(me.subscription.periodEnd).getTime() - Date.now()) / 86_400_000)) })}
+              </button>
+            )}
             <button type="button" className="btn btn-sm btn-ghost btn-icon app-keys-btn" aria-label={t.keys.title} title={t.keys.title} onClick={() => setKeysOpen(true)}>?</button>
             {me.isAdmin && (
               <button type="button" className="btn btn-sm btn-secondary app-mode" data-mode-switch data-admin={adminMode} onClick={() => go(adminMode ? "home" : "admin")}>
@@ -235,7 +240,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             {view === "modules" && <ModulesScreen />}
             {view === "services" && <ServicesScreen />}
             {view === "business" && <BusinessScreen me={me} tab={businessTab} setTab={(tab) => go("business", tab)} onChange={onChange} />}
-            {view === "billing" && <BillingScreen />}
+            {view === "billing" && <BillingScreen onChange={onChange} />}
             {view === "team" && <TeamScreen me={me} />}
             {view === "profile" && <ProfileScreen me={me} tab={profileTab} setTab={(tab) => go("profile", tab)} onChange={onChange} />}
             {view === "support" && <SupportScreen />}

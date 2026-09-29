@@ -68,7 +68,7 @@ export const reviewPublicRoutes: FastifyPluginAsync = async (app) => {
     let orderId: string | null = null;
     let verified = false;
     if (b.orderNumber && b.phone) {
-      const [o] = await db.select().from(orders).where(and(eq(orders.number, b.orderNumber), eq(orders.siteId, site.id)));
+      const [o] = await db.select().from(orders).where(and(eq(orders.number, b.orderNumber), eq(orders.siteId, site.id), eq(orders.isExample, false)));
       if (o && digits(o.customerPhone) === digits(b.phone) && o.status !== "cancelled") {
         orderId = o.id;
         verified = true;

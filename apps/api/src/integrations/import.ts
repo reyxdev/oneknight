@@ -1,3 +1,4 @@
+import { and, eq } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { notifications, orderEvents, orders } from "../db/schema.ts";
 
@@ -25,6 +26,8 @@ export async function insertMarketOrder(orgId: string, source: string, o: Market
       .onConflictDoNothing({ target: [orders.organizationId, orders.source, orders.externalId] })
       .returning({ id: orders.id, number: orders.number });
     if (!ins) return false;
+    // The first real order replaces the «Приклад» ones.
+    await tx.delete(orders).where(and(eq(orders.organizationId, orgId), eq(orders.isExample, true)));
     await tx.insert(orderEvents).values({ orderId: ins.id, status: o.status });
     await tx.insert(notifications).values({ organizationId: orgId, kind: "order", key: "newOrder", params: { n: ins.number, total: o.totalKop / 100 } });
     return true;

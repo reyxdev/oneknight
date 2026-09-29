@@ -117,7 +117,7 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
     // "nowaybill": confirmed or paid, going by a carrier, no waybill yet («Що треба зробити» on Home).
     const filter = req.query.status === "nowaybill" ? needsWaybill() : st.success ? eq(orders.status, st.data) : undefined;
     return db
-      .select({ id: orders.id, number: orders.number, customerName: orders.customerName, totalKop: orders.totalKop, status: orders.status, createdAt: orders.createdAt, siteId: orders.siteId, source: orders.source })
+      .select({ id: orders.id, number: orders.number, customerName: orders.customerName, totalKop: orders.totalKop, status: orders.status, createdAt: orders.createdAt, siteId: orders.siteId, source: orders.source, isExample: orders.isExample })
       .from(orders)
       .where(and(inArray(orders.organizationId, orgs), filter, acc.full ? undefined : inArray(orders.status, [...SHIPPING_STATUSES])))
       .orderBy(desc(orders.createdAt))
@@ -142,6 +142,7 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
           .where(
             and(
               eq(orders.organizationId, acc.org),
+              eq(orders.isExample, false),
               acc.full ? undefined : inArray(orders.status, [...SHIPPING_STATUSES]),
               or(
                 ilike(orders.customerName, like),
@@ -168,13 +169,13 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
     const now = new Date();
     const acc = await orderAccess(req);
     if (!acc?.full) return { now, newCount: 0, orders: [] };
-    const [c] = await db.select({ n: count() }).from(orders).where(and(eq(orders.organizationId, acc.org), eq(orders.status, "new")));
+    const [c] = await db.select({ n: count() }).from(orders).where(and(eq(orders.organizationId, acc.org), eq(orders.isExample, false), eq(orders.status, "new")));
     const after = z.string().datetime().safeParse(req.query.after);
     const rows = after.success
       ? await db
           .select({ id: orders.id, number: orders.number, customerName: orders.customerName, totalKop: orders.totalKop, items: orders.items, createdAt: orders.createdAt })
           .from(orders)
-          .where(and(eq(orders.organizationId, acc.org), eq(orders.status, "new"), gt(orders.createdAt, new Date(after.data)), lte(orders.createdAt, now)))
+          .where(and(eq(orders.organizationId, acc.org), eq(orders.isExample, false), eq(orders.status, "new"), gt(orders.createdAt, new Date(after.data)), lte(orders.createdAt, now)))
           .orderBy(asc(orders.createdAt))
           .limit(10)
       : [];

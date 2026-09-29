@@ -302,7 +302,7 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
 
     /** The order if this member may work with it: every order with `orders`, only ones waiting to be sent with `shipping`. */
     async function orderOf(acc: { org: string; full: boolean }, id: string) {
-      const [o] = await db.select().from(orders).where(and(eq(orders.id, id), eq(orders.organizationId, acc.org), acc.full ? undefined : inArray(orders.status, [...SHIPPING_STATUSES])));
+      const [o] = await db.select().from(orders).where(and(eq(orders.id, id), eq(orders.organizationId, acc.org), eq(orders.isExample, false), acc.full ? undefined : inArray(orders.status, [...SHIPPING_STATUSES])));
       return o ?? null;
     }
 

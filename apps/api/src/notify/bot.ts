@@ -144,6 +144,8 @@ export function notificationText(key: string, p: Record<string, any>, finance = 
     case "memberJoined": return `👤 ${p.name} приєднався до команди`;
     case "keyRedeemed": return "🔑 Ключ доступу активовано";
     case "trialStarted": return "🎉 ONEKNIGHT відкрито безкоштовно на 3 місяці";
+    case "trialStartedDays": return `🎉 Пробний період ONEKNIGHT: ${p.days} днів безкоштовно`;
+    case "trialEnding": return `⏳ Пробний період ONEKNIGHT закінчується через ${p.days} дн. Оплатіть підписку в розділі «Оплата», щоб робота не зупинилась.`;
     case "firstStepsReward": return "🎁 Перші кроки пройдено: +7 днів ONEKNIGHT безкоштовно";
     default: return null;
   }

@@ -74,8 +74,10 @@ test("dashboard: period numbers from real orders, «Що треба зробит
   await db.insert(orders).values({ ...base, totalKop: 1000, delivery: { method: "pickup" } });
   assert.ok((await get()).todo.some((i: { key: string }) => i.key === "newOrdersUrgent"), "a new order brings it back");
 
+  // "Today" is the Kyiv calendar day: shortly after midnight the order from 3 hours ago is yesterday's.
+  const kyivDay = (t: number) => new Date(t).toLocaleDateString("sv-SE", { timeZone: "Europe/Kyiv" });
   const today = await get("?period=today");
-  assert.equal(today.sales.cur.orders, 4);
+  assert.equal(today.sales.cur.orders, kyivDay(Date.now() - 3 * HOUR) === kyivDay(Date.now()) ? 4 : 3);
 
   assert.equal(d.goal.goalKop, null);
   const g = await app.inject({ method: "PATCH", url: "/api/dashboard/goal", payload: { goalUah: 50000 }, headers: { cookie, origin: ORIGIN } });

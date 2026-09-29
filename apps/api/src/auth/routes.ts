@@ -3,7 +3,7 @@ import { and, desc, eq, isNull, ne } from "drizzle-orm";
 import QRCode from "qrcode";
 import { z } from "zod";
 import { db } from "../db/client.ts";
-import { loginEvents, memberships, moduleInstalls, organizations, sessions, users } from "../db/schema.ts";
+import { loginEvents, memberships, moduleInstalls, organizations, sessions, subscriptions, users } from "../db/schema.ts";
 import { hashPassword, verifyPassword } from "../security/password.ts";
 import { decrypt, encrypt } from "../security/crypto.ts";
 import { checkTotp, newTotpSecret, totpUri } from "../security/totp.ts";
@@ -41,6 +41,8 @@ async function me(user: Auth["user"], activeOrgId: string | null = null) {
   const active = all.find((m) => m.orgId === activeOrgId) ?? all[0] ?? null;
   // Installed modules of the active business: the menu shows a lock on sections whose module is not connected.
   const modules = active ? (await db.select({ id: moduleInstalls.moduleId }).from(moduleInstalls).where(eq(moduleInstalls.organizationId, active.orgId))).map((m) => m.id) : [];
+  const [org] = active ? await db.select({ onboarding: organizations.onboarding }).from(organizations).where(eq(organizations.id, active.orgId)) : [];
+  const [sub] = active ? await db.select({ status: subscriptions.status, periodEnd: subscriptions.periodEnd }).from(subscriptions).where(eq(subscriptions.organizationId, active.orgId)) : [];
   return {
     id: user.id,
     name: user.name,
@@ -53,6 +55,9 @@ async function me(user: Auth["user"], activeOrgId: string | null = null) {
     role: active?.role ?? null,
     permissions: active?.permissions ?? [],
     modules,
+    // The owner answers the questions after sign-up once; invited people never see them.
+    onboarded: active?.role !== "owner" || !!org?.onboarding,
+    subscription: sub ?? null,
   };
 }
 

@@ -71,6 +71,28 @@ export async function startTrial(orgId: string, now = new Date()) {
   return trialEndsAt;
 }
 
+/** «Почати пробний період»: 30 days of ONEKNIGHT (up to 5 paid modules free) for a business that never had a subscription. */
+export const SELF_TRIAL_DAYS = 30;
+export async function startSelfTrial(orgId: string, now = new Date()) {
+  const trialEndsAt = new Date(now.getTime() + SELF_TRIAL_DAYS * DAY);
+  const [row] = await db.insert(subscriptions).values({ organizationId: orgId, status: "trial", trialEndsAt, periodEnd: trialEndsAt }).onConflictDoNothing().returning();
+  if (!row) return null;
+  await note(db, orgId, "trialStartedDays", { days: SELF_TRIAL_DAYS, until: trialEndsAt.toISOString() });
+  return trialEndsAt;
+}
+
+/** Trial ends soon: a reminder 3 days before and 1 day before, each once. */
+async function remindTrials(now: Date) {
+  const trials = await db.select().from(subscriptions).where(eq(subscriptions.status, "trial"));
+  for (const t of trials) {
+    const left = (t.periodEnd.getTime() - now.getTime()) / DAY;
+    const step = left <= 0 ? null : left <= 1 ? 1 : left <= 3 ? 3 : null;
+    if (step === null || (t.trialReminded !== null && t.trialReminded <= step)) continue;
+    await db.update(subscriptions).set({ trialReminded: step }).where(eq(subscriptions.organizationId, t.organizationId));
+    await note(db, t.organizationId, "trialEnding", { days: Math.ceil(left), until: t.periodEnd.toISOString() });
+  }
+}
+
 /**
  * Renewal at the end of a period. Paid from the balance when it covers the month; otherwise the
  * service keeps working for GRACE_DAYS, then it is suspended. Row lock prevents double charging.
@@ -112,6 +134,7 @@ export async function settle(orgId: string, now = new Date()): Promise<"renewed"
 
 /** Hourly: every subscription that reached its period end or waits in grace/suspension. */
 export async function runBilling(now = new Date()) {
+  await remindTrials(now);
   const due = await db
     .select({ org: subscriptions.organizationId })
     .from(subscriptions)

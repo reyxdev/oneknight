@@ -49,6 +49,8 @@ export async function placeOrder(site: { id: string; organizationId: string }, i
       })
       .returning({ id: orders.id, number: orders.number, totalKop: orders.totalKop, status: orders.status });
     await tx.insert(orderEvents).values({ orderId: o!.id, status: "new" });
+    // The first real order replaces the «Приклад» ones.
+    await tx.delete(orders).where(and(eq(orders.organizationId, site.organizationId), eq(orders.isExample, true)));
     await tx.insert(notifications).values({ organizationId: site.organizationId, kind: "order", key: "newOrder", params: { n: o!.number, total: totalKop / 100 } });
     return { ok: true as const, order: o! };
   });

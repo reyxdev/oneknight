@@ -8,12 +8,22 @@ import { requireAuth } from "../auth/routes.ts";
 import { orgScope } from "../auth/access.ts";
 import { audit } from "../audit.ts";
 import { redeem } from "./keys.ts";
-import { billingOverview, createTopup, installModule, paymentsConfigured, requisites } from "./service.ts";
+import { billingOverview, createTopup, installModule, paymentsConfigured, requisites, startSelfTrial } from "./service.ts";
 
 const Topup = z.object({ amountUah: z.number().int().min(50).max(100_000) });
 
 export const billingRoutes: FastifyPluginAsync = async (app) => {
   app.addHook("preHandler", requireAuth);
+
+  /** «Почати пробний період» (once per business). */
+  app.post("/trial", async (req, reply) => {
+    const [org] = await orgScope(req, "billing");
+    if (!org) return reply.code(403).send({ error: "forbidden" });
+    const until = await startSelfTrial(org);
+    if (!until) return reply.code(409).send({ error: "already_started" });
+    await audit(req, "billing.trial_started", req.auth!.user.id, { until: until.toISOString() }, org);
+    return { until };
+  });
 
   /** Billing of the user's (first) organization. */
   app.get("/", async (req, reply) => {

@@ -7,6 +7,7 @@ import { KnightMark } from "@/components/global/Logo";
 import { SESSION_EXPIRED, api, type Me } from "@/lib/api";
 import { AuthScreen, MfaScreen, ResetScreen } from "./AuthScreen";
 import { AppPanel } from "./Panel";
+import { Onboarding } from "./Onboarding";
 
 type State = { s: "loading" } | { s: "offline" } | { s: "anon" } | { s: "mfa" } | { s: "ready"; me: Me };
 
@@ -121,6 +122,16 @@ export function AppRoot() {
     const invited = typeof window !== "undefined" && !!sessionStorage.getItem("ok_invite");
     return <AuthScreen initial={expired ? "login" : initial} note={expired ? t.auth.expired : authNote ?? (invited ? t.team.inviteLogin : undefined)} onDone={(me) => { setExpired(false); setSt({ s: "ready", me }); }} onMfa={() => setSt({ s: "mfa" })} />;
   }
+  if (!st.me.onboarded)
+    return (
+      <Onboarding
+        me={st.me}
+        onDone={(to) => {
+          if (to) history.replaceState(null, "", `${location.pathname}#${to.join("/")}`);
+          void refresh();
+        }}
+      />
+    );
   return (
     <>
       <AppPanel me={st.me} onLogout={logout} onChange={refresh} />

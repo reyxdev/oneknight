@@ -37,6 +37,9 @@ export type Me = {
   role: "owner" | "manager" | "marketer" | "packer" | null;
   permissions: string[];
   modules: string[];
+  /** False until the owner answered the questions after sign-up. */
+  onboarded: boolean;
+  subscription: { status: "trial" | "active" | "grace" | "suspended" | "cancelled"; periodEnd: string } | null;
 };
 
 /** Non-secret hint cookie set by the API next to the HttpOnly session. Lets static pages show "Відкрити ONEKNIGHT". */

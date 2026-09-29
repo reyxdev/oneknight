@@ -172,3 +172,16 @@ dialog.modal:has(.app-dialog) { max-width: min(520px, calc(100vw - 1.5rem)); }
 .app-pass-eye { position: absolute; right: 0.4rem; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 2.1rem; height: 2.1rem; border-radius: 8px; color: var(--fg-muted); cursor: pointer; }
 .app-pass-eye[aria-pressed="true"] { color: var(--ok-accent); }
 .app-pass-eye:hover { background: var(--surface-2); }
+
+/* Trial counter, examples, questions after sign-up. */
+.app-trial { flex: none; padding: 0.3rem 0.7rem; border-radius: 99px; font-size: 0.8125rem; font-weight: 700; color: var(--ok-accent); background: color-mix(in srgb, var(--ok-accent) 14%, transparent); cursor: pointer; white-space: nowrap; }
+.app-trial:hover { background: color-mix(in srgb, var(--ok-accent) 22%, transparent); }
+.app-example-pill { margin-left: 0.45rem; vertical-align: 1px; }
+.app-example-note { margin: 0; }
+.app-onboarding .app-auth-card { max-width: 640px; }
+.app-q { display: grid; gap: 0.6rem; margin: 0; padding: 0; border: 0; }
+.app-q legend, .app-q-title { margin: 0 0 0.5rem; padding: 0; font-size: 1rem; font-weight: 700; }
+.app-recs { display: grid; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }
+.app-recs > li { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.75rem; border-radius: 12px; border: 1px solid var(--line); }
+.app-recs .ok-grow { display: grid; }
+.app-recs small { color: var(--fg-muted); }

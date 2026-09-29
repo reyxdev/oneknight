@@ -1,7 +1,7 @@
 // Real account flow through the browser: npm run build, API running, npm run serve. BASE defaults to :8080.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
-import { go } from "./nav.mjs";
+import { go, onboard } from "./nav.mjs";
 import { generate } from "otplib";
 import { execSync } from "node:child_process";
 
@@ -29,7 +29,7 @@ await pg.getByLabel("Телефон").fill("+380 67 111 22 33");
 await pg.getByLabel("Електронна пошта").fill(email);
 await pg.getByLabel("Пароль").fill("super secret 1");
 await pg.getByRole("button", { name: "Створити акаунт" }).click();
-await pg.getByText("Вітаємо, Тест E2E.").waitFor();
+await onboard(pg);
 ok(true, "register lands in the account");
 const cookies = await pg.context().cookies();
 ok(cookies.find((c) => c.name === "ok_session")?.httpOnly === true, "session cookie is HttpOnly");

@@ -153,7 +153,7 @@ export function ProductsScreen({ tab }: { tab?: string | null }) {
 }
 
 /** `totalKop` is null without «Фінанси». */
-type OrderRow = { id: string; number: number; customerName: string; totalKop: number | null; status: Status; createdAt: string; source: string };
+type OrderRow = { id: string; number: number; customerName: string; totalKop: number | null; status: Status; createdAt: string; source: string; isExample: boolean };
 type Status = "new" | "confirmed" | "paid" | "shipped" | "done" | "cancelled";
 type OrderFull = OrderRow & {
   externalId: string | null;
@@ -258,7 +258,8 @@ function OrderDetail({ id, onChanged, shippingOnly }: { id: string; onChanged: (
         </label>
       </div>
       )}
-      {(o.delivery.method === "novaposhta" || o.delivery.method === "ukrposhta") && o.status !== "cancelled" && (
+      {o.isExample && <p className="ok-note">{t.exampleDetail}</p>}
+      {!o.isExample && (o.delivery.method === "novaposhta" || o.delivery.method === "ukrposhta") && o.status !== "cancelled" && (
         o.waybillRef ? (
           <div className="ok-actions"><b className="num">{t.waybill}: {o.waybill}</b><WaybillPrint orderId={o.id} provider={o.delivery.method} /></div>
         ) : !o.waybill ? (
@@ -318,6 +319,12 @@ export function OrdersScreen({ tab, shippingOnly = false }: { tab?: string | nul
           <button key={x} type="button" className="ok-chip" aria-pressed={filter === x} onClick={() => setFilter(x)}>{x === "all" ? t.all : x === "nowaybill" ? t.noWaybill : d.ok.orders.status[x]}</button>
         ))}
       </div>
+      {!shippingOnly && rows?.some((o) => o.isExample) && (
+        <p className="ok-note app-example-note">
+          {t.exampleNote}{" "}
+          <button type="button" className="ok-link" onClick={async () => { await api("/onboarding/examples", { method: "DELETE" }); setOpen(null); void load(); }}>{t.exampleRemove}</button>
+        </p>
+      )}
       <div className="ok-split" data-open={!!open}>
         <Panel>
           {rows && rows.length === 0 ? (
@@ -328,7 +335,7 @@ export function OrdersScreen({ tab, shippingOnly = false }: { tab?: string | nul
                 <li key={o.id}>
                   <button type="button" className="ok-row" aria-current={open === o.id} onClick={() => setOpen(o.id)}>
                     <span className="num ok-muted">#{o.number}</span>
-                    <span className="ok-grow"><b>{o.customerName}</b><small>{f.ago(new Date(o.createdAt).getTime())}{o.source !== "site" ? ` · ${(t.sources as Record<string, string>)[o.source] ?? o.source}` : ""}</small></span>
+                    <span className="ok-grow"><b>{o.customerName}{o.isExample && <span className="ok-pill app-example-pill">{t.example}</span>}</b><small>{f.ago(new Date(o.createdAt).getTime())}{o.source !== "site" ? ` · ${(t.sources as Record<string, string>)[o.source] ?? o.source}` : ""}</small></span>
                     {o.totalKop !== null && <span className="num">{formatUAH(o.totalKop / 100, lang)}</span>}
                     <StatusPill status={o.status} />
                   </button>
