@@ -722,6 +722,7 @@ export const app: Dict["app"] = {
     kinds: { order: "Orders", review: "Reviews", site: "Website status", billing: "Payments", ticket: "Support replies", team: "Team" },
   },
   toast: { undo: "Undo", close: "Close" },
+  newOrders: { one: "New order", many: "New orders: {n}", confirm: "Confirm", open: "Open" },
   business: {
     title: "Business",
     ownerOnly: "Business settings are available to the owner only.",
@@ -732,6 +733,9 @@ export const app: Dict["app"] = {
   },
   profileTabs: { profile: "Profile", security: "Security", notifications: "Notifications" },
   account: {
+    soundTitle: "Sound",
+    orderSound: "New order sound",
+    orderSoundHint: "Plays when the account is open and a new order arrives. The setting applies to this device.",
     title: "Profile",
     name: "Name",
     email: "Email",

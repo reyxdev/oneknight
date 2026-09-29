@@ -77,6 +77,18 @@ await pg.getByLabel("Ціль на місяць, грн").fill("50000");
 await pg.getByRole("button", { name: "Зберегти ціль" }).click();
 ok(await seen(pg.getByText(/Виконано \d+%/)), "monthly goal with the done percentage");
 
+// A customer orders on the website while the panel is open: window with the order, the tab shows the count.
+const siteKey = await pg.evaluate(async () => (await (await fetch("/api/sites")).json())[0].publicKey);
+const prodId = (await (await fetch(`${BASE}/api/public/products`, { headers: { "x-site-key": siteKey } })).json())[0].id;
+const placed = await fetch(`${BASE}/api/public/orders`, { method: "POST", headers: { "content-type": "application/json", "x-site-key": siteKey }, body: JSON.stringify({ customer: { name: "Нова Покупчиня", phone: "+380671112299" }, items: [{ productId: prodId, qty: 1 }], delivery: { method: "novaposhta", city: "Київ", branch: "1" }, payment: "cod" }) });
+ok(placed.status === 201, "website order placed");
+const win = pg.getByRole("dialog", { name: "Нове замовлення" });
+ok(await seen(win, 20000), "«Нове замовлення» window pops up");
+ok(await win.getByText("Нова Покупчиня").isVisible(), "the window shows the customer");
+ok(/^\(\d+\) /.test(await pg.title()), `the browser tab counts waiting orders (${await pg.title()})`);
+await win.getByRole("button", { name: "Підтвердити" }).click();
+ok(await seen(pg.locator(".app-toast", { hasText: "Підтверджене" })), "confirmed from the window, with «Скасувати»");
+
 await pg.setViewportSize({ width: 390, height: 844 });
 await pg.reload({ waitUntil: "networkidle" });
 await pg.locator(".ok-home-stats").waitFor();

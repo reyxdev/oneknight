@@ -8,6 +8,7 @@ import { KnightMark } from "@/components/global/Logo";
 import type { Me } from "@/lib/api";
 import { AdminLeads } from "./Leads";
 import { Toasts } from "./Toasts";
+import { NewOrders } from "./NewOrders";
 import { SiteScreen } from "./SiteScreen";
 import { Clients } from "./Clients";
 import { Bell } from "./Bell";
@@ -83,6 +84,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
     };
   }, [me.isAdmin]);
 
+  const [newCount, setNewCount] = useState(0);
   const { screen } = route;
   const adminMode = me.isAdmin && ADMIN_SCREENS.has(screen);
   const org = me.organizations.find((o) => o.id === me.activeOrgId) ?? me.organizations[0];
@@ -120,11 +122,17 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
   );
   const groups = GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => allowed(i.id)) })).filter((g) => g.items.length > 0);
   const foot = FOOT.filter((i) => allowed(i.id));
+  // Browser tab: «(3) Замовлення · ONEKNIGHT» while orders wait for confirmation.
+  useEffect(() => {
+    const name = label(screen) ?? "";
+    document.title = `${newCount ? `(${newCount}) ` : ""}${name} · ONEKNIGHT`;
+  });
   const businessTab = (BUSINESS_TABS as string[]).includes(route.tab ?? "") ? (route.tab as BusinessTab) : "general";
   const profileTab = (PROFILE_TABS as string[]).includes(route.tab ?? "") ? (route.tab as ProfileTab) : "profile";
 
   return (
     <Toasts>
+    {me.permissions.includes("orders") && <NewOrders go={(id, tab) => go(id as Screen, tab ?? null)} onCount={setNewCount} />}
     <div className="app-shell">
       <div className="ok-app" data-accent="alby" data-mode={adminMode ? "admin" : "business"}>
         <aside className="ok-side" aria-label={t.nav.sections}>

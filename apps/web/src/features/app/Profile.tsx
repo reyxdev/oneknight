@@ -9,6 +9,8 @@ import { Panel, useFlash } from "@/features/oneknight/ui/kit";
 import { TelegramPanel } from "./TelegramPanel";
 import { Security } from "./Security";
 import { Tabs } from "./Tabs";
+import { orderSoundOn, setOrderSound } from "./NewOrders";
+import { Toggle } from "@/components/ui/Toggle";
 
 export type ProfileTab = "profile" | "security" | "notifications";
 export const PROFILE_TABS: ProfileTab[] = ["profile", "security", "notifications"];
@@ -21,6 +23,7 @@ export function ProfileScreen({ me, tab, setTab, onChange }: { me: Me; tab: Prof
   const org = me.organizations.find((o) => o.id === me.activeOrgId) ?? me.organizations[0];
   const [f, setF] = useState({ name: me.name, phone: me.phone });
   const [pw, setPw] = useState({ current: "", next: "" });
+  const [sound, setSound] = useState(orderSoundOn);
   const err = (e: string) => (t.errors as Record<string, string>)[e] ?? d.app.auth.errors.server_error;
 
   const save = async (e: FormEvent) => {
@@ -53,7 +56,15 @@ export function ProfileScreen({ me, tab, setTab, onChange }: { me: Me; tab: Prof
       <div className="ok-h"><h3>{d.app.nav.myProfile}</h3></div>
       <Tabs label={d.app.nav.myProfile} value={tab} onChange={setTab} tabs={PROFILE_TABS.map((id) => ({ id, label: d.app.profileTabs[id] }))} />
       {tab === "security" && <Security me={me} onChange={onChange} embedded />}
-      {tab === "notifications" && <TelegramPanel />}
+      {tab === "notifications" && (
+        <>
+          <TelegramPanel />
+          <Panel title={t.soundTitle}>
+            <Toggle checked={sound} onChange={(v) => { setSound(v); setOrderSound(v); if (v) playSound("order", { force: true }); }} label={t.orderSound} />
+            <p className="ok-muted">{t.orderSoundHint}</p>
+          </Panel>
+        </>
+      )}
       {tab === "profile" && (
       <>
       <Panel>

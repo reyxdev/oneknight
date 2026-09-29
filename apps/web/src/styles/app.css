@@ -133,3 +133,10 @@
 @keyframes app-toast-in { from { opacity: 0; transform: translateY(10px); } }
 @keyframes app-toast-time { to { transform: scaleX(0); } }
 @media (prefers-reduced-motion: reduce) { .app-toast { animation: none; } }
+
+/* «Нове замовлення» window. */
+.app-neworders-title { margin: 0 2.5rem 0.75rem 0; font-size: 1.25rem; font-weight: 800; }
+.app-neworders { display: grid; gap: 0.75rem; margin: 0; padding: 0; list-style: none; max-height: min(60vh, 520px); overflow: auto; }
+.app-neworders > li { display: grid; gap: 0.4rem; padding: 0.85rem; border-radius: 14px; border: 1px solid var(--line); }
+.app-neworders-head { display: flex; align-items: baseline; gap: 0.6rem; }
+.app-neworders p { margin: 0; font-size: 0.875rem; }

@@ -720,6 +720,7 @@ export const app = {
     kinds: { order: "Замовлення", review: "Відгуки", site: "Робота сайту", billing: "Оплата", ticket: "Відповіді підтримки", team: "Команда" },
   },
   toast: { undo: "Скасувати", close: "Закрити" },
+  newOrders: { one: "Нове замовлення", many: "Нових замовлень: {n}", confirm: "Підтвердити", open: "Відкрити" },
   business: {
     title: "Бізнес",
     ownerOnly: "Налаштування бізнесу доступні лише власнику.",
@@ -730,6 +731,9 @@ export const app = {
   },
   profileTabs: { profile: "Профіль", security: "Безпека", notifications: "Сповіщення" },
   account: {
+    soundTitle: "Звук",
+    orderSound: "Звук нового замовлення",
+    orderSoundHint: "Грає, коли кабінет відкритий і приходить нове замовлення. Налаштування діє на цьому пристрої.",
     title: "Профіль",
     name: "Ім'я",
     email: "Пошта",

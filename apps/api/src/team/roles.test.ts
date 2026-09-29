@@ -102,3 +102,22 @@ test("without «Бачить фінанси» a manager sees orders but no money
   assert.equal((await get("/api/dashboard")).sales.cur.revenueKop, 30000);
   assert.equal((await get("/api/notifications"))[0].params.total, 300);
 });
+
+test("new orders while the panel is open: since the last check, sums only with «Фінанси»", async () => {
+  const owner = await register("o3");
+  const [site] = await db.insert(sites).values({ organizationId: owner.org, domain: `${tag}3.shop.com.ua`, name: "S" }).returning();
+  const fresh = async (cookie: string, after?: string) => (await app.inject({ url: `/api/shop/orders/fresh${after ? `?after=${encodeURIComponent(after)}` : ""}`, headers: { cookie } })).json();
+  const first = await fresh(owner.cookie);
+  assert.deepEqual(first.orders, [], "the first call only starts the clock");
+  await db.insert(orders).values({ organizationId: owner.org, siteId: site!.id, customerName: "Нова", customerPhone: "+380", items: [{ productId: "x", name: "Мед", qty: 2, priceKop: 100 }], totalKop: 200, payment: "cod", delivery: { method: "pickup" } });
+  const next = await fresh(owner.cookie, first.now);
+  assert.equal(next.newCount, 1);
+  assert.equal(next.orders.length, 1);
+  assert.deepEqual(next.orders[0].items, [{ name: "Мед", qty: 2 }]);
+  assert.equal(next.orders[0].totalKop, 200);
+  assert.deepEqual((await fresh(owner.cookie, next.now)).orders, [], "each order pops up once");
+  const mgr = await join(owner, "manager", ["orders"], "mgr3");
+  assert.equal((await fresh(mgr.cookie, first.now)).orders[0].totalKop, null);
+  const pack = await join(owner, "packer", ["shipping"], "pack3");
+  assert.equal((await fresh(pack.cookie, first.now)).newCount, 0, "new orders are not the packer's");
+});

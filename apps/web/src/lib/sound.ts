@@ -6,7 +6,7 @@ import { getPrefs } from "./prefs";
  * UI sounds synthesised with Web Audio: no files, no network, no decode latency.
  * Triggered on pointerdown so the audio lands together with the visual press.
  */
-export type SoundName = "click" | "toggle" | "success" | "error" | "open" | "close" | "install" | "notify";
+export type SoundName = "click" | "toggle" | "success" | "error" | "open" | "close" | "install" | "notify" | "order";
 export type SoundProfile = "soft" | "glass" | "wood" | "off";
 
 type Tone = { f: number; f2?: number; d: number; g: number; at?: number; type?: OscillatorType };
@@ -20,6 +20,8 @@ const recipes: Record<SoundName, Tone[]> = {
   close: [{ f: 520, f2: 340, d: 0.1, g: 0.5 }],
   install: [{ f: 440, d: 0.08, g: 0.7 }, { f: 660, d: 0.08, g: 0.7, at: 0.07 }, { f: 880, d: 0.18, g: 0.7, at: 0.14 }],
   notify: [{ f: 880, d: 0.1, g: 0.5 }, { f: 1175, d: 0.16, g: 0.5, at: 0.09 }],
+  /** New order in the panel: three rising notes, clearly different from the rest. */
+  order: [{ f: 660, d: 0.12, g: 0.8 }, { f: 880, d: 0.12, g: 0.8, at: 0.12 }, { f: 1320, d: 0.32, g: 0.8, at: 0.24 }],
 };
 
 const profileWave: Record<Exclude<SoundProfile, "off">, { type: OscillatorType; scale: number; decay: number }> = {

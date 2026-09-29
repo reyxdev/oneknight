@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, lte } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client.ts";
 import { orderEvents, orders, products, sites } from "../db/schema.ts";
@@ -123,6 +123,31 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
       .orderBy(desc(orders.createdAt))
       .limit(200)
       .then((rows) => (acc.finance ? rows : rows.map((r) => ({ ...r, totalKop: null }))));
+  });
+
+  /**
+   * New orders since the last check, for the «Нове замовлення» window and sound while the panel is open, plus
+   * how many wait for confirmation (the browser tab counter). The first call (no `after`) returns only `now`.
+   */
+  app.get<{ Querystring: { after?: string } }>("/orders/fresh", async (req) => {
+    const now = new Date();
+    const acc = await orderAccess(req);
+    if (!acc?.full) return { now, newCount: 0, orders: [] };
+    const [c] = await db.select({ n: count() }).from(orders).where(and(eq(orders.organizationId, acc.org), eq(orders.status, "new")));
+    const after = z.string().datetime().safeParse(req.query.after);
+    const rows = after.success
+      ? await db
+          .select({ id: orders.id, number: orders.number, customerName: orders.customerName, totalKop: orders.totalKop, items: orders.items, createdAt: orders.createdAt })
+          .from(orders)
+          .where(and(eq(orders.organizationId, acc.org), eq(orders.status, "new"), gt(orders.createdAt, new Date(after.data)), lte(orders.createdAt, now)))
+          .orderBy(asc(orders.createdAt))
+          .limit(10)
+      : [];
+    return {
+      now,
+      newCount: c?.n ?? 0,
+      orders: rows.map((o) => ({ ...o, totalKop: acc.finance ? o.totalKop : null, items: o.items.map((i) => ({ name: i.name, qty: i.qty })) })),
+    };
   });
 
   app.get<{ Params: { id: string } }>("/orders/:id", async (req, reply) => {
