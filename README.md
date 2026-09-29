@@ -42,11 +42,13 @@ npm run test:app -w @oneknight/web   # real account flow in a browser
 node apps/web/tests/site-e2e.mjs      # admin adds a site, client sees monitoring (probes example.com)
 node apps/web/tests/billing-e2e.mjs   # trial, IBAN top-up, admin confirmation (API started with test PAYMENT_* values)
 node apps/web/tests/support-e2e.mjs   # support request with screenshot, admin reply
-node apps/web/tests/shop-e2e.mjs      # products, public API order, statuses
+node apps/web/tests/shop-e2e.mjs      # products, public API order, statuses, integrations (Nova Poshta / Prom key checks)
 node apps/web/tests/reviews-e2e.mjs   # reviews module, moderation, PNG creative
 node apps/web/tests/analytics-e2e.mjs # tracking script on a simulated client site, sources report
 node apps/web/tests/team-e2e.mjs      # invitation link, permissions, business switcher
 node apps/web/tests/appearance-e2e.mjs # live customisation applied on a simulated client site
+node apps/web/tests/keys-e2e.mjs      # access keys and promo codes: admin batch, client activation
+node apps/web/tests/reset-e2e.mjs     # password reset by one-time admin link
 ```
 
 Public API for client websites: [docs/public-api.md](docs/public-api.md).

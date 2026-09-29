@@ -8,6 +8,7 @@ import { checkSite } from "../monitor/scheduler.ts";
 import { billingOverview, confirmTopup, startTrial } from "../billing/service.ts";
 import { supportAdminRoutes } from "../support/routes.ts";
 import { keyAdminRoutes } from "../billing/admin-keys.ts";
+import { createReset } from "../auth/reset.ts";
 import { subscriptions, topups } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
 import { audit } from "../audit.ts";
@@ -97,6 +98,16 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
   app.get<{ Params: { id: string } }>("/organizations/:id/billing", async (req, reply) => {
     if (!uuid.safeParse(req.params.id).success) return reply.code(400).send({ error: "invalid_input" });
     return billingOverview(req.params.id);
+  });
+
+  /** One-time password reset link for a person whose identity the admin has confirmed (no email sending). */
+  app.post("/password-reset", async (req, reply) => {
+    const p = z.object({ email: z.string().trim().toLowerCase().email(), resetTotp: z.boolean().default(false) }).safeParse(req.body);
+    if (!p.success) return reply.code(400).send({ error: "invalid_input" });
+    const r = await createReset(p.data.email, req.auth!.user.id, p.data.resetTotp);
+    if (!r) return reply.code(404).send({ error: "user_not_found" });
+    await audit(req, "admin.password_reset_link", req.auth!.user.id, { email: p.data.email, resetTotp: p.data.resetTotp && r.totpEnabled });
+    return r;
   });
 
   app.get("/topups", async () => {

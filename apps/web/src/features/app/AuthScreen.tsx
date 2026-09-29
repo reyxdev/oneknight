@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useDict, useLang } from "@/i18n/provider";
 import { withLang } from "@/i18n";
 import { Field } from "@/components/ui/Field";
@@ -138,6 +138,64 @@ export function MfaScreen({ onDone, onCancel }: { onDone: (me: Me) => void; onCa
         <button className="btn btn-lg" type="submit" disabled={busy} data-loading={busy}>{t.mfaSubmit}</button>
         <button type="button" className="btn btn-ghost" onClick={onCancel}>{t.mfaCancel}</button>
       </form>
+    </main>
+  );
+}
+
+/** Opened from a one-time link the admin sent: sets a new password (2FA code still asked when it is on). */
+export function ResetScreen({ token, onDone }: { token: string; onDone: (ok: boolean) => void }) {
+  const t = useDict().app.auth;
+  const [info, setInfo] = useState<{ name: string; totpRequired: boolean } | null | "invalid">(null);
+  const [pw, setPw] = useState("");
+  const [code, setCode] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const e2 = t.errors as Record<string, string>;
+  useEffect(() => {
+    void api<{ name: string; totpRequired: boolean }>(`/auth/reset/${encodeURIComponent(token)}`).then((r) => setInfo(r.ok ? r.data : "invalid"));
+  }, [token]);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (pw.length < 8) return setErr(t.errors.passwordShort);
+    if (info && info !== "invalid" && info.totpRequired && !/^\d{6}$/.test(code)) return setErr(t.errors.code);
+    setBusy(true);
+    const r = await api("/auth/reset", { method: "POST", body: { token, password: pw, ...(code ? { code } : {}) } });
+    setBusy(false);
+    if (!r.ok) {
+      playSound("error");
+      setCode("");
+      if (r.error === "invalid_link") return setInfo("invalid");
+      return setErr(e2[r.error] ?? t.errors.server_error);
+    }
+    playSound("success");
+    onDone(true);
+  };
+  if (info === null) return <main className="app-center" aria-busy="true"><span className="app-pulse"><KnightMark size={48} /></span></main>;
+  return (
+    <main className="app-auth">
+      {info === "invalid" ? (
+        <div className="app-auth-card card">
+          <span className="app-auth-brand"><KnightMark size={36} /><b>ONEKNIGHT</b></span>
+          <h1 className="h3">{t.resetTitle}</h1>
+          <p className="small">{t.resetInvalid}</p>
+          <button type="button" className="btn" onClick={() => onDone(false)}>{t.login}</button>
+        </div>
+      ) : (
+        <form className="app-auth-card card" onSubmit={submit} noValidate>
+          <span className="app-auth-brand"><KnightMark size={36} /><b>ONEKNIGHT</b></span>
+          <h1 className="h3">{t.resetTitle}</h1>
+          <p className="small">{t.resetLead.replace("{name}", info.name)}</p>
+          <Field label={t.newPassword} hint={t.passwordHint} error={!info.totpRequired || pw.length < 8 ? err ?? undefined : undefined}>
+            {(p) => <input {...p} className="input" type="password" autoComplete="new-password" value={pw} autoFocus onChange={(e) => setPw(e.target.value)} />}
+          </Field>
+          {info.totpRequired && (
+            <Field label={t.resetCode} error={pw.length >= 8 ? err ?? undefined : undefined}>
+              {(p) => <input {...p} className="input app-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} />}
+            </Field>
+          )}
+          <button className="btn btn-lg" type="submit" disabled={busy} data-loading={busy}>{t.resetSubmit}</button>
+        </form>
+      )}
     </main>
   );
 }

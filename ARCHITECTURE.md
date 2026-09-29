@@ -425,3 +425,9 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 - Promo codes (`promo_codes`, `promo_redemptions`): percent off the next N renewals (best active discount applies, counted down at each renewal) or a bonus in UAH added to the balance as an `adjustment`. Upper-case A-Z0-9, optional usage limit and end date, one use per business, row-locked. A used code can only be switched off, not deleted.
 - Client: «Оплата → Ключ доступу або промокод», `POST /api/billing/redeem` (permission "billing", 10 attempts per 15 minutes). After a successful activation `settle` runs, so a subscription in grace renews right away if it now can.
 - Contests and public promotions are not built: they need rules from the owner (see TODO).
+
+## 31. Password reset by one-time link
+
+- No email is sent (by decision), so the admin creates the link in «Клієнти й сайти» after confirming the person in a messenger: `POST /api/admin/password-reset`. Token 256-bit, stored as SHA-256 (`password_resets`), valid 24 hours, one use; a new link cancels the previous one.
+- `/app/?reset=<token>`: the token is removed from the address bar immediately. `GET /api/auth/reset/:token` returns the name and whether a 2FA code is needed; `POST /api/auth/reset` sets the password, revokes every session of the user and records it in the audit log.
+- 2FA is still required when it is on (a leaked link alone is not enough). If the phone is lost, the admin ticks "also switch off 2FA" when creating the link.

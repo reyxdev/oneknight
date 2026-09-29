@@ -15,6 +15,7 @@ import { reviewRoutes } from "./reviews/routes.ts";
 import { analyticsRoutes } from "./analytics/routes.ts";
 import { dashboardRoutes } from "./dashboard/routes.ts";
 import { teamRoutes } from "./team/routes.ts";
+import { resetRoutes } from "./auth/reset.ts";
 import { integrationRoutes } from "./integrations/routes.ts";
 import type { NpCall } from "./integrations/novaposhta.ts";
 import type { PromFetch } from "./integrations/prom.ts";
@@ -39,6 +40,7 @@ export async function buildApp(opts: FastifyServerOptions = {}, deps: { npCall?:
   });
   await app.register(healthRoutes, { prefix: "/api" });
   await app.register(authRoutes, { prefix: "/api/auth" });
+  await app.register(resetRoutes, { prefix: "/api/auth/reset" });
   await app.register(leadRoutes, { prefix: "/api/leads" });
   await app.register(adminRoutes, { prefix: "/api/admin" });
   await app.register(siteRoutes, { prefix: "/api" });

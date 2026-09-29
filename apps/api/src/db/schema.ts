@@ -531,3 +531,19 @@ export const promoRedemptions = pgTable(
   },
   (t) => [primaryKey({ columns: [t.promoId, t.organizationId] })],
 );
+
+/**
+ * One-time password reset links. There is no email sending, so the admin creates a link after checking who
+ * is asking and sends it through a messenger. Only the SHA-256 of the token is stored.
+ */
+export const passwordResets = pgTable("password_resets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull().unique(),
+  /** Also switch off 2FA (lost phone). Only after the admin has confirmed the person. */
+  resetTotp: boolean("reset_totp").notNull().default(false),
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  createdAt: createdAt(),
+});

@@ -5,7 +5,7 @@ import { useDict } from "@/i18n/provider";
 import { fmt } from "@/i18n";
 import { KnightMark } from "@/components/global/Logo";
 import { api, type Me } from "@/lib/api";
-import { AuthScreen, MfaScreen } from "./AuthScreen";
+import { AuthScreen, MfaScreen, ResetScreen } from "./AuthScreen";
 import { AppPanel } from "./Panel";
 
 type State = { s: "loading" } | { s: "offline" } | { s: "anon" } | { s: "mfa" } | { s: "ready"; me: Me };
@@ -30,6 +30,16 @@ export function AppRoot() {
   /** Re-reads the account in place (e.g. after turning 2FA on) without leaving the current screen. */
   // Team invitation: kept until the visitor is signed in, then accepted once.
   const [inviteMsg, setInviteMsg] = useState<string | null>(null);
+  // Password reset link: the token leaves the address bar at once (history, screenshots).
+  const [reset, setReset] = useState<string | null>(null);
+  const [authNote, setAuthNote] = useState<string | null>(null);
+  useEffect(() => {
+    const r = new URLSearchParams(location.search).get("reset");
+    if (r) {
+      setReset(r);
+      history.replaceState(null, "", location.pathname);
+    }
+  }, []);
   useEffect(() => {
     const token = new URLSearchParams(location.search).get("invite");
     if (token) {
@@ -64,6 +74,17 @@ export function AppRoot() {
     setSt({ s: "anon" });
   };
 
+  if (reset)
+    return (
+      <ResetScreen
+        token={reset}
+        onDone={(ok) => {
+          setReset(null);
+          if (ok) setAuthNote(t.auth.resetDone);
+          setSt({ s: "anon" });
+        }}
+      />
+    );
   if (st.s === "loading")
     return (
       <main className="app-center" aria-busy="true">
@@ -85,7 +106,7 @@ export function AppRoot() {
   if (st.s === "anon") {
     const initial = typeof window !== "undefined" && new URLSearchParams(location.search).get("start") === "register" ? "register" : "login";
     const invited = typeof window !== "undefined" && !!sessionStorage.getItem("ok_invite");
-    return <AuthScreen initial={initial} note={invited ? t.team.inviteLogin : undefined} onDone={(me) => setSt({ s: "ready", me })} onMfa={() => setSt({ s: "mfa" })} />;
+    return <AuthScreen initial={initial} note={authNote ?? (invited ? t.team.inviteLogin : undefined)} onDone={(me) => setSt({ s: "ready", me })} onMfa={() => setSt({ s: "mfa" })} />;
   }
   return (
     <>

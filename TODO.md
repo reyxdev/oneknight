@@ -18,7 +18,7 @@ Owner input needed before launch. The UI shows an honest placeholder for each.
 - [ ] Zadarma and AI content modules: future, shown as future only
 - [ ] Karpatu.shop screenshots: refresh when the site changes (capture scripts in the session notes; images in `public/case/karpatu/`)
 - [ ] OG image `public/og.png` is a render of the hero; replace if a designed one is preferred
-- [ ] Password reset channel: no email sending is configured. Choose email (SMTP provider) or Telegram bot; until then reset goes through support
+- [x] Password reset: admin-created one-time link (no email). Optional later: self-service reset through the Telegram bot
 - [ ] Google and Telegram sign-in (buttons shown as "Скоро"): need a Google OAuth client and a Telegram bot token
 - [ ] Telegram alerts for new requests: create a bot in @BotFather, then set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env
 - [ ] Register your own account in /app and run `npm run admin:grant -w @oneknight/api -- your@email` to see all requests

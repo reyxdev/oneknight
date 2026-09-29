@@ -5,6 +5,8 @@ import { useDict } from "@/i18n/provider";
 import { Icon } from "@/components/ui/Icon";
 import { api } from "@/lib/api";
 import { playSound } from "@/lib/sound";
+import { Field } from "@/components/ui/Field";
+import { Toggle } from "@/components/ui/Toggle";
 import { Panel, useFlash, useFormat } from "@/features/oneknight/ui/kit";
 
 type Org = {
@@ -19,6 +21,36 @@ type Org = {
 };
 
 /** Admin: clients (organizations) and their sites. Adding a site starts monitoring immediately. */
+/** Admin: one-time link to set a new password (there is no email sending). */
+function PasswordReset() {
+  const t = useDict().app.clients;
+  const [email, setEmail] = useState("");
+  const [totp, setTotp] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [link, setLink] = useState<string | null>(null);
+  const create = async (e: FormEvent) => {
+    e.preventDefault();
+    const r = await api<{ token: string }>("/admin/password-reset", { method: "POST", body: { email, resetTotp: totp } });
+    if (!r.ok) {
+      playSound("error");
+      return setErr((t.resetErrors as Record<string, string>)[r.error] ?? t.resetErrors.invalid_input);
+    }
+    setErr(null);
+    setLink(`${location.origin}${location.pathname}?reset=${r.data.token}`);
+  };
+  return (
+    <Panel title={t.resetTitle}>
+      <p className="ok-muted">{t.resetLead}</p>
+      <form className="grid gap-3" onSubmit={create} noValidate>
+        <Field label={t.resetEmail} error={err ?? undefined}>{(p) => <input {...p} className="input" type="email" value={email} onChange={(e) => { setEmail(e.target.value); setLink(null); }} />}</Field>
+        <Toggle checked={totp} onChange={setTotp} label={t.resetTotp} />
+        <button className="btn btn-sm" type="submit" disabled={!email.includes("@")} style={{ justifySelf: "start" }}>{t.resetCreate}</button>
+      </form>
+      {link && <Field label={t.resetLink}>{(p) => <input {...p} className="input" readOnly value={link} onFocus={(e) => e.target.select()} />}</Field>}
+    </Panel>
+  );
+}
+
 export function Clients() {
   const d = useDict();
   const t = d.app.clients;
@@ -38,6 +70,7 @@ export function Clients() {
   return (
     <div className="ok-screen">
       <div className="ok-h"><h3>{t.title}</h3></div>
+      <PasswordReset />
       {error && <p className="ok-muted">{d.app.leads.loadError} <button type="button" className="ok-link" onClick={load}>{d.app.offline.retry}</button></p>}
       {orgs && orgs.length === 0 && <Panel><p className="ok-muted">{t.empty}</p></Panel>}
       {(orgs ?? []).map((o) => (
