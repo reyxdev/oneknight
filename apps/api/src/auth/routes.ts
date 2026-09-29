@@ -10,6 +10,7 @@ import { checkTotp, newTotpSecret, totpUri } from "../security/totp.ts";
 import { clearCookies, createSession, isComplete, loadAuth, type Auth } from "./session.ts";
 import { isLockedOut } from "./limits.ts";
 import { audit } from "../audit.ts";
+import { membershipsOf } from "./access.ts";
 
 const email = z.string().trim().toLowerCase().email().max(254);
 const password = z.string().min(8).max(200);
@@ -29,13 +30,27 @@ function bad(reply: FastifyReply, status: number, error: string) {
   return reply.code(status).send({ error });
 }
 
-async function me(user: Auth["user"]) {
+async function me(user: Auth["user"], activeOrgId: string | null = null) {
   const orgs = await db
     .select({ id: organizations.id, name: organizations.name, role: memberships.role })
     .from(memberships)
     .innerJoin(organizations, eq(organizations.id, memberships.organizationId))
-    .where(eq(memberships.userId, user.id));
-  return { id: user.id, name: user.name, email: user.email, phone: user.phone, isAdmin: user.isAdmin, totpEnabled: user.totpEnabled, organizations: orgs };
+    .where(eq(memberships.userId, user.id))
+    .orderBy(memberships.createdAt);
+  const all = await membershipsOf(user.id);
+  const active = all.find((m) => m.orgId === activeOrgId) ?? all[0] ?? null;
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    phone: user.phone,
+    isAdmin: user.isAdmin,
+    totpEnabled: user.totpEnabled,
+    organizations: orgs,
+    activeOrgId: active?.orgId ?? null,
+    role: active?.role ?? null,
+    permissions: active?.permissions ?? [],
+  };
 }
 
 async function logAttempt(req: FastifyRequest, emailAttempted: string, userId: string | null, success: boolean, reason: string) {
@@ -98,7 +113,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
   app.post("/login/totp", strict, async (req, reply) => {
     const a = await loadAuth(req);
     if (!a) return bad(reply, 401, "unauthorized");
-    if (isComplete(a)) return { user: await me(a.user) };
+    if (isComplete(a)) return { user: await me(a.user, a.activeOrgId) };
     const p = Code.safeParse(req.body);
     if (!p.success || !a.user.totpSecretEnc) return bad(reply, 400, "invalid_input");
     if (await isLockedOut(a.user.email, req.ip)) return bad(reply, 429, "too_many_attempts");
@@ -110,7 +125,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     await db.update(users).set({ totpLastStep: step }).where(eq(users.id, a.user.id));
     await db.update(sessions).set({ mfaPassed: true }).where(eq(sessions.idHash, a.sessionHash));
     await logAttempt(req, a.user.email, a.user.id, true, "ok");
-    return { user: await me(a.user) };
+    return { user: await me(a.user, a.activeOrgId) };
   });
 
   app.post("/logout", async (req, reply) => {
@@ -130,7 +145,17 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       return bad(reply, 401, "unauthorized");
     }
     if (!isComplete(a)) return bad(reply, 401, "mfa_required");
-    return me(a.user);
+    return me(a.user, a.activeOrgId);
+  });
+
+  /** Switch the organization this session works in. */
+  app.post("/org", { preHandler: requireAuth }, async (req, reply) => {
+    const p = z.object({ orgId: z.string().uuid() }).safeParse(req.body);
+    if (!p.success) return bad(reply, 400, "invalid_input");
+    const mine = await membershipsOf(req.auth!.user.id);
+    if (!mine.some((m) => m.orgId === p.data.orgId)) return bad(reply, 404, "not_found");
+    await db.update(sessions).set({ activeOrgId: p.data.orgId }).where(eq(sessions.idHash, req.auth!.sessionHash));
+    return me(req.auth!.user, p.data.orgId);
   });
 
   app.get("/sessions", { preHandler: requireAuth }, async (req) => {

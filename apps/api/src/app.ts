@@ -14,6 +14,7 @@ import { publicRoutes } from "./public/routes.ts";
 import { reviewRoutes } from "./reviews/routes.ts";
 import { analyticsRoutes } from "./analytics/routes.ts";
 import { dashboardRoutes } from "./dashboard/routes.ts";
+import { teamRoutes } from "./team/routes.ts";
 import { registerGuard } from "./security/guard.ts";
 
 /** Builds the app without listening, so tests can use app.inject(). All routes live under /api. */
@@ -46,5 +47,6 @@ export async function buildApp(opts: FastifyServerOptions = {}) {
   await app.register(reviewRoutes, { prefix: "/api/reviews" });
   await app.register(analyticsRoutes, { prefix: "/api/analytics" });
   await app.register(dashboardRoutes, { prefix: "/api/dashboard" });
+  await app.register(teamRoutes, { prefix: "/api/team" });
   return app;
 }

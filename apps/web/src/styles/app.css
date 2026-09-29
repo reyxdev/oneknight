@@ -43,3 +43,4 @@
 .app-code-block { margin: 0.5rem 0 0; padding: 0.75rem 1rem; border-radius: 10px; background: var(--surface-2); font: 12px/1.6 var(--font-code); white-space: pre-wrap; word-break: break-all; }
 .app-creative { width: min(100%, 320px); aspect-ratio: 1; border-radius: 16px; box-shadow: var(--shadow-md); }
 .app-review-photo { max-width: 12rem; border-radius: 10px; border: 1px solid var(--line); }
+.app-invite-toast { position: fixed; left: 50%; bottom: 1.5rem; translate: -50% 0; z-index: var(--z-toast); }

@@ -45,6 +45,7 @@ node apps/web/tests/support-e2e.mjs   # support request with screenshot, admin r
 node apps/web/tests/shop-e2e.mjs      # products, public API order, statuses
 node apps/web/tests/reviews-e2e.mjs   # reviews module, moderation, PNG creative
 node apps/web/tests/analytics-e2e.mjs # tracking script on a simulated client site, sources report
+node apps/web/tests/team-e2e.mjs      # invitation link, permissions, business switcher
 ```
 
 Public API for client websites: [docs/public-api.md](docs/public-api.md).

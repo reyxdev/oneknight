@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDict } from "@/i18n/provider";
 import { fmt } from "@/i18n";
 import { Icon } from "@/components/ui/Icon";
 import { Segmented } from "@/components/ui/Toggle";
-import { api, latestOnly } from "@/lib/api";
+import { api } from "@/lib/api";
 import { Empty, Panel, useFormat } from "@/features/oneknight/ui/kit";
 import { useBilling } from "./Billing";
 import { useSites } from "./SiteScreen";
@@ -80,18 +80,22 @@ export function ReviewsScreen({ goModules }: { goModules: () => void }) {
   const [rows, setRows] = useState<Review[] | null>(null);
   const [creative, setCreative] = useState<string | null>(null);
   const active = !!billing?.modules.some((m) => m.id === "reviews");
-  const [next] = useState(latestOnly);
-  const load = useCallback(async () => {
-    const isLatest = next();
-    const r = await api<Review[]>(`/reviews?status=${tab}`);
-    if (r.ok && isLatest()) setRows(r.data);
-  }, [tab, next]);
+  // Reload for the tab that is open *now*: bump after an action, cancel stale responses on tab change.
+  const [bump, setBump] = useState(0);
+  // A different tab never shows the previous tab's rows while loading.
+  useEffect(() => setRows(null), [tab]);
   useEffect(() => {
-    void load();
-  }, [load]);
+    let live = true;
+    void api<Review[]>(`/reviews?status=${tab}`).then((r) => {
+      if (live && r.ok) setRows(r.data);
+    });
+    return () => {
+      live = false;
+    };
+  }, [tab, bump]);
   const act = async (id: string, a: string) => {
     await api(`/reviews/${id}/${a}`, { method: "POST", body: {} });
-    void load();
+    setBump((n) => n + 1);
   };
   if (!billing) return null;
   if (!active)

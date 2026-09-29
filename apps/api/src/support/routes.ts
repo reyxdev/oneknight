@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "../db/client.ts";
 import { notifications, organizations, ticketMessages, tickets, users } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
-import { orgIdsOf } from "../auth/access.ts";
+import { orgScope } from "../auth/access.ts";
 import { isTestContact, notifyOwner } from "../notify/telegram.ts";
 import { audit } from "../audit.ts";
 import { Upload, saveImage } from "../files/store.ts";
@@ -31,7 +31,7 @@ export const supportRoutes: FastifyPluginAsync = async (app) => {
   app.post("/", { ...big, config: { rateLimit: { max: 10, timeWindow: "10 minutes" } } }, async (req, reply) => {
     const p = NewTicket.safeParse(req.body);
     if (!p.success) return reply.code(400).send({ error: "invalid_input" });
-    const [org] = await orgIdsOf(req.auth!.user.id);
+    const [org] = await orgScope(req, "support");
     if (!org) return reply.code(404).send({ error: "not_found" });
     let fileId: string | null = null;
     if (p.data.attachment) {
@@ -47,14 +47,14 @@ export const supportRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get("/", async (req) => {
-    const orgs = await orgIdsOf(req.auth!.user.id);
+    const orgs = await orgScope(req, "support");
     if (!orgs.length) return [];
     return db.select().from(tickets).where(inArray(tickets.organizationId, orgs)).orderBy(desc(tickets.updatedAt)).limit(50);
   });
 
   app.get<{ Params: { id: string } }>("/:id", async (req, reply) => {
     if (!uuid.safeParse(req.params.id).success) return reply.code(404).send({ error: "not_found" });
-    const orgs = await orgIdsOf(req.auth!.user.id);
+    const orgs = await orgScope(req, "support");
     const [t] = orgs.length ? await db.select().from(tickets).where(and(eq(tickets.id, req.params.id), inArray(tickets.organizationId, orgs))) : [];
     if (!t) return reply.code(404).send({ error: "not_found" });
     return { ...t, messages: await thread(t.id) };
@@ -63,7 +63,7 @@ export const supportRoutes: FastifyPluginAsync = async (app) => {
   app.post<{ Params: { id: string } }>("/:id/messages", { ...big, config: { rateLimit: { max: 30, timeWindow: "10 minutes" } } }, async (req, reply) => {
     const p = Reply.safeParse(req.body);
     if (!p.success || !uuid.safeParse(req.params.id).success) return reply.code(400).send({ error: "invalid_input" });
-    const orgs = await orgIdsOf(req.auth!.user.id);
+    const orgs = await orgScope(req, "support");
     const [t] = orgs.length ? await db.select().from(tickets).where(and(eq(tickets.id, req.params.id), inArray(tickets.organizationId, orgs))) : [];
     if (!t) return reply.code(404).send({ error: "not_found" });
     let fileId: string | null = null;

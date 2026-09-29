@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { moduleInstalls } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
-import { orgIdsOf } from "../auth/access.ts";
+import { orgScope } from "../auth/access.ts";
 import { audit } from "../audit.ts";
 import { billingOverview, createTopup, installModule, paymentsConfigured, requisites } from "./service.ts";
 
@@ -16,13 +16,13 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
 
   /** Billing of the user's (first) organization. */
   app.get("/", async (req, reply) => {
-    const [org] = await orgIdsOf(req.auth!.user.id);
+    const [org] = await orgScope(req, "billing");
     if (!org) return reply.code(404).send({ error: "not_found" });
     return { ...(await billingOverview(org)), requisites: requisites() };
   });
 
   app.post("/topups", { config: { rateLimit: { max: 10, timeWindow: "1 hour" } } }, async (req, reply) => {
-    const [org] = await orgIdsOf(req.auth!.user.id);
+    const [org] = await orgScope(req, "billing");
     if (!org) return reply.code(404).send({ error: "not_found" });
     if (!paymentsConfigured()) return reply.code(409).send({ error: "payments_not_configured" });
     const p = Topup.safeParse(req.body);
@@ -33,7 +33,7 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post<{ Params: { id: string } }>("/modules/:id", async (req, reply) => {
-    const [org] = await orgIdsOf(req.auth!.user.id);
+    const [org] = await orgScope(req, "modules");
     if (!org) return reply.code(404).send({ error: "not_found" });
     const r = await installModule(org, req.params.id as ModuleId);
     if (!r.ok) return reply.code(r.error === "not_found" ? 404 : 409).send({ error: r.error });
@@ -42,7 +42,7 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.delete<{ Params: { id: string } }>("/modules/:id", async (req, reply) => {
-    const [org] = await orgIdsOf(req.auth!.user.id);
+    const [org] = await orgScope(req, "modules");
     if (!org) return reply.code(404).send({ error: "not_found" });
     await db.delete(moduleInstalls).where(and(eq(moduleInstalls.organizationId, org), eq(moduleInstalls.moduleId, req.params.id)));
     await audit(req, "module.remove", req.auth!.user.id, { module: req.params.id }, org);

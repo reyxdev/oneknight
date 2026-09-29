@@ -1,10 +1,10 @@
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client.ts";
 import { orderEvents, orders, products, sites } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
-import { orgIdsOf } from "../auth/access.ts";
+import { orgScope, type Permission } from "../auth/access.ts";
 import { audit } from "../audit.ts";
 import { Upload, saveImage } from "../files/store.ts";
 import { setOrderStatus } from "./service.ts";
@@ -31,30 +31,30 @@ const view = (p: typeof products.$inferSelect) => ({ ...p, price: p.priceKop / 1
 export const shopRoutes: FastifyPluginAsync = async (app) => {
   app.addHook("preHandler", requireAuth);
 
-  async function ownSite(userId: string, siteId: string) {
+  async function ownSite(req: FastifyRequest, siteId: string, perm: Permission) {
     if (!uuid.safeParse(siteId).success) return null;
-    const orgs = await orgIdsOf(userId);
+    const orgs = await orgScope(req, perm);
     if (!orgs.length) return null;
     const [s] = await db.select().from(sites).where(and(eq(sites.id, siteId), inArray(sites.organizationId, orgs))).limit(1);
     return s ?? null;
   }
-  async function ownProduct(userId: string, id: string) {
+  async function ownProduct(req: FastifyRequest, id: string) {
     if (!uuid.safeParse(id).success) return null;
-    const orgs = await orgIdsOf(userId);
+    const orgs = await orgScope(req, "products");
     if (!orgs.length) return null;
     const [p] = await db.select().from(products).where(and(eq(products.id, id), inArray(products.organizationId, orgs))).limit(1);
     return p ?? null;
   }
 
   app.get<{ Params: { siteId: string } }>("/sites/:siteId/products", async (req, reply) => {
-    const site = await ownSite(req.auth!.user.id, req.params.siteId);
+    const site = await ownSite(req, req.params.siteId, "products");
     if (!site) return reply.code(404).send({ error: "not_found" });
     const rows = await db.select().from(products).where(eq(products.siteId, site.id)).orderBy(asc(products.sort), desc(products.createdAt));
     return rows.map(view);
   });
 
   app.post<{ Params: { siteId: string } }>("/sites/:siteId/products", { bodyLimit: 7 * 1024 * 1024 }, async (req, reply) => {
-    const site = await ownSite(req.auth!.user.id, req.params.siteId);
+    const site = await ownSite(req, req.params.siteId, "products");
     if (!site) return reply.code(404).send({ error: "not_found" });
     const p = ProductIn.safeParse(req.body);
     if (!p.success) return reply.code(400).send({ error: "invalid_input" });
@@ -73,7 +73,7 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.patch<{ Params: { id: string } }>("/products/:id", { bodyLimit: 7 * 1024 * 1024 }, async (req, reply) => {
-    const cur = await ownProduct(req.auth!.user.id, req.params.id);
+    const cur = await ownProduct(req, req.params.id);
     if (!cur) return reply.code(404).send({ error: "not_found" });
     const p = ProductIn.partial().safeParse(req.body);
     if (!p.success) return reply.code(400).send({ error: "invalid_input" });
@@ -101,7 +101,7 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.delete<{ Params: { id: string } }>("/products/:id", async (req, reply) => {
-    const cur = await ownProduct(req.auth!.user.id, req.params.id);
+    const cur = await ownProduct(req, req.params.id);
     if (!cur) return reply.code(404).send({ error: "not_found" });
     await db.delete(products).where(eq(products.id, cur.id));
     await audit(req, "product.delete", req.auth!.user.id, { product: cur.id }, cur.organizationId);
@@ -109,7 +109,7 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get<{ Querystring: { status?: string } }>("/orders", async (req) => {
-    const orgs = await orgIdsOf(req.auth!.user.id);
+    const orgs = await orgScope(req, "orders");
     if (!orgs.length) return [];
     const st = z.enum(["new", "confirmed", "paid", "shipped", "done", "cancelled"]).safeParse(req.query.status);
     return db
@@ -121,7 +121,7 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get<{ Params: { id: string } }>("/orders/:id", async (req, reply) => {
-    const orgs = await orgIdsOf(req.auth!.user.id);
+    const orgs = await orgScope(req, "orders");
     if (!uuid.safeParse(req.params.id).success || !orgs.length) return reply.code(404).send({ error: "not_found" });
     const [o] = await db.select().from(orders).where(and(eq(orders.id, req.params.id), inArray(orders.organizationId, orgs)));
     if (!o) return reply.code(404).send({ error: "not_found" });
@@ -132,7 +132,7 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
 
   app.patch<{ Params: { id: string } }>("/orders/:id", async (req, reply) => {
     const p = OrderPatch.safeParse(req.body);
-    const orgs = await orgIdsOf(req.auth!.user.id);
+    const orgs = await orgScope(req, "orders");
     if (!p.success || !uuid.safeParse(req.params.id).success || !orgs.length) return reply.code(400).send({ error: "invalid_input" });
     if (p.data.status) {
       const r = await setOrderStatus(req.params.id, orgs, p.data.status, req.auth!.user.id);
@@ -149,7 +149,7 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
 
   /** Replace a site's public key (e.g. if it leaked into the wrong place). */
   app.post<{ Params: { siteId: string } }>("/sites/:siteId/rotate-key", async (req, reply) => {
-    const site = await ownSite(req.auth!.user.id, req.params.siteId);
+    const site = await ownSite(req, req.params.siteId, "site");
     if (!site) return reply.code(404).send({ error: "not_found" });
     const key = `sk_${crypto.randomUUID().replace(/-/g, "")}`;
     await db.update(sites).set({ publicKey: key }).where(eq(sites.id, site.id));

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "../db/client.ts";
 import { files, notifications, orders, products, reviews, sites } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
-import { orgIdsOf } from "../auth/access.ts";
+import { orgScope } from "../auth/access.ts";
 import { hasModule } from "../billing/service.ts";
 import { Upload, saveImage } from "../files/store.ts";
 import { audit } from "../audit.ts";
@@ -98,7 +98,7 @@ export const reviewRoutes: FastifyPluginAsync = async (app) => {
   app.addHook("preHandler", requireAuth);
 
   app.get<{ Querystring: { status?: string } }>("/", async (req, reply) => {
-    const orgs = await orgIdsOf(req.auth!.user.id);
+    const orgs = await orgScope(req, "reviews");
     if (!orgs.length) return [];
     const st = z.enum(["pending", "published", "trash"]).safeParse(req.query.status);
     const rows = await db
@@ -114,7 +114,7 @@ export const reviewRoutes: FastifyPluginAsync = async (app) => {
 
   app.post<{ Params: { id: string; action: string } }>("/:id/:action", async (req, reply) => {
     const action = z.enum(["approve", "reject", "restore", "delete"]).safeParse(req.params.action);
-    const orgs = await orgIdsOf(req.auth!.user.id);
+    const orgs = await orgScope(req, "reviews");
     if (!action.success || !uuid.safeParse(req.params.id).success || !orgs.length) return reply.code(400).send({ error: "invalid_input" });
     const [r] = await db.select().from(reviews).where(and(eq(reviews.id, req.params.id), inArray(reviews.organizationId, orgs)));
     if (!r) return reply.code(404).send({ error: "not_found" });
@@ -138,7 +138,7 @@ export const reviewRoutes: FastifyPluginAsync = async (app) => {
 
   app.patch<{ Params: { siteId: string } }>("/settings/:siteId", async (req, reply) => {
     const p = z.object({ moderation: z.enum(["off", "manual"]) }).safeParse(req.body);
-    const orgs = await orgIdsOf(req.auth!.user.id);
+    const orgs = await orgScope(req, "reviews");
     if (!p.success || !uuid.safeParse(req.params.siteId).success || !orgs.length) return reply.code(400).send({ error: "invalid_input" });
     const [s] = await db.update(sites).set({ reviewModeration: p.data.moderation }).where(and(eq(sites.id, req.params.siteId), inArray(sites.organizationId, orgs))).returning({ id: sites.id });
     return s ? { ok: true } : reply.code(404).send({ error: "not_found" });

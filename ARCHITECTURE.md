@@ -390,3 +390,10 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 - Insights (`insightsFor`) are rules over the organization's own data only: site down, SSL expiring, billing grace/suspension, new orders waiting over a day, low / no stock, pending reviews, week-over-week conversion change (only with at least 50 visits in both weeks), a channel growing 30%+ (at least 10 visits before). With no data there are no insights. "Зроблено" hides an insight for 7 days (`insight_dismissals`).
 - The current account section is kept in the URL hash (`/app/#orders`): refresh, back/forward and direct links work; logout clears it.
 - Lists guard against out-of-order responses (`latestOnly`).
+
+## 26. Team, roles, permissions, several businesses
+
+- Permissions: orders, products, reviews, analytics, site, modules, billing, team, support. The owner always has all; managers and marketers have what the owner ticks (role defaults are only suggestions).
+- `orgScope(req, perm)` returns `[active organization]` only when the member has the permission, otherwise `[]`; every tenant query filters by it, so a missing permission means "sees nothing". `sessions.active_org_id` + `POST /api/auth/org` switch the business; `/api/auth/me` returns the active organization, role and permissions.
+- Invitations: `POST /api/team/invites` returns a one-time link token (only its SHA-256 is stored, 7 days); `POST /api/team/accept` joins and switches to the business. Owner cannot be changed or removed; removing a member resets their sessions that were in that business.
+- Account: «Команда» (permission matrix with optimistic toggles, invite link, pending invites), business switcher in the header, navigation shows only permitted sections, invitation links work before and after sign-in.

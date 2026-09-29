@@ -5,13 +5,14 @@ import { useDict, useLang } from "@/i18n/provider";
 import { withLang } from "@/i18n";
 import { Field } from "@/components/ui/Field";
 import { KnightMark } from "@/components/global/Logo";
+import { Icon } from "@/components/ui/Icon";
 import { api, type Me } from "@/lib/api";
 import { playSound } from "@/lib/sound";
 
 type Mode = "login" | "register";
 type Errors = Partial<Record<"name" | "phone" | "email" | "password" | "form", string>>;
 
-export function AuthScreen({ initial, onDone, onMfa }: { initial: Mode; onDone: (me: Me) => void; onMfa: () => void }) {
+export function AuthScreen({ initial, onDone, onMfa, note }: { initial: Mode; onDone: (me: Me) => void; onMfa: () => void; note?: string }) {
   const t = useDict().app.auth;
   const lang = useLang();
   const [mode, setMode] = useState<Mode>(initial);
@@ -73,6 +74,7 @@ export function AuthScreen({ initial, onDone, onMfa }: { initial: Mode; onDone: 
         </div>
         <h1 className="h3">{mode === "login" ? t.loginTitle : t.registerTitle}</h1>
         <p className="small">{t.lead}</p>
+        {note && <p className="ok-note" role="status"><Icon name="person" size={15} />{note}</p>}
         <form className="grid gap-4" onSubmit={submit} noValidate>
           {mode === "register" && (
             <>

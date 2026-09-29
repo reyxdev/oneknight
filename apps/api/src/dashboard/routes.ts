@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "../db/client.ts";
 import { analyticsEvents, orders } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
-import { orgIdsOf } from "../auth/access.ts";
+import { orgScope } from "../auth/access.ts";
 import { hasModule } from "../billing/service.ts";
 import { sitesWithStats } from "../sites/stats.ts";
 import { dismissInsight, insightsFor } from "./insights.ts";
@@ -16,7 +16,7 @@ export const dashboardRoutes: FastifyPluginAsync = async (app) => {
   app.addHook("preHandler", requireAuth);
 
   app.get("/", async (req, reply) => {
-    const [org] = await orgIdsOf(req.auth!.user.id);
+    const [org] = await orgScope(req);
     if (!org) return reply.code(404).send({ error: "not_found" });
     const since30 = new Date(Date.now() - 30 * DAY);
     const [o] = await db
@@ -58,7 +58,7 @@ export const dashboardRoutes: FastifyPluginAsync = async (app) => {
 
   app.post("/insights/dismiss", async (req, reply) => {
     const p = z.object({ id: z.string().min(1).max(200) }).safeParse(req.body);
-    const [org] = await orgIdsOf(req.auth!.user.id);
+    const [org] = await orgScope(req);
     if (!p.success || !org) return reply.code(400).send({ error: "invalid_input" });
     await dismissInsight(org, p.data.id);
     return { ok: true };

@@ -11,7 +11,7 @@ export const HINT_COOKIE = "ok_auth";
 const TTL_MS = 30 * 24 * 3600 * 1000;
 
 export type AuthUser = typeof users.$inferSelect;
-export type Auth = { user: AuthUser; sessionHash: string; sessionId: string; mfaPassed: boolean };
+export type Auth = { user: AuthUser; sessionHash: string; sessionId: string; mfaPassed: boolean; activeOrgId: string | null };
 
 export async function createSession(req: FastifyRequest, reply: FastifyReply, userId: string, mfaPassed: boolean) {
   const token = randomToken();
@@ -47,7 +47,7 @@ export async function loadAuth(req: FastifyRequest): Promise<Auth | null> {
   if (Date.now() - row.s.lastSeenAt.getTime() > 60_000) {
     await db.update(sessions).set({ lastSeenAt: new Date() }).where(eq(sessions.idHash, idHash));
   }
-  return { user: row.u, sessionHash: idHash, sessionId: row.s.id, mfaPassed: row.s.mfaPassed };
+  return { user: row.u, sessionHash: idHash, sessionId: row.s.id, mfaPassed: row.s.mfaPassed, activeOrgId: row.s.activeOrgId };
 }
 
 /** Full access requires the second factor when 2FA is on. */

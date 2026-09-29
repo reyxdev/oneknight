@@ -71,6 +71,8 @@ export const sessions = pgTable(
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     /** False until the second factor is confirmed for users with 2FA. */
     mfaPassed: boolean("mfa_passed").notNull().default(false),
+    /** Organization the user is working in (members of several businesses switch it). */
+    activeOrgId: uuid("active_org_id"),
     ip: inet("ip"),
     userAgent: text("user_agent"),
     createdAt: createdAt(),
@@ -416,3 +418,18 @@ export const insightDismissals = pgTable(
   },
   (t) => [primaryKey({ columns: [t.organizationId, t.insightId] })],
 );
+
+/** One-time invitation link to join an organization with a role and permissions. Only the hash is stored. */
+export const invites = pgTable("invites", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull().unique(),
+  role: roleEnum("role").notNull(),
+  permissions: text("permissions").array().notNull().default(sql`'{}'::text[]`),
+  note: text("note"),
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedBy: uuid("used_by").references(() => users.id, { onDelete: "set null" }),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  createdAt: createdAt(),
+});

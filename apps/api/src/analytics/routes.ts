@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "../db/client.ts";
 import { analyticsEvents, sites } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
-import { orgIdsOf } from "../auth/access.ts";
+import { orgScope } from "../auth/access.ts";
 import { hasModule } from "../billing/service.ts";
 import { channelOf } from "./channel.ts";
 
@@ -57,7 +57,7 @@ export const analyticsPublicRoutes: FastifyPluginAsync = async (app) => {
 export const analyticsRoutes: FastifyPluginAsync = async (app) => {
   app.addHook("preHandler", requireAuth);
   app.get<{ Querystring: { days?: string; site?: string } }>("/", async (req, reply) => {
-    const orgs = await orgIdsOf(req.auth!.user.id);
+    const orgs = await orgScope(req, "analytics");
     if (!orgs.length) return reply.code(404).send({ error: "not_found" });
     const days = req.query.days === "7" ? 7 : req.query.days === "90" ? 90 : 30;
     const siteIds = (await db.select({ id: sites.id }).from(sites).where(inArray(sites.organizationId, orgs))).map((s) => s.id).filter((id) => !req.query.site || id === req.query.site);

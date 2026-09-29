@@ -27,6 +27,9 @@ export type Me = {
   isAdmin: boolean;
   totpEnabled: boolean;
   organizations: { id: string; name: string; role: "owner" | "manager" | "marketer" }[];
+  activeOrgId: string | null;
+  role: "owner" | "manager" | "marketer" | null;
+  permissions: string[];
 };
 
 /** Non-secret hint cookie set by the API next to the HttpOnly session. Lets static pages show "Відкрити ONEKNIGHT". */

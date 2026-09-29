@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useDict } from "@/i18n/provider";
+import { fmt } from "@/i18n";
 import { KnightMark } from "@/components/global/Logo";
 import { api, type Me } from "@/lib/api";
 import { AuthScreen, MfaScreen } from "./AuthScreen";
@@ -27,6 +28,29 @@ export function AppRoot() {
   }, [check]);
 
   /** Re-reads the account in place (e.g. after turning 2FA on) without leaving the current screen. */
+  // Team invitation: kept until the visitor is signed in, then accepted once.
+  const [inviteMsg, setInviteMsg] = useState<string | null>(null);
+  useEffect(() => {
+    const token = new URLSearchParams(location.search).get("invite");
+    if (token) {
+      sessionStorage.setItem("ok_invite", token);
+      history.replaceState(null, "", location.pathname + location.hash);
+    }
+  }, []);
+  useEffect(() => {
+    if (st.s !== "ready") return;
+    const token = sessionStorage.getItem("ok_invite");
+    if (!token) return;
+    sessionStorage.removeItem("ok_invite");
+    void api<{ orgId: string; name: string }>("/team/accept", { method: "POST", body: { token } }).then(async (r) => {
+      setInviteMsg(r.ok ? fmt(t.team.joined, { name: r.data.name }) : t.team.inviteInvalid);
+      if (r.ok) {
+        const m = await api<Me>("/auth/me");
+        if (m.ok) setSt({ s: "ready", me: m.data });
+      }
+    });
+  }, [st.s, t.team.joined, t.team.inviteInvalid]);
+
   const refresh = useCallback(async () => {
     const r = await api<Me>("/auth/me");
     if (r.ok) setSt({ s: "ready", me: r.data });
@@ -60,7 +84,13 @@ export function AppRoot() {
   if (st.s === "mfa") return <MfaScreen onDone={(me) => setSt({ s: "ready", me })} onCancel={logout} />;
   if (st.s === "anon") {
     const initial = typeof window !== "undefined" && new URLSearchParams(location.search).get("start") === "register" ? "register" : "login";
-    return <AuthScreen initial={initial} onDone={(me) => setSt({ s: "ready", me })} onMfa={() => setSt({ s: "mfa" })} />;
+    const invited = typeof window !== "undefined" && !!sessionStorage.getItem("ok_invite");
+    return <AuthScreen initial={initial} note={invited ? t.team.inviteLogin : undefined} onDone={(me) => setSt({ s: "ready", me })} onMfa={() => setSt({ s: "mfa" })} />;
   }
-  return <AppPanel me={st.me} onLogout={logout} onChange={refresh} />;
+  return (
+    <>
+      <AppPanel me={st.me} onLogout={logout} onChange={refresh} />
+      {inviteMsg && <p className="ok-toast app-invite-toast" role="status" onAnimationEnd={() => setTimeout(() => setInviteMsg(null), 3000)}>{inviteMsg}</p>}
+    </>
+  );
 }
