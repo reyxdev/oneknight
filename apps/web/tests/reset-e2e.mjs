@@ -63,6 +63,18 @@ ok(await seen(pg.getByText(/Вручну · \d+ KB · товарів 0 · зам
 const [dl] = await Promise.all([pg.waitForEvent("download"), pg.getByRole("link", { name: "Завантажити" }).first().click()]);
 ok(/^oneknight-backup-\d{4}-\d\d-\d\d\.json\.gz$/.test(dl.suggestedFilename()), `backup downloads (${dl.suggestedFilename()})`);
 
+// Profile: edit own data and the business name, change the password.
+await pg.getByLabel("Назва бізнесу").fill("Майстерня Олени");
+await pg.getByRole("button", { name: "Зберегти", exact: true }).click();
+ok(await seen(pg.locator(".app-org", { hasText: "Майстерня Олени" })), "business name changed");
+await pg.getByLabel("Поточний пароль").fill("wrong one");
+await pg.getByLabel("Новий пароль").fill("second new pass");
+await pg.getByRole("button", { name: "Змінити пароль" }).click();
+ok(await seen(pg.getByText("Поточний пароль невірний")), "wrong current password refused");
+await pg.getByLabel("Поточний пароль").fill("brand new e2e pass");
+await pg.getByRole("button", { name: "Змінити пароль" }).click();
+ok(await seen(pg.getByText(/Пароль змінено. На інших пристроях/)), "password changed from the profile");
+
 await user.reload({ waitUntil: "networkidle" });
 ok(await seen(user.locator(".app-auth-card")), "the old session was signed out");
 await pg.goto(link, { waitUntil: "networkidle" });

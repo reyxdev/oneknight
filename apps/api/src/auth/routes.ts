@@ -158,6 +158,37 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     return me(req.auth!.user, p.data.orgId);
   });
 
+  /** The person's own name and phone; the business name too when they own the active business. */
+  app.patch("/profile", { preHandler: requireAuth }, async (req, reply) => {
+    const p = z.object({ name: Register.shape.name.optional(), phone: Register.shape.phone.optional(), businessName: z.string().trim().min(2).max(120).optional() }).safeParse(req.body);
+    if (!p.success) return bad(reply, 400, "invalid_input");
+    const u = req.auth!.user;
+    const { businessName, ...own } = p.data;
+    if (businessName) {
+      const m = (await membershipsOf(u.id)).find((x) => x.orgId === req.auth!.activeOrgId) ?? (await membershipsOf(u.id))[0];
+      if (m?.role !== "owner") return bad(reply, 403, "owner_only");
+      await db.update(organizations).set({ name: businessName }).where(eq(organizations.id, m.orgId));
+    }
+    const [updated] = Object.keys(own).length ? await db.update(users).set({ ...own, updatedAt: new Date() }).where(eq(users.id, u.id)).returning() : [u];
+    await audit(req, "user.profile", u.id, { fields: Object.keys(p.data) });
+    return me(updated!, req.auth!.activeOrgId);
+  });
+
+  /** Changing the password signs out every other device. */
+  app.post("/password", { ...strict, preHandler: requireAuth }, async (req, reply) => {
+    const p = z.object({ current: z.string().min(1).max(200), next: password }).safeParse(req.body);
+    if (!p.success) return bad(reply, 400, "invalid_input");
+    const u = req.auth!.user;
+    if (!(await verifyPassword(u.passwordHash, p.data.current))) {
+      await logAttempt(req, u.email, u.id, false, "bad_password_change");
+      return bad(reply, 401, "invalid_credentials");
+    }
+    await db.update(users).set({ passwordHash: await hashPassword(p.data.next), updatedAt: new Date() }).where(eq(users.id, u.id));
+    await db.update(sessions).set({ revokedAt: new Date() }).where(and(eq(sessions.userId, u.id), isNull(sessions.revokedAt), ne(sessions.idHash, req.auth!.sessionHash)));
+    await audit(req, "user.password_change", u.id);
+    return { ok: true };
+  });
+
   app.get("/sessions", { preHandler: requireAuth }, async (req) => {
     const rows = await db
       .select({ id: sessions.id, ip: sessions.ip, userAgent: sessions.userAgent, createdAt: sessions.createdAt, lastSeenAt: sessions.lastSeenAt, idHash: sessions.idHash })

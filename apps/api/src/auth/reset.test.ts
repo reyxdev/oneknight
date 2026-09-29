@@ -61,3 +61,22 @@ test("password reset link: admin only, one use, signs everyone out, 2FA still as
   const l = await login(u.email, "fresh password 3");
   assert.equal(l.json().mfaRequired, false, "2FA switched off, can be set up again");
 });
+
+test("profile and password change: own data, business name only for the owner, other devices signed out", async () => {
+  const u = await account("profile");
+  const second = await login(u.email, "old password");
+  const other = `ok_session=${second.cookies.find((c) => c.name === "ok_session")!.value}`;
+  const patch = (body: object, H = u.H) => app.inject({ method: "PATCH", url: "/api/auth/profile", payload: body, headers: H });
+  const r = (await patch({ name: "Нове Ім'я", phone: "+380 67 000 00 01", businessName: "Карпатська майстерня" })).json();
+  assert.equal(r.name, "Нове Ім'я");
+  assert.equal(r.organizations[0].name, "Карпатська майстерня");
+  assert.equal((await patch({ phone: "abc" })).statusCode, 400);
+
+  const pw = (body: object) => app.inject({ method: "POST", url: "/api/auth/password", payload: body, headers: u.H });
+  assert.equal((await pw({ current: "wrong", next: "changed pass 1" })).statusCode, 401);
+  assert.equal((await pw({ current: "old password", next: "short" })).statusCode, 400);
+  assert.equal((await pw({ current: "old password", next: "changed pass 1" })).json().ok, true);
+  assert.equal((await app.inject({ url: "/api/auth/me", headers: { cookie: u.H.cookie } })).statusCode, 200, "this device stays signed in");
+  assert.equal((await app.inject({ url: "/api/auth/me", headers: { cookie: other } })).statusCode, 401, "other devices signed out");
+  assert.equal((await login(u.email, "changed pass 1")).statusCode, 200);
+});

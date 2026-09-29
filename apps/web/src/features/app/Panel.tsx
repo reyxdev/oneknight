@@ -15,7 +15,7 @@ import { Bell } from "./Bell";
 import { BillingScreen, ModulesScreen } from "./Billing";
 import { TopupsAdmin } from "./TopupsAdmin";
 import { KeysAdmin } from "./KeysAdmin";
-import { BackupsPanel } from "./Backups";
+import { ProfileScreen } from "./Profile";
 import { SupportScreen } from "./Support";
 import { OrdersScreen, ProductsScreen } from "./Shop";
 import { ReviewsScreen } from "./Reviews";
@@ -142,21 +142,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             {view === "reviews" && <ReviewsScreen goModules={() => setScreen("modules")} />}
             {view === "analytics" && <AnalyticsScreen goModules={() => setScreen("modules")} />}
             {view === "tickets" && me.isAdmin && <SupportScreen admin />}
-            {view === "account" && (
-              <div className="ok-screen">
-                <div className="ok-h"><h3>{t.account.title}</h3></div>
-                <Panel>
-                  <div className="ok-kv">
-                    <div><span>{t.account.name}</span><b>{me.name}</b></div>
-                    <div><span>{t.account.email}</span><b>{me.email}</b></div>
-                    <div><span>{t.account.phone}</span><b>{me.phone}</b></div>
-                    {org && <div><span>{t.account.business}</span><b>{org.name} · {t.account.roles[org.role]}</b></div>}
-                  </div>
-                  <p className="ok-muted">{t.account.note}</p>
-                </Panel>
-                {me.role === "owner" && <BackupsPanel />}
-              </div>
-            )}
+            {view === "account" && <ProfileScreen me={me} onChange={onChange} />}
           </div>
         </div>
         <nav className="ok-bottom" aria-label={t.nav.sections}>

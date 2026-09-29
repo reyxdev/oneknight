@@ -48,7 +48,7 @@ node apps/web/tests/analytics-e2e.mjs # tracking script on a simulated client si
 node apps/web/tests/team-e2e.mjs      # invitation link, permissions, business switcher
 node apps/web/tests/appearance-e2e.mjs # live customisation applied on a simulated client site
 node apps/web/tests/keys-e2e.mjs      # access keys and promo codes: admin batch, client activation
-node apps/web/tests/reset-e2e.mjs     # password reset by one-time admin link
+node apps/web/tests/reset-e2e.mjs     # password reset by one-time admin link, profile edit, password change, backups
 ```
 
 Public API for client websites: [docs/public-api.md](docs/public-api.md).

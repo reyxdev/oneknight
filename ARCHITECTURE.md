@@ -438,3 +438,7 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 - Never included: password hashes, 2FA secrets, sessions, integration credentials, IP addresses, raw analytics events.
 - Automatic: hourly job, one copy per business with a working subscription per 23 hours (restarts never skip or double a day); 14 automatic and 10 manual copies are kept, older files deleted. A daily sweep removes files of deleted businesses.
 - Owner only (the copy holds the team and billing): «Профіль → Резервні копії», `GET/POST /api/backups`, `GET /api/backups/:id/download` (attachment, no-store, audited). Restore is done through support for now.
+
+## 33. Profile
+
+- «Профіль»: name and phone (`PATCH /api/auth/profile`), business name for the owner of the active business, password change with the current password (`POST /api/auth/password`, signs out every other device, failed attempts go to the login history). Email is the login and stays as is.
