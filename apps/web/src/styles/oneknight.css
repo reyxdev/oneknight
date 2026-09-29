@@ -222,35 +222,6 @@
 .ok-module-demo svg { margin-top: 0.2em; }
 .ok-module footer { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-top: auto; }
 
-.ok-custom { display: grid; gap: 1.25rem; }
-@media (min-width: 1000px) { .ok-custom { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }
-.ok-custom-opts { display: grid; gap: 0.9rem; }
-.ok-custom-opts fieldset { margin: 0; padding: 0; border: 0; display: grid; gap: 0.4rem; }
-.ok-custom-opts legend { font-size: 0.8125rem; font-weight: 700; margin-bottom: 0.35rem; }
-.ok-preview { --ok-accent: var(--accent); border-radius: 14px; border: 1px solid var(--line-strong); overflow: hidden; background: var(--bg); position: sticky; top: 0; }
-.ok-preview-bar { display: flex; align-items: center; gap: 5px; padding: 8px 10px; background: var(--surface-2); }
-.ok-preview-bar i { width: 8px; height: 8px; border-radius: 50%; background: var(--line-strong); }
-.ok-preview-bar span { margin-left: 8px; font: 11px var(--font-code); color: var(--fg-muted); }
-.ok-preview-page { position: relative; display: grid; gap: 0.6rem; justify-items: start; padding: 1.1rem; min-height: 290px; }
-.ok-preview-img { width: 100%; height: 90px; border-radius: 10px; background: linear-gradient(120deg, color-mix(in srgb, var(--ok-accent) 70%, #0b0e13), var(--ok-accent)); }
-.ok-preview-page h5 { margin: 0; font-size: 1.25rem; font-weight: 800; }
-.ok-preview-page p { margin: 0; color: var(--fg-muted); font-size: 0.875rem; }
-.ok-pbtn { position: relative; overflow: hidden; min-height: 2.75rem; padding: 0 1.4rem; border-radius: 99px; background: var(--ok-accent); color: #fff; font-weight: 700; cursor: pointer; transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base), text-decoration-color var(--dur-base); }
-.ok-pbtn[data-anim="lift"]:hover { transform: translateY(-3px); box-shadow: 0 10px 20px -8px color-mix(in srgb, var(--ok-accent) 70%, transparent); }
-.ok-pbtn[data-anim="pulse"] { animation: pbtn-pulse 1.8s var(--ease-out) infinite; }
-@keyframes pbtn-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok-accent) 60%, transparent); } 70%, 100% { box-shadow: 0 0 0 14px transparent; } }
-.ok-pbtn[data-anim="shine"]::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.55) 50%, transparent 70%); transform: translateX(-120%); animation: pbtn-shine 2.4s var(--ease-inout) infinite; }
-@keyframes pbtn-shine { 60%, 100% { transform: translateX(120%); } }
-.ok-pbtn[data-hover="glow"]:hover { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok-accent) 30%, transparent), 0 0 24px color-mix(in srgb, var(--ok-accent) 60%, transparent); }
-.ok-pbtn[data-hover="underline"] { text-decoration: underline 2px transparent; text-underline-offset: 4px; }
-.ok-pbtn[data-hover="underline"]:hover { text-decoration-color: #fff; }
-.ok-pbtn[data-hover="scale"]:hover { transform: scale(1.07); }
-.ok-pbtn[data-anim="lift"][data-hover="scale"]:hover { transform: translateY(-3px) scale(1.07); }
-.ok-pbtn:active { transform: scale(0.96) !important; }
-.ok-pnotice { display: flex; align-items: center; gap: 0.4rem; font-weight: 600; font-size: 0.8125rem; animation: panel-in var(--dur-base) var(--ease-out); }
-.ok-pnotice[data-style="toast"] { position: absolute; right: 0.8rem; bottom: 0.8rem; padding: 0.55rem 0.8rem; border-radius: 10px; background: var(--inverse-bg); color: var(--inverse-fg); box-shadow: var(--shadow-md); }
-.ok-pnotice[data-style="banner"] { position: absolute; left: 0; right: 0; top: 0; justify-content: center; padding: 0.55rem; background: var(--ok-accent); color: #fff; }
-.ok-pnotice[data-style="minimal"] { color: var(--ok); }
 .ok-state { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 20%, transparent); }
 .ok-state[data-s="warn"] { background: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 20%, transparent); }
 .ok-state[data-s="bad"] { background: var(--bad); }

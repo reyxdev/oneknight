@@ -398,7 +398,7 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 - Invitations: `POST /api/team/invites` returns a one-time link token (only its SHA-256 is stored, 7 days); `POST /api/team/accept` joins and switches to the business. Owner cannot be changed or removed; removing a member resets their sessions that were in that business.
 - Account: «Команда» (permission matrix with optimistic toggles, invite link, pending invites), business switcher in the header, navigation shows only permitted sections, invitation links work before and after sign-in.
 
-## 27. Website appearance (live customisation)
+## 27. Website appearance (live customisation) — removed 29.09.2026 (owner decision Q98)
 
 - `sites.appearance` (button animation, hover effect, click sound, notice style, accent colour) edited in «Сайт → Вигляд сайту» with a live preview and saved with the "site" permission.
 - `GET /api/public/appearance`; ok.js with `data-appearance` applies it to `[data-ok-button]` elements (CSS injected once, WebAudio click sounds on pointerdown) and exposes `oneknight.notify(text)`. Supported options only; not a visual editor.

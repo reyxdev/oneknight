@@ -108,7 +108,6 @@ export function createDemoClient(lang: "uk" | "en"): OneKnightClient {
     uninstallModule: (id) => set((s) => ({ ...s, modules: s.modules.filter((m) => m.id !== id) })),
     markAllRead: () => set((s) => ({ ...s, notifications: s.notifications.map((n) => ({ ...n, read: true })) })),
     completeRecommendation: (id) => set((s) => ({ ...s, recommendations: s.recommendations.map((r) => (r.id === id ? { ...r, done: true } : r)) })),
-    updateCustomization: (patch) => set((s) => ({ ...s, customization: { ...s.customization, ...patch } })),
     runBackup() {
       set((s) => ({ ...s, backups: [{ id: nextId("b"), at: Date.now(), size: "48.4 MB", auto: false }, ...s.backups] }));
       notify("backup", "backupManual");

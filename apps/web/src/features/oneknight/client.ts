@@ -1,5 +1,5 @@
 import type {
-  Customization, ID, IntegrationId, Moderation, ModuleId, OkState, OrderStatus, TicketCategory,
+  ID, IntegrationId, Moderation, ModuleId, OkState, OrderStatus, TicketCategory,
 } from "@oneknight/domain";
 
 export type ActionResult = { ok: true } | { ok: false; reason: "insufficient_balance" | "not_available" | "requires_module" | "invalid" };
@@ -27,7 +27,6 @@ export interface OneKnightClient {
   uninstallModule(id: ModuleId): void;
   markAllRead(): void;
   completeRecommendation(id: ID): void;
-  updateCustomization(patch: Partial<Customization>): void;
   runBackup(): void;
   restoreBackup(id: ID): void;
   createTicket(category: TicketCategory, text: string, screenshot: boolean): ActionResult;

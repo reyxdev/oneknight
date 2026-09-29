@@ -8,14 +8,6 @@ import { orgScope } from "../auth/access.ts";
 import { lastChecks } from "../monitor/scheduler.ts";
 import { sitesWithStats } from "./stats.ts";
 
-export const Appearance = z.object({
-  buttonAnim: z.enum(["none", "lift", "pulse", "shine"]),
-  hover: z.enum(["none", "glow", "underline", "scale"]),
-  sound: z.enum(["off", "soft", "glass", "wood"]),
-  notice: z.enum(["toast", "banner", "minimal"]),
-  accent: z.string().regex(/^#[0-9a-f]{6}$/i),
-});
-
 export const siteRoutes: FastifyPluginAsync = async (app) => {
   app.addHook("preHandler", requireAuth);
 
@@ -28,15 +20,6 @@ export const siteRoutes: FastifyPluginAsync = async (app) => {
     if (!site) return reply.code(404).send({ error: "not_found" });
     const hours = Math.min(24 * 30, Math.max(1, Number(req.query.hours) || 24));
     return lastChecks(site.id, new Date(Date.now() - hours * 3600_000));
-  });
-
-  /** Look and feel the client's site applies through ok.js. Needs the "site" permission to change. */
-  app.patch<{ Params: { id: string } }>("/sites/:id/appearance", async (req, reply) => {
-    const p = Appearance.safeParse(req.body);
-    const orgs = await orgScope(req, "site");
-    if (!p.success || !z.string().uuid().safeParse(req.params.id).success || !orgs.length) return reply.code(400).send({ error: "invalid_input" });
-    const [row] = await db.update(sites).set({ appearance: p.data }).where(and(eq(sites.id, req.params.id), inArray(sites.organizationId, orgs))).returning({ appearance: sites.appearance });
-    return row ?? reply.code(404).send({ error: "not_found" });
   });
 
   app.get("/notifications", async (req) => {

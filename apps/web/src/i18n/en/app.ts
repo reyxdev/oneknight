@@ -452,15 +452,6 @@ export const app: Dict["app"] = {
     size: "Size, cm (L × W × H)",
     waybillErrors: { iban_required_for_cod: "For cash on delivery add an IBAN in Integrations (Ukrposhta)", module_not_active: "Enable the Nova Poshta module in Modules", not_connected: "Connect Nova Poshta in Integrations", already_has_waybill: "The order already has a waybill", provider_rejected: "Nova Poshta rejected the request", invalid_input: "Check the fields" },
   },
-  look: {
-    title: "Website appearance",
-    lead: "Change a setting and see the result at once. After saving, your website picks it up by itself.",
-    custom: "Custom colour",
-    save: "Save",
-    saved: "Saved. The website shows the change within a minute.",
-    howTitle: "How it works on the website",
-    how: "The ONEKNIGHT script with the data-appearance attribute applies the settings to buttons with the data-ok-button attribute, and oneknight.notify(\"Text\") shows a notice in the chosen style.",
-  },
   api: {
     title: "Connect the website to ONEKNIGHT",
     lead: "The site key lets your website show products from ONEKNIGHT and send orders here. It works only from your website's domain.",

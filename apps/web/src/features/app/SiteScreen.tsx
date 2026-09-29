@@ -7,13 +7,11 @@ import { Icon } from "@/components/ui/Icon";
 import { api } from "@/lib/api";
 import { AreaChart, Panel, Stat, useFormat } from "@/features/oneknight/ui/kit";
 import { SiteApiPanel } from "./Shop";
-import { AppearancePanel, type Look } from "./Appearance";
 
 export type SiteInfo = {
   id: string;
   publicKey?: string;
   reviewModeration?: "off" | "manual";
-  appearance?: Look;
   domain: string;
   name: string;
   status: "building" | "live" | "paused";
@@ -74,7 +72,6 @@ function SiteCard({ s, onReload, canEdit }: { s: SiteInfo; onReload: () => void;
         {series && series.length > 1 ? <AreaChart a={series} labelA={t.chart} /> : <p className="ok-muted">{t.noData}</p>}
       </Panel>
       <p className="ok-muted">{t.how}</p>
-      {s.appearance && <AppearancePanel siteId={s.id} domain={s.domain} initial={s.appearance} canEdit={canEdit} key={s.id} />}
       {s.publicKey && canEdit && <SiteApiPanel site={s} onRotated={onReload} />}
     </div>
   );
