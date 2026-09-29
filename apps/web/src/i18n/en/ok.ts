@@ -280,7 +280,7 @@ export const ok: Dict["ok"] = {
   settings: {
     title: "Settings",
     team: "Team",
-    roles: { owner: "Owner", manager: "Manager", marketer: "Marketer" },
+    roles: { owner: "Owner", manager: "Manager", marketer: "Marketer", packer: "Packer" },
     perms: { orders: "Orders", products: "Products", reviews: "Reviews", analytics: "Analytics", site: "Website", modules: "Modules", billing: "Billing", team: "Team" },
     ownerAll: "The owner has every permission",
     security: "Security",

@@ -3,15 +3,21 @@ import { asc, eq } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { memberships } from "../db/schema.ts";
 
-/** Everything a member can be allowed to do. The owner can always do everything. */
-export const PERMISSIONS = ["orders", "products", "reviews", "analytics", "site", "modules", "billing", "team", "support"] as const;
+/**
+ * Everything a member can be allowed to do. The owner can always do everything.
+ * `finance`: sees money (revenue, order sums, the goal). `shipping`: only orders waiting to be sent: waybills,
+ * printing, «Відправлено» (the «Комплектувальник» role); `orders` includes it.
+ */
+export const PERMISSIONS = ["orders", "shipping", "finance", "products", "reviews", "analytics", "site", "modules", "billing", "team", "support"] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
 /** Suggested permissions when inviting someone with a role. */
-export const ROLE_DEFAULTS: Record<"manager" | "marketer", Permission[]> = {
+export const ROLE_DEFAULTS: Record<"manager" | "marketer" | "packer", Permission[]> = {
   manager: ["orders", "products", "reviews", "support"],
   marketer: ["analytics", "reviews", "site"],
+  packer: ["shipping"],
 };
+export const INVITE_ROLES = ["manager", "marketer", "packer"] as const;
 
 /** Organizations the user belongs to (any role). */
 export async function orgIdsOf(userId: string): Promise<string[]> {
@@ -19,7 +25,7 @@ export async function orgIdsOf(userId: string): Promise<string[]> {
   return rows.map((r) => r.id);
 }
 
-export type Membership = { orgId: string; role: "owner" | "manager" | "marketer"; permissions: Permission[] };
+export type Membership = { orgId: string; role: "owner" | "manager" | "marketer" | "packer"; permissions: Permission[] };
 
 export async function membershipsOf(userId: string): Promise<Membership[]> {
   const rows = await db.select().from(memberships).where(eq(memberships.userId, userId)).orderBy(asc(memberships.createdAt));
@@ -42,3 +48,18 @@ export async function orgScope(req: FastifyRequest, perm?: Permission): Promise<
   if (perm && !m.permissions.includes(perm)) return [];
   return [m.orgId];
 }
+
+/**
+ * Orders access of the request: full (`orders`) or shipping only (`shipping`: confirmed, paid and shipped orders),
+ * and whether sums are visible (`finance`). Null = no access to orders at all.
+ */
+export async function orderAccess(req: FastifyRequest): Promise<{ org: string; full: boolean; finance: boolean } | null> {
+  const m = await activeMembership(req);
+  if (!m) return null;
+  const full = m.permissions.includes("orders");
+  if (!full && !m.permissions.includes("shipping")) return null;
+  return { org: m.orgId, full, finance: m.permissions.includes("finance") };
+}
+
+/** Statuses a shipping-only member sees and may work with. */
+export const SHIPPING_STATUSES = ["confirmed", "paid", "shipped"] as const;

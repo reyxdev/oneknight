@@ -21,7 +21,8 @@ type Draft =
       weight: number;
       size?: { length: number; width: number; height: number };
       description: string;
-      cod: number;
+      /** null: cash on delivery, the sum is hidden (no «Фінанси»). */
+      cod: number | null;
     };
 
 /** Print links go through the API, which fetches the PDF from Nova Poshta with the stored key. */
@@ -133,7 +134,7 @@ export function WaybillForm({ provider, orderId, onCreated, notify }: { provider
           ))}
         </fieldset>
       )}
-      <p className="ok-muted">{draft.cod > 0 ? fmt(t.cod, { sum: formatUAH(draft.cod, lang) }) : t.noCod}</p>
+      <p className="ok-muted">{draft.cod === null ? t.codHidden : draft.cod > 0 ? fmt(t.cod, { sum: formatUAH(draft.cod, lang) }) : t.noCod}</p>
       <div className="ok-actions">
         <button className="btn btn-sm" type="submit" disabled={busy} data-loading={busy}>{busy ? t.creatingWaybill : t.submitWaybill}</button>
         <button type="button" className="btn btn-sm btn-ghost" onClick={() => setDraft(null)}>{t.cancelWaybill}</button>

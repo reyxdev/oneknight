@@ -85,7 +85,8 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
   const { screen } = route;
   const adminMode = me.isAdmin && ADMIN_SCREENS.has(screen);
   const org = me.organizations.find((o) => o.id === me.activeOrgId) ?? me.organizations[0];
-  const allowed = (id: Screen) => (id === "business" ? me.role === "owner" : !NEEDS[id] || me.permissions.includes(NEEDS[id]!));
+  // Orders: everything with `orders`, orders waiting to be sent with `shipping` («Комплектувальник»).
+  const allowed = (id: Screen) => (id === "business" ? me.role === "owner" : id === "orders" ? me.permissions.includes("orders") || me.permissions.includes("shipping") : !NEEDS[id] || me.permissions.includes(NEEDS[id]!));
   const locked = (id: Screen) => !!MODULE_OF[id] && !me.modules.includes(MODULE_OF[id]!);
   const view: Screen | null = allowed(screen) ? screen : null;
   const label = (id: Screen) =>
@@ -173,7 +174,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
           <div className="ok-content" key={`${me.activeOrgId}/${screen}/${route.tab ?? ""}`}>
             {!view && <p className="ok-muted">{screen === "business" ? t.business.ownerOnly : t.team.noAccess}</p>}
             {view === "home" && <HomeScreen me={me} go={(id, tab) => go(id as Screen, tab ?? null)} />}
-            {view === "orders" && <OrdersScreen tab={route.tab} />}
+            {view === "orders" && <OrdersScreen tab={route.tab} shippingOnly={!me.permissions.includes("orders")} />}
             {view === "products" && <ProductsScreen tab={route.tab} />}
             {view === "reviews" && <ReviewsScreen goModules={() => go("modules")} />}
             {view === "analytics" && <AnalyticsScreen goModules={() => go("modules")} />}

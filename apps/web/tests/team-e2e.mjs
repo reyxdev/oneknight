@@ -47,6 +47,21 @@ await owner.getByText("Права оновлено").waitFor();
 await mgr.reload({ waitUntil: "networkidle" });
 ok(await navBtn(mgr, "Товари").isVisible(), "granted permission appears for the manager");
 
+// «Комплектувальник»: shipping only, no money.
+await navBtn(owner, "Команда").click();
+await owner.getByLabel("Роль").selectOption("packer");
+ok(await owner.getByRole("group", { name: "Права" }).getByRole("button", { name: "Відправка", pressed: true }).isVisible(), "the packer role preselects «Відправка»");
+ok(await owner.getByRole("group", { name: "Права" }).getByRole("button", { name: "Бачить фінанси", pressed: false }).isVisible(), "finances are off by default");
+await owner.getByRole("button", { name: "Створити посилання" }).click();
+const packLink = (await owner.locator(".ok-topup code").innerText()).trim();
+const pack = await signup(await b.newContext(), packLink, "Комплектувальник E2E", `team-p${stamp}@test.oneknight.local`);
+await pack.getByText("Ви приєдналися до «Власник E2E»").waitFor({ timeout: 10000 });
+await pack.reload({ waitUntil: "networkidle" });
+ok(await navBtn(pack, "Замовлення").isVisible() && !(await navBtn(pack, "Товари").isVisible()) && !(await navBtn(pack, "Аналітика").isVisible()), "packer sees only orders");
+ok(await pack.getByText("Відправити сьогодні").isVisible() && !(await pack.locator(".ok-home-stats").count()), "packer Home: sending, no sales numbers");
+await navBtn(pack, "Замовлення").click();
+ok(await pack.getByRole("button", { name: "Без ТТН" }).isVisible() && !(await pack.getByRole("button", { name: "Нові", exact: true }).count()), "packer filters: only orders to send");
+
 cleanupTestData();
 const KNOWN_418 = errs.filter((e) => e.includes("React error #418"));
 if (KNOWN_418.length) console.log("warning: known hydration notice", KNOWN_418.length);

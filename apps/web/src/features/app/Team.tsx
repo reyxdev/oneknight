@@ -9,11 +9,12 @@ import { api, type Me } from "@/lib/api";
 import { playSound } from "@/lib/sound";
 import { Panel, useFlash, useFormat } from "@/features/oneknight/ui/kit";
 
-type Role = "owner" | "manager" | "marketer";
+type Role = "owner" | "manager" | "marketer" | "packer";
+type InviteRole = Exclude<Role, "owner">;
 type Member = { userId: string; name: string; email: string; role: Role; permissions: string[]; totp: boolean };
 type Invite = { id: string; role: Role; permissions: string[]; note: string | null; expiresAt: string };
 type Data = { members: Member[]; invites: Invite[]; all: string[] };
-const DEFAULTS: Record<"manager" | "marketer", string[]> = { manager: ["orders", "products", "reviews", "support"], marketer: ["analytics", "reviews", "site"] };
+const DEFAULTS: Record<InviteRole, string[]> = { manager: ["orders", "products", "reviews", "support"], marketer: ["analytics", "reviews", "site"], packer: ["shipping"] };
 
 export function TeamScreen({ me }: { me: Me }) {
   const d = useDict();
@@ -22,7 +23,7 @@ export function TeamScreen({ me }: { me: Me }) {
   const [flash, show] = useFlash();
   const [data, setData] = useState<Data | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
-  const [role, setRole] = useState<"manager" | "marketer">("manager");
+  const [role, setRole] = useState<InviteRole>("manager");
   const [perms, setPerms] = useState<string[]>(DEFAULTS.manager);
   const [note, setNote] = useState("");
   const [link, setLink] = useState<string | null>(null);
@@ -103,9 +104,10 @@ export function TeamScreen({ me }: { me: Me }) {
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label={t.role}>
               {(p) => (
-                <select {...p} className="input" value={role} onChange={(e) => { const r = e.target.value as "manager" | "marketer"; setRole(r); setPerms(DEFAULTS[r]); }}>
+                <select {...p} className="input" value={role} onChange={(e) => { const r = e.target.value as InviteRole; setRole(r); setPerms(DEFAULTS[r]); }}>
                   <option value="manager">{t.roles.manager}</option>
                   <option value="marketer">{t.roles.marketer}</option>
+                  <option value="packer">{t.roles.packer}</option>
                 </select>
               )}
             </Field>

@@ -55,11 +55,13 @@ export async function placeOrder(site: { id: string; organizationId: string }, i
 }
 
 /** Status change with stock bookkeeping: cancelling returns items to stock, reopening takes them again. */
-export async function setOrderStatus(orderId: string, orgIds: string[], status: OrderStatus, userId: string) {
+/** `from`: the change is allowed only from these statuses (a shipping-only member: confirmed / paid to shipped). */
+export async function setOrderStatus(orderId: string, orgIds: string[], status: OrderStatus, userId: string, from?: readonly OrderStatus[]) {
   return db.transaction(async (tx) => {
     const [o] = await tx.select().from(orders).where(and(eq(orders.id, orderId), inArray(orders.organizationId, orgIds))).for("update");
     if (!o) return { ok: false as const, error: "not_found" };
     if (o.status === status) return { ok: true as const };
+    if (from && !from.includes(o.status)) return { ok: false as const, error: "forbidden" };
     const restock = status === "cancelled" ? 1 : o.status === "cancelled" ? -1 : 0;
     if (restock) {
       // Marketplace items ("prom:123") are not local products and have no stock here.

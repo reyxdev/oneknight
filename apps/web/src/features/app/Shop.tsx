@@ -146,14 +146,15 @@ export function ProductsScreen({ tab }: { tab?: string | null }) {
   );
 }
 
-type OrderRow = { id: string; number: number; customerName: string; totalKop: number; status: Status; createdAt: string; source: string };
+/** `totalKop` is null without «Фінанси». */
+type OrderRow = { id: string; number: number; customerName: string; totalKop: number | null; status: Status; createdAt: string; source: string };
 type Status = "new" | "confirmed" | "paid" | "shipped" | "done" | "cancelled";
 type OrderFull = OrderRow & {
   externalId: string | null;
   waybillRef: string | null;
   customerPhone: string;
   customerEmail: string | null;
-  items: { productId: string; name: string; qty: number; priceKop: number }[];
+  items: { productId: string; name: string; qty: number; priceKop: number | null }[];
   delivery: { method: string; city?: string; branch?: string; address?: string };
   payment: string;
   comment: string | null;
@@ -163,7 +164,7 @@ type OrderFull = OrderRow & {
 };
 const FLOW: Status[] = ["new", "confirmed", "paid", "shipped", "done"];
 
-function OrderDetail({ id, onChanged }: { id: string; onChanged: () => void }) {
+function OrderDetail({ id, onChanged, shippingOnly }: { id: string; onChanged: () => void; shippingOnly: boolean }) {
   const d = useDict();
   const t = d.app.orders;
   const lang = useLang();
@@ -212,10 +213,13 @@ function OrderDetail({ id, onChanged }: { id: string; onChanged: () => void }) {
       <div className="ok-sub">{t.items}</div>
       <ul className="ok-list">
         {o.items.map((i) => (
-          <li key={i.productId}><span className="ok-grow">{i.name} × {i.qty}</span><span className="num">{money(i.priceKop * i.qty)}</span></li>
+          <li key={i.productId}><span className="ok-grow">{i.name} × {i.qty}</span>{i.priceKop !== null && <span className="num">{money(i.priceKop * i.qty)}</span>}</li>
         ))}
-        <li><b className="ok-grow">{t.total}</b><b className="num">{money(o.totalKop)}</b></li>
+        {o.totalKop !== null && <li><b className="ok-grow">{t.total}</b><b className="num">{money(o.totalKop)}</b></li>}
       </ul>
+      {shippingOnly ? (
+        (o.status === "confirmed" || o.status === "paid") && <div className="ok-actions"><button type="button" className="btn btn-sm" onClick={() => patch({ status: "shipped" })}>{t.markShipped}</button></div>
+      ) : (
       <div className="ok-actions">
         {next && o.status !== "cancelled" && <button type="button" className="btn btn-sm" onClick={() => patch({ status: next })}>{d.ok.orders.next.replace("{s}", d.ok.orders.status[next])}</button>}
         <label className="ok-select">
@@ -225,6 +229,7 @@ function OrderDetail({ id, onChanged }: { id: string; onChanged: () => void }) {
           </select>
         </label>
       </div>
+      )}
       {(o.delivery.method === "novaposhta" || o.delivery.method === "ukrposhta") && o.status !== "cancelled" && (
         o.waybillRef ? (
           <div className="ok-actions"><b className="num">{t.waybill}: {o.waybill}</b><WaybillPrint orderId={o.id} provider={o.delivery.method} /></div>
@@ -232,10 +237,10 @@ function OrderDetail({ id, onChanged }: { id: string; onChanged: () => void }) {
           <WaybillForm key={o.delivery.method} provider={o.delivery.method} orderId={o.id} notify={show} onCreated={() => { void load(); onChanged(); }} />
         ) : null
       )}
-      <form className="grid gap-3" onSubmit={(e) => { e.preventDefault(); void patch({ waybill: waybill.trim() || null, warranty: { enabled: w.enabled, ...(w.until ? { until: w.until } : {}), ...(w.note ? { note: w.note } : {}) } }, t.saved); }}>
+      <form className="grid gap-3" onSubmit={(e) => { e.preventDefault(); void patch({ waybill: waybill.trim() || null, ...(shippingOnly ? {} : { warranty: { enabled: w.enabled, ...(w.until ? { until: w.until } : {}), ...(w.note ? { note: w.note } : {}) } }) }, t.saved); }}>
         <Field label={t.waybill}>{(p) => <input {...p} className="input" inputMode="numeric" value={waybill} onChange={(e) => setWaybill(e.target.value)} />}</Field>
-        <Toggle checked={w.enabled} onChange={(v) => setW({ ...w, enabled: v })} label={t.warrantyOn} />
-        {w.enabled && (
+        {!shippingOnly && <Toggle checked={w.enabled} onChange={(v) => setW({ ...w, enabled: v })} label={t.warrantyOn} />}
+        {!shippingOnly && w.enabled && (
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label={t.warrantyUntil}>{(p) => <input {...p} className="input" type="date" value={w.until} onChange={(e) => setW({ ...w, until: e.target.value })} />}</Field>
             <Field label={t.warrantyNote}>{(p) => <input {...p} className="input" value={w.note} onChange={(e) => setW({ ...w, note: e.target.value })} />}</Field>
@@ -253,10 +258,12 @@ function OrderDetail({ id, onChanged }: { id: string; onChanged: () => void }) {
 }
 
 const FILTERS = ["all", "new", "nowaybill", "confirmed", "paid", "shipped", "done", "cancelled"] as const;
+/** «Комплектувальник» works only with orders waiting to be sent. */
+const SHIP_FILTERS = ["all", "nowaybill", "confirmed", "paid", "shipped"] as const;
 type Filter = (typeof FILTERS)[number];
 
 /** `tab` from the address: a filter ("new", "nowaybill", …) or "o-<id>" to open one order (links from Home). */
-export function OrdersScreen({ tab }: { tab?: string | null }) {
+export function OrdersScreen({ tab, shippingOnly = false }: { tab?: string | null; shippingOnly?: boolean }) {
   const d = useDict();
   const t = d.app.orders;
   const lang = useLang();
@@ -279,7 +286,7 @@ export function OrdersScreen({ tab }: { tab?: string | null }) {
     <div className="ok-screen">
       <div className="ok-h"><h3>{t.title}</h3></div>
       <div className="ok-chips" role="group" aria-label={d.ok.orders.state}>
-        {FILTERS.map((x) => (
+        {(shippingOnly ? SHIP_FILTERS : FILTERS).map((x) => (
           <button key={x} type="button" className="ok-chip" aria-pressed={filter === x} onClick={() => setFilter(x)}>{x === "all" ? t.all : x === "nowaybill" ? t.noWaybill : d.ok.orders.status[x]}</button>
         ))}
       </div>
@@ -294,7 +301,7 @@ export function OrdersScreen({ tab }: { tab?: string | null }) {
                   <button type="button" className="ok-row" aria-current={open === o.id} onClick={() => setOpen(o.id)}>
                     <span className="num ok-muted">#{o.number}</span>
                     <span className="ok-grow"><b>{o.customerName}</b><small>{f.ago(new Date(o.createdAt).getTime())}{o.source !== "site" ? ` · ${(t.sources as Record<string, string>)[o.source] ?? o.source}` : ""}</small></span>
-                    <span className="num">{formatUAH(o.totalKop / 100, lang)}</span>
+                    {o.totalKop !== null && <span className="num">{formatUAH(o.totalKop / 100, lang)}</span>}
                     <StatusPill status={o.status} />
                   </button>
                 </li>
@@ -302,7 +309,7 @@ export function OrdersScreen({ tab }: { tab?: string | null }) {
             </ul>
           )}
         </Panel>
-        {open && <OrderDetail id={open} key={open} onChanged={load} />}
+        {open && <OrderDetail id={open} key={open} onChanged={load} shippingOnly={shippingOnly} />}
       </div>
     </div>
   );

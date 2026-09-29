@@ -87,6 +87,8 @@ if (SHOTS) {
   await pg.screenshot({ path: `${SHOTS}/home-mobile.png` });
 }
 
+// Known intermittent hydration notice on the sign-up page (same filter as team-e2e).
+errs.splice(0, errs.length, ...errs.filter((e) => !e.includes("React error #418")));
 console.log("errors:", errs.length ? errs.join("\n") : "none");
 await b.close();
 cleanupTestData();

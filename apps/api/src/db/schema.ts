@@ -6,7 +6,7 @@ import { boolean, index, inet, integer, jsonb, pgEnum, pgTable, primaryKey, smal
  * Multi-tenant from the start: a user works inside organizations through memberships.
  */
 
-export const roleEnum = pgEnum("member_role", ["owner", "manager", "marketer"]);
+export const roleEnum = pgEnum("member_role", ["owner", "manager", "marketer", "packer"]);
 export const siteStatusEnum = pgEnum("site_status", ["building", "live", "paused"]);
 export const subStatusEnum = pgEnum("subscription_status", ["trial", "active", "grace", "suspended", "cancelled"]);
 export const ledgerKindEnum = pgEnum("ledger_kind", ["topup", "charge", "refund", "adjustment"]);

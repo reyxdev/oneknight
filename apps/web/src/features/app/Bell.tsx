@@ -46,7 +46,9 @@ export function Bell() {
 
   const unread = items.filter((n) => !n.read).length;
   const text = (n: N) => {
-    const tpl = (d as Record<string, unknown>)[n.key];
+    // Without «Фінанси» the API sends new orders without the sum.
+    const key = n.key === "newOrder" && n.params.total === undefined ? "newOrderNoSum" : n.key;
+    const tpl = (d as Record<string, unknown>)[key];
     return typeof tpl === "string" ? fmt(tpl, n.params) : n.key;
   };
   const markAll = async () => {

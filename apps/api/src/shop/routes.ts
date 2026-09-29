@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "../db/client.ts";
 import { orderEvents, orders, products, sites } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
-import { orgScope, type Permission } from "../auth/access.ts";
+import { SHIPPING_STATUSES, orderAccess, orgScope, type Permission } from "../auth/access.ts";
 import { audit } from "../audit.ts";
 import { Upload, saveImage } from "../files/store.ts";
 import { setOrderStatus } from "./service.ts";
@@ -110,36 +110,47 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get<{ Querystring: { status?: string } }>("/orders", async (req) => {
-    const orgs = await orgScope(req, "orders");
-    if (!orgs.length) return [];
+    const acc = await orderAccess(req);
+    if (!acc) return [];
+    const orgs = [acc.org];
     const st = z.enum(["new", "confirmed", "paid", "shipped", "done", "cancelled"]).safeParse(req.query.status);
     // "nowaybill": confirmed or paid, going by a carrier, no waybill yet («Що треба зробити» on Home).
     const filter = req.query.status === "nowaybill" ? needsWaybill() : st.success ? eq(orders.status, st.data) : undefined;
     return db
       .select({ id: orders.id, number: orders.number, customerName: orders.customerName, totalKop: orders.totalKop, status: orders.status, createdAt: orders.createdAt, siteId: orders.siteId, source: orders.source })
       .from(orders)
-      .where(and(inArray(orders.organizationId, orgs), filter))
+      .where(and(inArray(orders.organizationId, orgs), filter, acc.full ? undefined : inArray(orders.status, [...SHIPPING_STATUSES])))
       .orderBy(desc(orders.createdAt))
-      .limit(200);
+      .limit(200)
+      .then((rows) => (acc.finance ? rows : rows.map((r) => ({ ...r, totalKop: null }))));
   });
 
   app.get<{ Params: { id: string } }>("/orders/:id", async (req, reply) => {
-    const orgs = await orgScope(req, "orders");
-    if (!uuid.safeParse(req.params.id).success || !orgs.length) return reply.code(404).send({ error: "not_found" });
-    const [o] = await db.select().from(orders).where(and(eq(orders.id, req.params.id), inArray(orders.organizationId, orgs)));
+    const acc = await orderAccess(req);
+    if (!uuid.safeParse(req.params.id).success || !acc) return reply.code(404).send({ error: "not_found" });
+    const [o] = await db.select().from(orders).where(and(eq(orders.id, req.params.id), eq(orders.organizationId, acc.org), acc.full ? undefined : inArray(orders.status, [...SHIPPING_STATUSES])));
     if (!o) return reply.code(404).send({ error: "not_found" });
     const events = await db.select({ status: orderEvents.status, at: orderEvents.createdAt }).from(orderEvents).where(eq(orderEvents.orderId, o.id)).orderBy(asc(orderEvents.createdAt));
     const { ip: _ip, ...rest } = o;
-    return { ...rest, events };
+    // Without `finance`: no sums at all (total and item prices).
+    if (!acc.finance) return { ...rest, totalKop: null, items: rest.items.map((i) => ({ ...i, priceKop: null })), events, finance: false };
+    return { ...rest, events, finance: true };
   });
 
   app.patch<{ Params: { id: string } }>("/orders/:id", async (req, reply) => {
     const p = OrderPatch.safeParse(req.body);
-    const orgs = await orgScope(req, "orders");
-    if (!p.success || !uuid.safeParse(req.params.id).success || !orgs.length) return reply.code(400).send({ error: "invalid_input" });
+    const acc = await orderAccess(req);
+    if (!p.success || !uuid.safeParse(req.params.id).success || !acc) return reply.code(400).send({ error: "invalid_input" });
+    const orgs = [acc.org];
+    // Shipping only: mark confirmed / paid orders as sent and enter the waybill; nothing else.
+    if (!acc.full && ((p.data.status && p.data.status !== "shipped") || p.data.warranty)) return reply.code(403).send({ error: "forbidden" });
+    if (!acc.full) {
+      const [o] = await db.select({ status: orders.status }).from(orders).where(and(eq(orders.id, req.params.id), eq(orders.organizationId, acc.org)));
+      if (!o || !(SHIPPING_STATUSES as readonly string[]).includes(o.status)) return reply.code(404).send({ error: "not_found" });
+    }
     if (p.data.status) {
-      const r = await setOrderStatus(req.params.id, orgs, p.data.status, req.auth!.user.id);
-      if (!r.ok) return reply.code(r.error === "not_found" ? 404 : 409).send({ error: r.error });
+      const r = await setOrderStatus(req.params.id, orgs, p.data.status, req.auth!.user.id, acc.full ? undefined : ["confirmed", "paid"]);
+      if (!r.ok) return reply.code(r.error === "not_found" ? 404 : r.error === "forbidden" ? 403 : 409).send({ error: r.error });
     }
     if (p.data.waybill !== undefined || p.data.warranty) {
       await db

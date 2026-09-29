@@ -49,7 +49,7 @@ export const tgCall: TgCall = async (method, body) => {
 
 export const KINDS = ["order", "review", "site", "billing", "ticket", "team"] as const;
 /** Notification kinds that need a permission in the business; the rest go to every member who opted in. */
-const KIND_PERM: Record<string, string> = { order: "orders", review: "reviews", billing: "billing", ticket: "support", team: "team" };
+export const KIND_PERM: Record<string, string> = { order: "orders", review: "reviews", billing: "billing", ticket: "support", team: "team" };
 const LINK_MINUTES = 15;
 
 let botUsername: string | null = null;
@@ -128,9 +128,10 @@ export function startBotPolling(log: { warn: (o: object, m: string) => void }, c
 
 const money = (v: unknown) => new Intl.NumberFormat("uk-UA").format(Number(v) || 0);
 /** Plain Ukrainian text for each notification key (the account shows the same events). */
-export function notificationText(key: string, p: Record<string, any>): string | null {
+export function notificationText(key: string, p: Record<string, any>, finance = true): string | null {
   switch (key) {
-    case "newOrder": return `🛒 Нове замовлення №${p.n} на ${money(p.total)} грн`;
+    // Without `finance` the person does not see sums, in Telegram either.
+    case "newOrder": return finance ? `🛒 Нове замовлення №${p.n} на ${money(p.total)} грн` : `🛒 Нове замовлення №${p.n}`;
     case "newReview": return `⭐ Новий відгук від ${p.name} (${p.rating}★)`;
     case "siteDown": return `⚠️ ${p.domain} недоступний${p.error ? ` (${p.error})` : ""}`;
     case "siteUp": return `✅ ${p.domain} знову працює`;
@@ -163,8 +164,7 @@ export async function deliverTelegram(call: TgCall = tgCall) {
   for (const n of pending) {
     const [claimed] = await db.update(notifications).set({ telegramDone: true }).where(and(eq(notifications.id, n.id), eq(notifications.telegramDone, false))).returning({ id: notifications.id });
     if (!claimed) continue;
-    const text = notificationText(n.key, n.params as Record<string, unknown>);
-    if (!text) continue;
+    if (!notificationText(n.key, n.params as Record<string, unknown>)) continue;
     const people = await db
       .select({ chatId: telegramLinks.chatId, kinds: telegramLinks.kinds, role: memberships.role, permissions: memberships.permissions, org: organizations.name })
       .from(telegramLinks)
@@ -175,6 +175,7 @@ export async function deliverTelegram(call: TgCall = tgCall) {
       if (!p.kinds.includes(n.kind)) continue;
       const perm = KIND_PERM[n.kind];
       if (perm && p.role !== "owner" && !p.permissions.includes(perm)) continue;
+      const text = notificationText(n.key, n.params as Record<string, unknown>, p.role === "owner" || p.permissions.includes("finance"))!;
       const r = await call("sendMessage", { chat_id: p.chatId, text: `${p.org}\n${text}`, disable_web_page_preview: true });
       if (r.ok) sent++;
       // The person blocked the bot or deleted the chat: stop trying.

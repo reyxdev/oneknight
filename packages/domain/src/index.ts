@@ -5,7 +5,7 @@
 export type ID = string;
 export type Money = number; // UAH, integer
 
-export type Role = "owner" | "manager" | "marketer";
+export type Role = "owner" | "manager" | "marketer" | "packer";
 export type Permission = "orders" | "products" | "reviews" | "analytics" | "site" | "modules" | "billing" | "team";
 export type Member = { id: ID; name: string; role: Role; permissions: Permission[] };
 

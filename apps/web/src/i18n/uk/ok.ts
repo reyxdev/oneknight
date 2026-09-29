@@ -278,7 +278,7 @@ export const ok = {
   settings: {
     title: "Налаштування",
     team: "Команда",
-    roles: { owner: "Власник", manager: "Менеджер", marketer: "Маркетолог" },
+    roles: { owner: "Власник", manager: "Менеджер", marketer: "Маркетолог", packer: "Комплектувальник" },
     perms: { orders: "Замовлення", products: "Товари", reviews: "Відгуки", analytics: "Аналітика", site: "Сайт", modules: "Модулі", billing: "Оплата", team: "Команда" },
     ownerAll: "Власник має всі права",
     security: "Безпека",

@@ -14,7 +14,8 @@ type Go = (screen: string, tab?: string) => void;
 type Period = "today" | "7" | "30" | "90";
 const PERIODS: Period[] = ["today", "7", "30", "90"];
 const PERIOD_KEY = "ok.home.period";
-type Sales = { revenueKop: number; orders: number; cancelled: number };
+/** Sums are null without «Фінанси». */
+type Sales = { revenueKop: number | null; orders: number; cancelled: number };
 type Visits = { sessions: number; orders: number };
 type Todo = { id: string; key: string; tone: "bad" | "warn"; params: Record<string, string | number>; screen: string; tab?: string };
 type Insight = { id: string; tone: "bad" | "warn" | "good"; key: string; params: Record<string, string | number>; action?: string };
@@ -29,10 +30,10 @@ const STEPS: { id: Step; screen: string; tab?: string }[] = [
 ];
 type Dash = {
   period: Period;
-  sales: { cur: Sales; prev: Sales; series: { label: string; revenueKop: number; orders: number }[] } | null;
+  sales: { cur: Sales; prev: Sales; series: { label: string; revenueKop: number | null; orders: number }[] } | null;
   traffic: { cur: Visits; prev: Visits } | null;
   goal: { goalKop: number | null; monthKop: number; forecastKop: number | null; canEdit: boolean } | null;
-  ship: { list: { id: string; number: number; customerName: string; totalKop: number; status: "confirmed" | "paid"; waybill: string | null; method: string }[]; printable: number } | null;
+  ship: { list: { id: string; number: number; customerName: string; totalKop: number | null; status: "confirmed" | "paid"; waybill: string | null; method: string }[]; printable: number } | null;
   todo: Todo[];
   steps: Record<Step, boolean> | null;
   reviews: { id: string; authorName: string; rating: number; text: string; status: string; createdAt: string }[] | null;
@@ -200,7 +201,7 @@ function ShipToday({ ship, go, notify }: { ship: NonNullable<Dash["ship"]>; go: 
                 <button type="button" className="ok-row" onClick={() => go("orders", `o-${o.id}`)}>
                   <span className="num ok-muted">#{o.number}</span>
                   <span className="ok-grow"><b>{o.customerName}</b><small>{(d.app.orders.methods as Record<string, string>)[o.method] ?? o.method}{o.waybill ? ` · ${o.waybill}` : ""}</small></span>
-                  <span className="num">{formatUAH(o.totalKop / 100, lang)}</span>
+                  {o.totalKop !== null && <span className="num">{formatUAH(o.totalKop / 100, lang)}</span>}
                   {o.waybill ? <StatusPill status={o.status} /> : <span className="ok-pill" data-s="new">{t.noWaybill}</span>}
                 </button>
               </li>
@@ -280,6 +281,8 @@ export function HomeScreen({ me, go }: { me: Me; go: Go }) {
   const conv = (x: Visits | undefined) => (x && x.sessions ? x.orders / x.sessions : null);
   const cancelRate = (x: Sales) => (x.orders + x.cancelled ? x.cancelled / (x.orders + x.cancelled) : 0);
   const canProducts = me.permissions.includes("products");
+  const canAnalytics = me.permissions.includes("analytics");
+  const withMoney = s?.cur.revenueKop !== null;
   const series = s?.series ?? [];
   const axis = (l: string) => (period === "today" ? `${l}:00` : f.date(new Date(`${l}T12:00:00`).getTime()));
 
@@ -307,18 +310,22 @@ export function HomeScreen({ me, go }: { me: Me; go: Go }) {
 
       {data && (s || v) && (
         <div className="ok-stats ok-home-stats">
-          {s && <Stat label={h.revenue} icon="card" value={money(s.cur.revenueKop)} sub={<Delta cur={s.cur.revenueKop} prev={s.prev.revenueKop} />} />}
+          {s && s.cur.revenueKop !== null && <Stat label={h.revenue} icon="card" value={money(s.cur.revenueKop)} sub={<Delta cur={s.cur.revenueKop} prev={s.prev.revenueKop ?? 0} />} />}
           {s && <Stat label={h.orders} icon="cart" value={f.num(s.cur.orders)} sub={<Delta cur={s.cur.orders} prev={s.prev.orders} />} />}
-          <Stat label={h.visits} icon="eye" value={v ? f.num(v.cur.sessions) : "—"} sub={v ? <Delta cur={v.cur.sessions} prev={v.prev.sessions} /> : <button type="button" className="ok-link" onClick={() => go("modules")}>{t.dash.noAnalytics}</button>} />
-          <Stat label={t.dash.conversion} icon="chart" value={conv(v?.cur) === null ? "—" : f.pct(conv(v?.cur)!)} />
+          {canAnalytics && <Stat label={h.visits} icon="eye" value={v ? f.num(v.cur.sessions) : "—"} sub={v ? <Delta cur={v.cur.sessions} prev={v.prev.sessions} /> : <button type="button" className="ok-link" onClick={() => go("modules")}>{t.dash.noAnalytics}</button>} />}
+          {canAnalytics && <Stat label={t.dash.conversion} icon="chart" value={conv(v?.cur) === null ? "—" : f.pct(conv(v?.cur)!)} />}
           {s && <Stat label={h.cancelled} icon="close" value={f.pct(cancelRate(s.cur))} sub={<Delta cur={cancelRate(s.cur)} prev={cancelRate(s.prev)} lowerIsBetter points />} />}
         </div>
       )}
 
       {s && (
         <div className="ok-grid-2">
-          <Panel title={h.chart}>
-            <AreaChart a={series.map((x) => x.revenueKop / 100)} b={series.map((x) => x.orders)} labelA={h.revenue} labelB={h.orders} />
+          <Panel title={withMoney ? h.chart : h.orders}>
+            {withMoney ? (
+              <AreaChart a={series.map((x) => (x.revenueKop ?? 0) / 100)} b={series.map((x) => x.orders)} labelA={h.revenue} labelB={h.orders} />
+            ) : (
+              <AreaChart a={series.map((x) => x.orders)} labelA={h.orders} />
+            )}
             {series.length > 1 && <p className="ok-axis ok-muted"><span>{axis(series[0]!.label)}</span><span>{axis(series[series.length - 1]!.label)}</span></p>}
           </Panel>
           {data?.goal && <Goal key={data.goal.goalKop ?? "none"} g={data.goal} onSaved={load} />}

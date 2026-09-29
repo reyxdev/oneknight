@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "../db/client.ts";
 import { integrations, orders } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
-import { orgScope } from "../auth/access.ts";
+import { SHIPPING_STATUSES, orderAccess, orgScope } from "../auth/access.ts";
 import { hasModule } from "../billing/service.ts";
 import { decrypt, encrypt } from "../security/crypto.ts";
 import { audit } from "../audit.ts";
@@ -201,12 +201,13 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
     });
 
     app.get<{ Params: { orderId: string } }>("/ukrposhta/draft/:orderId", async (req, reply) => {
-      const [org] = await orgScope(req, "orders");
+      const acc = await orderAccess(req);
+      const org = acc?.org;
       if (!org || !z.string().uuid().safeParse(req.params.orderId).success) return reply.code(404).send({ error: "not_found" });
       const moduleActive = await hasModule(org, "ukrposhta");
       const u = await upOf(org);
       if (!moduleActive || !u) return { moduleActive, connected: !!u };
-      const o = await orderOf(org, req.params.orderId);
+      const o = await orderOf(acc!, req.params.orderId);
       if (!o) return reply.code(404).send({ error: "not_found" });
       const s = u.settings;
       // A 5-digit postcode in the branch or address points at the exact office; otherwise suggest cities by name.
@@ -221,7 +222,8 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
         weight: s.weight ?? 1,
         size: { length: s.length ?? 30, width: s.width ?? 20, height: s.height ?? 10 },
         description: s.description ?? "",
-        cod: o.payment === "cod" ? o.totalKop / 100 : 0,
+        // Without `finance` the amount stays hidden (null); the waybill still gets it from the order on the server.
+        cod: o.payment === "cod" ? (acc!.finance ? o.totalKop / 100 : null) : 0,
       };
     });
 
@@ -235,13 +237,14 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
     });
 
     app.post("/ukrposhta/waybill", { config: { rateLimit: { max: 30, timeWindow: "10 minutes" } } }, async (req, reply) => {
-      const [org] = await orgScope(req, "orders");
+      const acc = await orderAccess(req);
+      const org = acc?.org;
       const p = UpWaybill.safeParse(req.body);
       if (!org || !p.success) return reply.code(400).send({ error: "invalid_input" });
       if (!(await hasModule(org, "ukrposhta"))) return reply.code(403).send({ error: "module_not_active" });
       const u = await upOf(org);
       if (!u) return reply.code(409).send({ error: "not_connected" });
-      const o = await orderOf(org, p.data.orderId);
+      const o = await orderOf(acc!, p.data.orderId);
       if (!o) return reply.code(404).send({ error: "not_found" });
       if (o.waybill) return reply.code(409).send({ error: "already_has_waybill" });
       const where = and(eq(integrations.organizationId, org), eq(integrations.provider, "ukrposhta"));
@@ -275,10 +278,11 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
 
     /** 100x100 label, or the same label on A4 (kind=document). The PDF is fetched on the server with the stored token. */
     app.get<{ Params: { orderId: string }; Querystring: { kind?: string } }>("/ukrposhta/print/:orderId", async (req, reply) => {
-      const [org] = await orgScope(req, "orders");
+      const acc = await orderAccess(req);
+      const org = acc?.org;
       if (!org || !z.string().uuid().safeParse(req.params.orderId).success) return reply.code(404).send({ error: "not_found" });
       const u = await upOf(org);
-      const o = await orderOf(org, req.params.orderId);
+      const o = await orderOf(acc!, req.params.orderId);
       if (!u || !o?.waybill) return reply.code(404).send({ error: "not_found" });
       const pdf = await upSticker(u.creds, o.waybillRef ?? o.waybill, req.query.kind !== "marking", up);
       if (!pdf) return reply.code(409).send({ error: "print_failed" });
@@ -296,19 +300,21 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
       return { city, warehouse, cities, warehouses };
     }
 
-    async function orderOf(org: string, id: string) {
-      const [o] = await db.select().from(orders).where(and(eq(orders.id, id), inArray(orders.organizationId, [org])));
+    /** The order if this member may work with it: every order with `orders`, only ones waiting to be sent with `shipping`. */
+    async function orderOf(acc: { org: string; full: boolean }, id: string) {
+      const [o] = await db.select().from(orders).where(and(eq(orders.id, id), eq(orders.organizationId, acc.org), acc.full ? undefined : inArray(orders.status, [...SHIPPING_STATUSES])));
       return o ?? null;
     }
 
     /** Everything the "Оформити ТТН" form needs, prefilled: last sender address, recipient from the order, parcel. */
     app.get<{ Params: { orderId: string } }>("/novaposhta/draft/:orderId", async (req, reply) => {
-      const [org] = await orgScope(req, "orders");
+      const acc = await orderAccess(req);
+      const org = acc?.org;
       if (!org || !z.string().uuid().safeParse(req.params.orderId).success) return reply.code(404).send({ error: "not_found" });
       const moduleActive = await hasModule(org, "novaposhta");
       const n = await np(org);
       if (!moduleActive || !n) return { moduleActive, connected: !!n };
-      const o = await orderOf(org, req.params.orderId);
+      const o = await orderOf(acc!, req.params.orderId);
       if (!o) return reply.code(404).send({ error: "not_found" });
       const s = n.settings;
       return {
@@ -318,7 +324,7 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
         recipient: await resolveRecipient(n.creds.apiKey, o),
         weight: s.weight ?? 1,
         description: s.description ?? "",
-        cod: o.payment === "cod" ? o.totalKop / 100 : 0,
+        cod: o.payment === "cod" ? (acc!.finance ? o.totalKop / 100 : null) : 0,
       };
     });
 
@@ -333,13 +339,14 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
 
     /** Creates the waybill from the form. The sender address, weight and description become the next defaults. */
     app.post("/novaposhta/waybill", { config: { rateLimit: { max: 30, timeWindow: "10 minutes" } } }, async (req, reply) => {
-      const [org] = await orgScope(req, "orders");
+      const acc = await orderAccess(req);
+      const org = acc?.org;
       const p = Waybill.safeParse(req.body);
       if (!org || !p.success) return reply.code(400).send({ error: "invalid_input" });
       if (!(await hasModule(org, "novaposhta"))) return reply.code(403).send({ error: "module_not_active" });
       const n = await np(org);
       if (!n) return reply.code(409).send({ error: "not_connected" });
-      const o = await orderOf(org, p.data.orderId);
+      const o = await orderOf(acc!, p.data.orderId);
       if (!o) return reply.code(404).send({ error: "not_found" });
       if (o.waybill) return reply.code(409).send({ error: "already_has_waybill" });
 
@@ -360,10 +367,11 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
      * server so the API key never reaches the browser.
      */
     app.get<{ Params: { orderId: string }; Querystring: { kind?: string } }>("/novaposhta/print/:orderId", async (req, reply) => {
-      const [org] = await orgScope(req, "orders");
+      const acc = await orderAccess(req);
+      const org = acc?.org;
       if (!org || !z.string().uuid().safeParse(req.params.orderId).success) return reply.code(404).send({ error: "not_found" });
       const n = await np(org);
-      const o = await orderOf(org, req.params.orderId);
+      const o = await orderOf(acc!, req.params.orderId);
       if (!n || !o?.waybill) return reply.code(404).send({ error: "not_found" });
       const kind = req.query.kind === "marking" ? "printMarking100x100" : "printDocument";
       const pdf = await printPdf(`https://my.novaposhta.ua/orders/${kind}/orders[]/${encodeURIComponent(o.waybillRef ?? o.waybill)}/type/pdf/apiKey/${n.creds.apiKey}`);
@@ -376,7 +384,8 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
      * and Ukrposhta together, merged into one PDF. Orders whose document could not be fetched are listed in a header.
      */
     app.get<{ Querystring: { kind?: string } }>("/print-ready", { config: { rateLimit: { max: 20, timeWindow: "10 minutes" } } }, async (req, reply) => {
-      const [org] = await orgScope(req, "orders");
+      const acc = await orderAccess(req);
+      const org = acc?.org;
       if (!org) return reply.code(404).send({ error: "not_found" });
       const marking = req.query.kind === "marking";
       const list = (await toShip(org)).filter((o) => o.waybill && CARRIERS.includes(o.method));

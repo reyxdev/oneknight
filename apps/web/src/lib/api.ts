@@ -26,9 +26,9 @@ export type Me = {
   phone: string;
   isAdmin: boolean;
   totpEnabled: boolean;
-  organizations: { id: string; name: string; role: "owner" | "manager" | "marketer" }[];
+  organizations: { id: string; name: string; role: "owner" | "manager" | "marketer" | "packer" }[];
   activeOrgId: string | null;
-  role: "owner" | "manager" | "marketer" | null;
+  role: "owner" | "manager" | "marketer" | "packer" | null;
   permissions: string[];
   modules: string[];
 };

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "../db/client.ts";
 import { analyticsEvents, sites } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
-import { orgScope } from "../auth/access.ts";
+import { orgScope, activeMembership } from "../auth/access.ts";
 import { hasModule } from "../billing/service.ts";
 import { channelOf } from "./channel.ts";
 
@@ -112,7 +112,10 @@ export const analyticsRoutes: FastifyPluginAsync = async (app) => {
       const d = new Date(Date.now() - (days - 1 - i) * 86_400_000).toLocaleDateString("sv-SE", { timeZone: "Europe/Kyiv" });
       return byDate.get(d) ?? { date: d, sessions: 0, orders: 0 };
     });
-    return { days, totals: { ...tot!, conversion: tot!.sessions ? tot!.orders / tot!.sessions : 0 }, series: filled, sources };
+    // Without `finance` the money columns are empty (null), the counts stay.
+    const finance = (await activeMembership(req))?.permissions.includes("finance") ?? false;
+    const totals = { ...tot!, conversion: tot!.sessions ? tot!.orders / tot!.sessions : 0, ...(finance ? {} : { revenueKop: null }) };
+    return { days, totals, series: filled, sources: finance ? sources : sources.map((s) => ({ ...s, revenueKop: null })), finance };
   });
 };
 

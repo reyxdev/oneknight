@@ -4,14 +4,14 @@ import { z } from "zod";
 import { db } from "../db/client.ts";
 import { invites, memberships, notifications, organizations, sessions, users } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
-import { PERMISSIONS, orgScope, type Permission } from "../auth/access.ts";
+import { INVITE_ROLES, PERMISSIONS, orgScope, type Permission } from "../auth/access.ts";
 import { randomToken, sha256 } from "../security/crypto.ts";
 import { audit } from "../audit.ts";
 
 const uuid = z.string().uuid();
 const Perms = z.array(z.enum(PERMISSIONS)).max(PERMISSIONS.length);
-const NewInvite = z.object({ role: z.enum(["manager", "marketer"]), permissions: Perms, note: z.string().trim().max(100).optional() });
-const Update = z.object({ role: z.enum(["manager", "marketer"]).optional(), permissions: Perms.optional() });
+const NewInvite = z.object({ role: z.enum(INVITE_ROLES), permissions: Perms, note: z.string().trim().max(100).optional() });
+const Update = z.object({ role: z.enum(INVITE_ROLES).optional(), permissions: Perms.optional() });
 const INVITE_DAYS = 7;
 
 /** /api/team: members, permissions and invitation links of the active organization (needs "team"). */

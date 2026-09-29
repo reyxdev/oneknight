@@ -12,9 +12,9 @@ import { useBilling } from "./Billing";
 import { useSites } from "./SiteScreen";
 
 type Data = {
-  totals: { sessions: number; pageviews: number; leads: number; orders: number; revenueKop: number; conversion: number } | null;
+  totals: { sessions: number; pageviews: number; leads: number; orders: number; revenueKop: number | null; conversion: number } | null;
   series: { date: string; sessions: number; orders: number }[];
-  sources: { channel: string; campaign: string | null; sessions: number; leads: number; orders: number; revenueKop: number; source: string | null; medium: string | null }[];
+  sources: { channel: string; campaign: string | null; sessions: number; leads: number; orders: number; revenueKop: number | null; source: string | null; medium: string | null }[];
 };
 
 export function AnalyticsScreen({ goModules }: { goModules: () => void }) {
@@ -64,7 +64,7 @@ export function AnalyticsScreen({ goModules }: { goModules: () => void }) {
             <Stat label={t.visits} icon="eye" value={f.num(tot.sessions)} />
             <Stat label={t.leads} icon="chat" value={f.num(tot.leads)} />
             <Stat label={t.orders} icon="cart" value={f.num(tot.orders)} />
-            <Stat label={t.revenue} icon="card" value={formatUAH(tot.revenueKop / 100, lang)} />
+            {tot.revenueKop !== null && <Stat label={t.revenue} icon="card" value={formatUAH(tot.revenueKop / 100, lang)} />}
             <Stat label={t.conversion} icon="chart" value={f.pct(tot.conversion)} />
           </div>
           <Panel title={t.chart}>

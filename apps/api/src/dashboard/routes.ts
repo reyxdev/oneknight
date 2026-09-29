@@ -90,17 +90,26 @@ export const dashboardRoutes: FastifyPluginAsync = async (app) => {
     const prevFrom = new Date(from.getTime() - span);
     const prevTo = new Date(now.getTime() - span);
 
+    // Without `finance` every sum is null: counts stay, money is not sent at all.
+    const finance = can("finance");
+    const noMoney = <T extends { revenueKop: number }>(x: T) => (finance ? x : { ...x, revenueKop: null });
     let salesBlock = null;
     let goal = null;
     let ship = null;
     if (can("orders")) {
-      salesBlock = { cur: await sales(org, from, now), prev: await sales(org, prevFrom, prevTo), series: await series(org, period, from, now) };
+      const cur = await sales(org, from, now);
+      const prev = await sales(org, prevFrom, prevTo);
+      salesBlock = { cur: noMoney(cur), prev: noMoney(prev), series: (await series(org, period, from, now)).map(noMoney) };
+    }
+    if (can("orders") && finance) {
       const [o] = await db.select({ goalKop: organizations.goalKop }).from(organizations).where(eq(organizations.id, org));
       const monthKop = (await sales(org, starts.month, now)).revenueKop;
       const part = (now.getTime() - starts.month.getTime()) / (starts.next.getTime() - starts.month.getTime());
       // A forecast from the first two days of a month would be noise.
       goal = { goalKop: o?.goalKop ?? null, monthKop, forecastKop: part >= 0.1 ? Math.round(monthKop / part) : null, canEdit: m.role === "owner" };
-      const list = await toShip(org);
+    }
+    if (can("orders") || can("shipping")) {
+      const list = (await toShip(org)).map((x) => (finance ? x : { ...x, totalKop: null }));
       ship = { list, printable: list.filter((x) => x.waybill && CARRIERS.includes(x.method)).length };
     }
     const analytics = can("analytics") && (await hasModule(org, "analytics"));

@@ -4,7 +4,8 @@ import { z } from "zod";
 import { db } from "../db/client.ts";
 import { notifications, sites } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
-import { orgScope } from "../auth/access.ts";
+import { activeMembership, orgScope, type Permission } from "../auth/access.ts";
+import { KIND_PERM } from "../notify/bot.ts";
 import { lastChecks } from "../monitor/scheduler.ts";
 import { sitesWithStats } from "./stats.ts";
 
@@ -22,16 +23,26 @@ export const siteRoutes: FastifyPluginAsync = async (app) => {
     return lastChecks(site.id, new Date(Date.now() - hours * 3600_000));
   });
 
+  /** The bell: only kinds the member may see (same rule as Telegram); without `finance`, no order sums. */
   app.get("/notifications", async (req) => {
-    const orgs = await orgScope(req);
-    if (!orgs.length) return [];
+    const m = await activeMembership(req);
+    if (!m) return [];
+    const orgs = [m.orgId];
+    const finance = m.permissions.includes("finance");
     return db
       .select({ id: notifications.id, kind: notifications.kind, key: notifications.key, params: notifications.params, read: notifications.readAt, at: notifications.createdAt })
       .from(notifications)
       .where(inArray(notifications.organizationId, orgs))
       .orderBy(desc(notifications.createdAt))
       .limit(30)
-      .then((rows) => rows.map((r) => ({ ...r, read: r.read !== null })));
+      .then((rows) =>
+        rows
+          .filter((r) => !KIND_PERM[r.kind] || m.permissions.includes(KIND_PERM[r.kind] as Permission))
+          .map((r) => {
+            const { total: _t, ...rest } = r.params as Record<string, unknown>;
+            return { ...r, params: finance || r.key !== "newOrder" ? r.params : rest, read: r.read !== null };
+          }),
+      );
   });
 
   app.post("/notifications/read", async (req) => {
