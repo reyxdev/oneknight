@@ -721,6 +721,8 @@ export const app: Dict["app"] = {
     kindsTitle: "What to send",
     kinds: { order: "Orders", review: "Reviews", site: "Website status", billing: "Payments", ticket: "Support replies", team: "Team" },
   },
+  search: { label: "Search", placeholder: "Search: #, name, phone, product", orders: "Orders", products: "Products", empty: "Nothing found", hidden: "hidden" },
+  keys: { title: "Keys", search: "Search", new: "New product (in «Products»)", arrows: "Pick in search results", esc: "Close a window or the search", help: "This list" },
   toast: { undo: "Undo", close: "Close" },
   newOrders: { one: "New order", many: "New orders: {n}", confirm: "Confirm", open: "Open" },
   business: {

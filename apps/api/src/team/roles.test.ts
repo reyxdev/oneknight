@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { buildApp } from "../app.ts";
 import { cleanupTestUsers } from "../test-utils.ts";
 import { db, sql } from "../db/client.ts";
-import { notifications, orders, sites } from "../db/schema.ts";
+import { notifications, orders, products, sites } from "../db/schema.ts";
 import { notificationText } from "../notify/bot.ts";
 
 const app = await buildApp({ logger: false });
@@ -120,4 +120,27 @@ test("new orders while the panel is open: since the last check, sums only with �
   assert.equal((await fresh(mgr.cookie, first.now)).orders[0].totalKop, null);
   const pack = await join(owner, "packer", ["shipping"], "pack3");
   assert.equal((await fresh(pack.cookie, first.now)).newCount, 0, "new orders are not the packer's");
+});
+
+test("global search: orders by number, name or phone, products by name, within permissions", async () => {
+  const owner = await register("o4");
+  const [site] = await db.insert(sites).values({ organizationId: owner.org, domain: `${tag}4.shop.com.ua`, name: "S" }).returning();
+  const base = { organizationId: owner.org, siteId: site!.id, items: [], totalKop: 100, payment: "cod", delivery: { method: "pickup" } };
+  const [a, b] = await db
+    .insert(orders)
+    .values([{ ...base, customerName: "Оксана Шевчук", customerPhone: "+38 (067) 555-12-34" }, { ...base, customerName: "Петро", customerPhone: "+380501112233", status: "confirmed" as const }])
+    .returning();
+  await db.insert(products).values({ organizationId: owner.org, siteId: site!.id, name: "Хлібниця 100% дуб", priceKop: 100 });
+  const search = async (cookie: string, q: string) => (await app.inject({ url: `/api/shop/search?q=${encodeURIComponent(q)}`, headers: { cookie } })).json();
+  assert.deepEqual((await search(owner.cookie, "шевч")).orders.map((o: { id: string }) => o.id), [a!.id], "by name, any case");
+  assert.deepEqual((await search(owner.cookie, "0675551234")).orders.map((o: { id: string }) => o.id), [a!.id], "by phone digits");
+  assert.deepEqual((await search(owner.cookie, `№${b!.number}`)).orders.map((o: { id: string }) => o.id), [b!.id], "by number");
+  assert.equal((await search(owner.cookie, "100%")).products.length, 1, "% is literal, not a wildcard");
+  assert.equal((await search(owner.cookie, "x")).orders.length, 0, "at least 2 characters");
+  const pack = await join(owner, "packer", ["shipping"], "pack4");
+  const p = await search(pack.cookie, "о");
+  assert.deepEqual(p, { orders: [], products: [] });
+  assert.deepEqual((await search(pack.cookie, "Петро")).orders.map((o: { id: string }) => o.id), [b!.id], "the packer finds orders to send");
+  assert.deepEqual((await search(pack.cookie, "Оксана")).orders, [], "but not new ones");
+  assert.deepEqual((await search(pack.cookie, "Хліб")).products, [], "no products permission");
 });

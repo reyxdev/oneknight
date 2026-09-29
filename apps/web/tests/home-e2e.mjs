@@ -77,6 +77,27 @@ await pg.getByLabel("Ціль на місяць, грн").fill("50000");
 await pg.getByRole("button", { name: "Зберегти ціль" }).click();
 ok(await seen(pg.getByText(/Виконано \d+%/)), "monthly goal with the done percentage");
 
+// «/» search: by name, ↓ Enter opens the order; «?» shows the keys; «N» on «Товари» opens a new product.
+await pg.locator("body").click({ position: { x: 5, y: 300 } });
+await pg.keyboard.press("/");
+ok(await pg.evaluate(() => document.activeElement?.getAttribute("aria-label") === "Пошук"), "«/» focuses the search");
+await pg.keyboard.type("Олена Ков");
+await pg.locator(".app-search-hit").first().waitFor();
+ok((await pg.locator(".app-search-hit").count()) >= 1, "search finds the customer's orders");
+if (SHOTS) await pg.screenshot({ path: `${SHOTS}/search.png` });
+await pg.keyboard.press("Enter");
+ok(await seen(pg.locator(".ok-split[data-open='true']")), "Enter opens the order");
+await pg.locator("body").click({ position: { x: 5, y: 300 } });
+await pg.keyboard.press("Shift+Slash");
+ok(await seen(pg.getByRole("dialog", { name: "Клавіші" })), "«?» shows the keys");
+if (SHOTS) await pg.screenshot({ path: `${SHOTS}/keys.png` });
+await pg.keyboard.press("Escape");
+await pg.locator(".ok-side").getByRole("button", { name: "Товари", exact: true }).click();
+await pg.locator("body").click({ position: { x: 5, y: 300 } });
+await pg.keyboard.press("n");
+ok(await seen(pg.getByLabel("Назва")), "«N» opens a new product");
+await pg.locator(".ok-side").getByRole("button", { name: "Головна", exact: true }).click();
+
 // A customer orders on the website while the panel is open: window with the order, the tab shows the count.
 const siteKey = await pg.evaluate(async () => (await (await fetch("/api/sites")).json())[0].publicKey);
 const prodId = (await (await fetch(`${BASE}/api/public/products`, { headers: { "x-site-key": siteKey } })).json())[0].id;

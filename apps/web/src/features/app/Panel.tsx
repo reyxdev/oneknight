@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDict, useLang } from "@/i18n/provider";
 import { withLang } from "@/i18n";
 import { Icon, type IconName } from "@/components/ui/Icon";
@@ -9,6 +9,8 @@ import type { Me } from "@/lib/api";
 import { AdminLeads } from "./Leads";
 import { Toasts } from "./Toasts";
 import { NewOrders } from "./NewOrders";
+import { Search } from "./Search";
+import { Modal } from "@/components/ui/Modal";
 import { SiteScreen } from "./SiteScreen";
 import { Clients } from "./Clients";
 import { Bell } from "./Bell";
@@ -122,6 +124,28 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
   );
   const groups = GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => allowed(i.id)) })).filter((g) => g.items.length > 0);
   const foot = FOOT.filter((i) => allowed(i.id));
+  // Keys: «/» search, «N» new (on a screen that has it), «?» the list of keys. Not while typing in a field.
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [keysOpen, setKeysOpen] = useState(false);
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+      const el = e.target as HTMLElement;
+      if (el.closest("input, textarea, select, [contenteditable='true'], dialog[open]")) return;
+      if (e.code === "Slash" && e.shiftKey) {
+        e.preventDefault();
+        setKeysOpen(true);
+      } else if (e.code === "Slash" && searchRef.current) {
+        e.preventDefault();
+        searchRef.current.focus();
+      } else if (e.code === "KeyN" && !e.shiftKey && screen === "products" && allowed("products")) {
+        e.preventDefault();
+        go("products", "new");
+      }
+    };
+    window.addEventListener("keydown", on);
+    return () => window.removeEventListener("keydown", on);
+  });
   // Browser tab: «(3) Замовлення · ONEKNIGHT» while orders wait for confirmation.
   useEffect(() => {
     const name = label(screen) ?? "";
@@ -132,6 +156,24 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
 
   return (
     <Toasts>
+    <Modal open={keysOpen} onClose={() => setKeysOpen(false)} labelledBy="ok-keys">
+      <div className="app-dialog">
+      <h2 id="ok-keys" className="app-neworders-title">{t.keys.title}</h2>
+      <dl className="app-keys">
+        {(
+          [
+            ["/", t.keys.search],
+            ["N", t.keys.new],
+            ["↑ ↓ Enter", t.keys.arrows],
+            ["Esc", t.keys.esc],
+            ["?", t.keys.help],
+          ] as const
+        ).map(([k, v]) => (
+          <div key={k}><dt><kbd className="app-kbd">{k}</kbd></dt><dd>{v}</dd></div>
+        ))}
+      </dl>
+      </div>
+    </Modal>
     {me.permissions.includes("orders") && <NewOrders go={(id, tab) => go(id as Screen, tab ?? null)} onCount={setNewCount} />}
     <div className="app-shell">
       <div className="ok-app" data-accent="alby" data-mode={adminMode ? "admin" : "business"}>
@@ -171,7 +213,8 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             ) : (
               <b className="app-org">{adminMode ? t.nav.modeAdmin : org?.name ?? me.name}</b>
             )}
-            <span className="ok-grow" />
+            {!adminMode && (allowed("orders") || allowed("products")) ? <Search go={(id, tab) => go(id as Screen, tab ?? null)} inputRef={searchRef} /> : <span className="ok-grow" />}
+            <button type="button" className="btn btn-sm btn-ghost btn-icon app-keys-btn" aria-label={t.keys.title} title={t.keys.title} onClick={() => setKeysOpen(true)}>?</button>
             {me.isAdmin && (
               <button type="button" className="btn btn-sm btn-secondary app-mode" data-mode-switch data-admin={adminMode} onClick={() => go(adminMode ? "home" : "admin")}>
                 <Icon name={adminMode ? "home" : "settings"} size={15} />

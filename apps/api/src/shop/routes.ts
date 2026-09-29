@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
-import { and, asc, count, desc, eq, gt, inArray, lte } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, ilike, inArray, lte, or, sql as dsql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client.ts";
 import { orderEvents, orders, products, sites } from "../db/schema.ts";
@@ -123,6 +123,41 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
       .orderBy(desc(orders.createdAt))
       .limit(200)
       .then((rows) => (acc.finance ? rows : rows.map((r) => ({ ...r, totalKop: null }))));
+  });
+
+  /**
+   * Global search («/» in the panel): orders by number, customer name or phone, products by name. Five of each,
+   * newest first, only what the member may see.
+   */
+  app.get<{ Querystring: { q?: string } }>("/search", async (req) => {
+    const q = String(req.query.q ?? "").trim().slice(0, 100);
+    if (q.length < 2) return { orders: [], products: [] };
+    const like = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const digits = q.replace(/\D/g, "");
+    const acc = await orderAccess(req);
+    const found = acc
+      ? await db
+          .select({ id: orders.id, number: orders.number, customerName: orders.customerName, status: orders.status, createdAt: orders.createdAt })
+          .from(orders)
+          .where(
+            and(
+              eq(orders.organizationId, acc.org),
+              acc.full ? undefined : inArray(orders.status, [...SHIPPING_STATUSES]),
+              or(
+                ilike(orders.customerName, like),
+                digits.length >= 3 ? dsql`regexp_replace(${orders.customerPhone}, '[^0-9]', '', 'g') like ${`%${digits}%`}` : undefined,
+                /^[#№]?\s*\d+$/.test(q) && Number(digits) <= 2_147_483_647 ? eq(orders.number, Number(digits)) : undefined,
+              ),
+            ),
+          )
+          .orderBy(desc(orders.createdAt))
+          .limit(5)
+      : [];
+    const [prodOrg] = await orgScope(req, "products");
+    const prods = prodOrg
+      ? await db.select({ id: products.id, name: products.name, stock: products.stock, active: products.active }).from(products).where(and(eq(products.organizationId, prodOrg), ilike(products.name, like))).orderBy(asc(products.name)).limit(5)
+      : [];
+    return { orders: found, products: prods };
   });
 
   /**

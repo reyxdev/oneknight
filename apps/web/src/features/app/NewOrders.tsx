@@ -78,6 +78,7 @@ export function NewOrders({ go, onCount }: { go: (screen: string, tab?: string) 
 
   return (
     <Modal open={queue.length > 0} onClose={() => setQueue([])} labelledBy="ok-new-orders">
+      <div className="app-dialog">
       <h2 id="ok-new-orders" className="app-neworders-title">{queue.length > 1 ? fmt(t.many, { n: queue.length }) : t.one}</h2>
       <ul className="app-neworders">
         {queue.map((o) => (
@@ -95,6 +96,7 @@ export function NewOrders({ go, onCount }: { go: (screen: string, tab?: string) 
           </li>
         ))}
       </ul>
+      </div>
     </Modal>
   );
 }

@@ -719,6 +719,8 @@ export const app = {
     kindsTitle: "Що надсилати",
     kinds: { order: "Замовлення", review: "Відгуки", site: "Робота сайту", billing: "Оплата", ticket: "Відповіді підтримки", team: "Команда" },
   },
+  search: { label: "Пошук", placeholder: "Пошук: №, ім'я, телефон, товар", orders: "Замовлення", products: "Товари", empty: "Нічого не знайдено", hidden: "прихований" },
+  keys: { title: "Клавіші", search: "Пошук", new: "Новий товар (у «Товарах»)", arrows: "Вибрати в результатах пошуку", esc: "Закрити вікно або пошук", help: "Цей список" },
   toast: { undo: "Скасувати", close: "Закрити" },
   newOrders: { one: "Нове замовлення", many: "Нових замовлень: {n}", confirm: "Підтвердити", open: "Відкрити" },
   business: {

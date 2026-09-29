@@ -78,7 +78,7 @@ function ProductForm({ site, initial, onDone, onCancel }: { site: SiteInfo; init
   );
 }
 
-/** `tab` "new" opens the new-product form (Home quick action). */
+/** `tab` "new" opens the new-product form (Home quick action), "p-<id>" one product (search). */
 export function ProductsScreen({ tab }: { tab?: string | null }) {
   const d = useDict();
   const t = d.app.products;
@@ -86,7 +86,7 @@ export function ProductsScreen({ tab }: { tab?: string | null }) {
   const [flash, show] = useFlash();
   const { sites, site, picker } = useSitePicker();
   const [list, setList] = useState<Product[] | null>(null);
-  const [editing, setEditing] = useState<string | "new" | null>(tab === "new" ? "new" : null);
+  const [editing, setEditing] = useState<string | "new" | null>(tab === "new" ? "new" : tab?.startsWith("p-") ? tab.slice(2) : null);
   const toast = useToast();
   // Deleted rows disappear at once; the product is really deleted after «Скасувати» had its 7 s.
   const [gone, setGone] = useState<string[]>([]);
