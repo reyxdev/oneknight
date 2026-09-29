@@ -1,7 +1,7 @@
 # ONEKNIGHT
 
 Public website and interactive ONEKNIGHT demo. Next.js (App Router, static export), React, TypeScript, Tailwind v4.
-Architecture, design system and decisions: [ARCHITECTURE.md](ARCHITECTURE.md). Owner inputs still missing: [TODO.md](TODO.md).
+Project map (who uses what, where it lives): [ARCHITECTURE.md](ARCHITECTURE.md). Technical decision log: [docs/decisions.md](docs/decisions.md). Owner inputs still missing: [TODO.md](TODO.md).
 
 ## Structure (npm workspaces)
 
