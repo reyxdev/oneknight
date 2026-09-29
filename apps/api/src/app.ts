@@ -22,10 +22,11 @@ import type { TgCall } from "./notify/bot.ts";
 import { integrationRoutes } from "./integrations/routes.ts";
 import type { NpCall } from "./integrations/novaposhta.ts";
 import type { PromFetch } from "./integrations/prom.ts";
+import type { RozetkaFetch } from "./integrations/rozetka.ts";
 import { registerGuard } from "./security/guard.ts";
 
 /** Builds the app without listening, so tests can use app.inject(). All routes live under /api. */
-export async function buildApp(opts: FastifyServerOptions = {}, deps: { npCall?: NpCall; promFetch?: PromFetch; tgCall?: TgCall } = {}) {
+export async function buildApp(opts: FastifyServerOptions = {}, deps: { npCall?: NpCall; promFetch?: PromFetch; rozetkaFetch?: RozetkaFetch; tgCall?: TgCall } = {}) {
   const app = Fastify({
     trustProxy: true,
     logger: { level: "info", redact: ["req.headers.cookie", "req.headers.authorization", "res.headers['set-cookie']"] },
@@ -58,6 +59,6 @@ export async function buildApp(opts: FastifyServerOptions = {}, deps: { npCall?:
   await app.register(teamRoutes, { prefix: "/api/team" });
   await app.register(backupRoutes, { prefix: "/api/backups" });
   await app.register(telegramRoutes(deps.tgCall), { prefix: "/api/telegram" });
-  await app.register(integrationRoutes(deps.npCall, deps.promFetch), { prefix: "/api/integrations" });
+  await app.register(integrationRoutes(deps.npCall, deps.promFetch, deps.rozetkaFetch), { prefix: "/api/integrations" });
   return app;
 }

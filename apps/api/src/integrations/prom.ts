@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "../db/client.ts";
-import { integrations, notifications, orderEvents, orders } from "../db/schema.ts";
+import { integrations } from "../db/schema.ts";
+import { insertMarketOrder } from "./import.ts";
 import { hasModule } from "../billing/service.ts";
 import { decrypt } from "../security/crypto.ts";
 
@@ -95,18 +96,7 @@ export async function syncProm(orgId: string, f: PromFetch = promFetch): Promise
       const o = mapPromOrder(src);
       if (!o) continue;
       if (!newest || o.createdAt > newest) newest = o.createdAt;
-      const added = await db.transaction(async (tx) => {
-        const [ins] = await tx
-          .insert(orders)
-          .values({ organizationId: orgId, siteId: null, source: "prom", ...o })
-          .onConflictDoNothing({ target: [orders.organizationId, orders.source, orders.externalId] })
-          .returning({ id: orders.id, number: orders.number });
-        if (!ins) return false;
-        await tx.insert(orderEvents).values({ orderId: ins.id, status: o.status });
-        await tx.insert(notifications).values({ organizationId: orgId, kind: "order", key: "newOrder", params: { n: ins.number, total: o.totalKop / 100 } });
-        return true;
-      });
-      if (added) imported++;
+      if (await insertMarketOrder(orgId, "prom", o)) imported++;
     }
     if (list.length < 100) break;
     lastId = Math.min(...list.map((x) => Number(x.id)));

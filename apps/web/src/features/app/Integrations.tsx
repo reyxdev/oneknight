@@ -148,12 +148,21 @@ function NovaPoshta({ item, reload }: { item: Item; reload: () => void }) {
   );
 }
 
-function Prom({ item, reload }: { item: Item; reload: () => void }) {
+type MarketConfig = {
+  provider: "prom" | "rozetka";
+  about: string;
+  steps: readonly string[];
+  fields: { key: string; label: string; type?: "password"; min: number }[];
+  errors: Record<string, string>;
+};
+
+/** Marketplace orders import (Prom, Rozetka): connect with the seller's credentials, then sync. */
+function Marketplace({ item, cfg, reload }: { item: Item; cfg: MarketConfig; reload: () => void }) {
   const d = useDict();
   const t = d.app.integrations;
   const f = useFormat();
   const [flash, show] = useFlash();
-  const [token, setToken] = useState("");
+  const [form, setForm] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const connected = item.status !== "not_connected";
@@ -161,22 +170,23 @@ function Prom({ item, reload }: { item: Item; reload: () => void }) {
     const detail = (r.body as { detail?: string } | undefined)?.detail;
     return `${map[r.error] ?? d.app.auth.errors.server_error}${detail && detail !== r.error ? `: ${detail}` : ""}`;
   };
+  const ready = cfg.fields.every((x) => (form[x.key] ?? "").trim().length >= x.min);
   const connect = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    const r = await api("/integrations/prom/connect", { method: "POST", body: { token: token.trim() } });
+    const r = await api(`/integrations/${cfg.provider}/connect`, { method: "POST", body: Object.fromEntries(cfg.fields.map((x) => [x.key, x.type === "password" ? form[x.key] ?? "" : (form[x.key] ?? "").trim()])) });
     setBusy(false);
     if (!r.ok) {
       playSound("error");
-      return show(errText(t.promErrors, r), "warn");
+      return show(errText(cfg.errors, r), "warn");
     }
     playSound("success");
-    setToken("");
+    setForm({});
     reload();
   };
   const sync = async () => {
     setBusy(true);
-    const r = await api<{ imported: number }>("/integrations/prom/sync", { method: "POST" });
+    const r = await api<{ imported: number }>(`/integrations/${cfg.provider}/sync`, { method: "POST" });
     setBusy(false);
     if (!r.ok) {
       playSound("error");
@@ -188,18 +198,25 @@ function Prom({ item, reload }: { item: Item; reload: () => void }) {
     reload();
   };
   const disconnect = async () => {
-    await api("/integrations/prom", { method: "DELETE" });
+    await api(`/integrations/${cfg.provider}`, { method: "DELETE" });
     setConfirm(false);
     reload();
   };
+  const name = t.names[cfg.provider];
   return (
-    <Panel title={t.names.prom} action={<span className="ok-muted">{connected ? t.connected : t.notConnected}</span>}>
-      <p className="ok-muted">{t.promAbout}</p>
+    <Panel title={name} action={<span className="ok-muted">{connected ? t.connected : t.notConnected}</span>}>
+      <p className="ok-muted">{cfg.about}</p>
       {!connected ? (
         <form className="grid gap-3" onSubmit={connect}>
-          <ol className="ok-steps">{t.promSteps.map((x) => <li key={x}>{x}</li>)}</ol>
-          <Field label={t.promToken}>{(p) => <input {...p} className="input" autoComplete="off" spellCheck={false} maxLength={128} value={token} onChange={(e) => setToken(e.target.value)} />}</Field>
-          <button className="btn btn-sm" type="submit" disabled={busy || token.trim().length < 20} style={{ justifySelf: "start" }}>{busy ? t.checking : t.connect}</button>
+          <ol className="ok-steps">{cfg.steps.map((x) => <li key={x}>{x}</li>)}</ol>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {cfg.fields.map((x) => (
+              <Field key={x.key} label={x.label}>
+                {(p) => <input {...p} className="input" type={x.type ?? "text"} autoComplete={x.type === "password" ? "new-password" : "off"} spellCheck={false} maxLength={200} value={form[x.key] ?? ""} onChange={(e) => setForm({ ...form, [x.key]: e.target.value })} />}
+              </Field>
+            ))}
+          </div>
+          <button className="btn btn-sm" type="submit" disabled={busy || !ready} style={{ justifySelf: "start" }}>{busy ? t.checking : t.connect}</button>
         </form>
       ) : (
         <div className="grid gap-3">
@@ -236,12 +253,14 @@ export function IntegrationsScreen() {
   if (!items) return null;
   const np = items.find((i) => i.provider === "novaposhta");
   const prom = items.find((i) => i.provider === "prom");
+  const rozetka = items.find((i) => i.provider === "rozetka");
   return (
     <div className="ok-screen">
       <div className="ok-h"><h3>{t.title}</h3></div>
       <p className="ok-muted">{t.lead}</p>
       {np && <NovaPoshta item={np} key={np.status} reload={load} />}
-      {prom && <Prom item={prom} key={prom.status} reload={load} />}
+      {prom && <Marketplace item={prom} key={`prom-${prom.status}`} reload={load} cfg={{ provider: "prom", about: t.promAbout, steps: t.promSteps, fields: [{ key: "token", label: t.promToken, min: 20 }], errors: t.promErrors }} />}
+      {rozetka && <Marketplace item={rozetka} key={`rz-${rozetka.status}`} reload={load} cfg={{ provider: "rozetka", about: t.rozetkaAbout, steps: t.rozetkaSteps, fields: [{ key: "username", label: t.rozetkaLogin, min: 2 }, { key: "password", label: t.rozetkaPassword, type: "password", min: 1 }], errors: t.rozetkaErrors }} />}
       <Panel title={t.soon}>
         <ul className="ok-list">
           {items.filter((i) => !i.available).map((i) => (

@@ -13,7 +13,7 @@ export const moduleCatalog: (ModuleDef & { live: boolean })[] = [
   { id: "reviews", price: oneknightPricing.modulePerMonth, paid: true, availability: "available", live: true },
   { id: "olx", price: oneknightPricing.modulePerMonth, paid: true, availability: "available", live: false },
   { id: "prom", price: oneknightPricing.modulePerMonth, paid: true, availability: "available", live: true },
-  { id: "rozetka", price: oneknightPricing.modulePerMonth, paid: true, availability: "available", live: false },
+  { id: "rozetka", price: oneknightPricing.modulePerMonth, paid: true, availability: "available", live: true },
   { id: "ai-content", price: oneknightPricing.modulePerMonth, paid: true, availability: "soon", live: false },
   { id: "zadarma", price: oneknightPricing.modulePerMonth, paid: true, availability: "soon", live: false },
 ];

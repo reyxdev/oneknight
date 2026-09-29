@@ -84,6 +84,11 @@ const promCard = pg.locator(".okp", { hasText: "API-токен Prom" });
 await promCard.getByLabel("API-токен Prom").fill("0".repeat(40));
 await promCard.getByRole("button", { name: "Перевірити й підключити" }).click();
 ok(await promCard.getByText("Prom відхилив токен: unauthorized").waitFor({ timeout: 20000 }).then(() => true, () => false), "invalid Prom token rejected by the real Prom API");
+const rzCard = pg.locator(".okp", { hasText: "Логін кабінету продавця Rozetka" });
+await rzCard.getByLabel("Логін кабінету продавця Rozetka").fill(`nobody_e2e_${Date.now()}`);
+await rzCard.getByLabel("Пароль").fill("not a real password");
+await rzCard.getByRole("button", { name: "Перевірити й підключити" }).click();
+ok(await rzCard.getByText(/Rozetka не прийняла логін або пароль: incorrect_username_password/).waitFor({ timeout: 20000 }).then(() => true, () => false), "wrong Rozetka login rejected by the real Seller API");
 await nav("Товари");
 ok(await pg.getByText("Залишок: 1").waitFor({ timeout: 5000 }).then(() => true, () => false), "stock decreased by the order");
 

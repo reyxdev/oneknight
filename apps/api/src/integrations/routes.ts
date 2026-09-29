@@ -9,11 +9,12 @@ import { hasModule } from "../billing/service.ts";
 import { decrypt, encrypt } from "../security/crypto.ts";
 import { audit } from "../audit.ts";
 import { promFetch, syncProm, verifyPromToken, type PromFetch } from "./prom.ts";
+import { forgetRozetkaToken, rozetkaFetch, rozetkaLogin, syncRozetka, type RozetkaFetch } from "./rozetka.ts";
 import { createWaybill, findCities, findWarehouses, verifyKey, type NpCall, type NpSender, type NpSettings, npCall } from "./novaposhta.ts";
 
 export const PROVIDERS = ["novaposhta", "ukrposhta", "prom", "olx", "rozetka", "google", "meta", "telegram"] as const;
 /** Providers that can actually be connected today. The rest are shown honestly as "in development". */
-export const LIVE_PROVIDERS = new Set<string>(["novaposhta", "prom"]);
+export const LIVE_PROVIDERS = new Set<string>(["novaposhta", "prom", "rozetka"]);
 
 type NpCreds = { apiKey: string; sender: NpSender };
 
@@ -23,7 +24,7 @@ async function getIntegration(orgId: string, provider: string) {
 }
 
 /** /api/integrations. `call` lets tests replace the Nova Poshta network client. */
-export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promFetch): FastifyPluginAsync {
+export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promFetch, rozetka: RozetkaFetch = rozetkaFetch): FastifyPluginAsync {
   return async (app) => {
     app.addHook("preHandler", requireAuth);
 
@@ -80,6 +81,31 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
       const [org] = await orgScope(req, "orders");
       if (!org) return reply.code(403).send({ error: "forbidden" });
       const r = await syncProm(org, prom);
+      if (!r.ok) return reply.code(r.error === "module_not_active" ? 403 : 409).send({ error: r.error === "not_connected" || r.error === "module_not_active" ? r.error : "provider_rejected", detail: r.error });
+      return r;
+    });
+
+    app.post("/rozetka/connect", { config: { rateLimit: { max: 10, timeWindow: "10 minutes" } } }, async (req, reply) => {
+      const [org] = await orgScope(req, "modules");
+      if (!org) return reply.code(403).send({ error: "forbidden" });
+      const p = z.object({ username: z.string().trim().min(2).max(200), password: z.string().min(1).max(200) }).safeParse(req.body);
+      if (!p.success) return reply.code(400).send({ error: "invalid_input" });
+      const l = await rozetkaLogin(p.data, rozetka);
+      if (!l.ok) return reply.code(400).send({ error: "provider_rejected", detail: l.error });
+      forgetRozetkaToken(org);
+      const enc = encrypt(JSON.stringify(p.data));
+      await db
+        .insert(integrations)
+        .values({ organizationId: org, provider: "rozetka", credentialsEnc: enc, status: "connected", settings: { market: l.market } })
+        .onConflictDoUpdate({ target: [integrations.organizationId, integrations.provider], set: { credentialsEnc: enc, status: "connected", lastError: null, updatedAt: new Date() } });
+      await audit(req, "integration.connect", req.auth!.user.id, { provider: "rozetka" }, org);
+      return { ok: true, market: l.market };
+    });
+
+    app.post("/rozetka/sync", { config: { rateLimit: { max: 10, timeWindow: "10 minutes" } } }, async (req, reply) => {
+      const [org] = await orgScope(req, "orders");
+      if (!org) return reply.code(403).send({ error: "forbidden" });
+      const r = await syncRozetka(org, rozetka);
       if (!r.ok) return reply.code(r.error === "module_not_active" ? 403 : 409).send({ error: r.error === "not_connected" || r.error === "module_not_active" ? r.error : "provider_rejected", detail: r.error });
       return r;
     });

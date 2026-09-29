@@ -25,9 +25,11 @@ Owner input needed before launch. The UI shows an honest placeholder for each.
 - [x] Backups of ONEKNIGHT data: daily automatic + manual, download for the owner
 - [ ] Backups of the website files themselves and API/error monitoring: possible once client sites are hosted on an ONEKNIGHT server (decide hosting). Restore from a copy in the UI (now through support)
 - [ ] Telegram: send any message to @oneknight_bot (or add it to the group) so it can write to TELEGRAM_CHAT_ID; check with `npm run notify:test -w @oneknight/api`
-- [x] Live modules: reviews, analytics, Nova Poshta, Prom (orders import). Others become installable by setting `live: true` once they work
+- [x] Live modules: reviews, analytics, Nova Poshta, Prom and Rozetka (orders import). Others become installable by setting `live: true` once they work
 - [ ] Nova Poshta: connect your real API key in «Інтеграції» and create one test waybill (tests use recorded-shape responses; a real key was not available)
 - [ ] Prom: connect a real API token in «Інтеграції» and check one import; then decide on pushing status changes back (`orders/set_status`)
 - [ ] Investigate an intermittent React #418 (hydration) on /app in production builds: seen only after signing up through the form and reloading several times, then opening /app/. No functional impact (the account section is kept in the URL hash and React recovers), not reproducible in dev
 - [ ] Contests / public promotions: decide the rules (who takes part, prizes as keys or promo codes); the key and promo code system already covers the rewards
 - [ ] Telegram: link your own account once (Профіль → Telegram) to receive client-style notifications; in production consider a webhook instead of long polling
+- [ ] Rozetka: connect a real seller account (a separate manager user) and check one import; field mapping follows the official example
+- [ ] Ukrposhta, OLX: need API access from them (Ukrposhta contract tokens, OLX partner app client id/secret) before they can be built and tested honestly

@@ -55,11 +55,11 @@ test("backups: owner only, full and self-contained, no secrets, daily auto once"
 
   // Daily automatic backups: only for working subscriptions, once per day.
   const before = (await db.select().from(backups).where(eq(backups.organizationId, org))).length;
-  await runBackups(console);
+  await runBackups({ warn: () => {} });
   assert.equal((await db.select().from(backups).where(eq(backups.organizationId, org))).length, before, "no subscription, no auto backup");
   await startTrial(org);
-  await runBackups(console);
-  await runBackups(console);
+  await runBackups({ warn: () => {} });
+  await runBackups({ warn: () => {} });
   const autos = (await db.select().from(backups).where(eq(backups.organizationId, org))).filter((b) => b.kind === "auto");
   assert.equal(autos.length, 1);
 });
