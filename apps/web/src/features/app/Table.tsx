@@ -45,6 +45,8 @@ export function Table<T extends { id: string }>({
   hasMore,
   onSwipeRight,
   onSwipeLeft,
+  selected,
+  onSelect,
 }: {
   id: string;
   label: string;
@@ -61,6 +63,9 @@ export function Table<T extends { id: string }>({
   /** Phone: a row swiped to the right (e.g. confirm a new order); return false where it does not apply. */
   onSwipeRight?: (row: T) => boolean | void;
   onSwipeLeft?: (row: T) => boolean | void;
+  /** Bulk actions: chosen row ids and the setter (a checkbox column appears). */
+  selected?: string[];
+  onSelect?: (ids: string[]) => void;
 }) {
   const t = useDict().app.table;
   const [hidden, setHidden] = useState<string[]>([]);
@@ -157,6 +162,16 @@ export function Table<T extends { id: string }>({
       <table className="app-table" aria-label={label}>
         <thead>
           <tr>
+            {onSelect && (
+              <th scope="col" className="app-check">
+                <input
+                  type="checkbox"
+                  aria-label={t.selectPage}
+                  checked={list.length > 0 && list.every((r) => selected?.includes(r.id))}
+                  onChange={(e) => onSelect(e.target.checked ? [...new Set([...(selected ?? []), ...list.map((r) => r.id)])] : (selected ?? []).filter((id) => !list.some((r) => r.id === id)))}
+                />
+              </th>
+            )}
             {shown.map((c) => (
               <th key={c.key} scope="col" data-align={c.align} aria-sort={sort.key === c.key ? (sort.dir === "asc" ? "ascending" : "descending") : undefined}>
                 {c.sort ? (
@@ -188,6 +203,11 @@ export function Table<T extends { id: string }>({
               onKeyDown={(e) => onKey(e, row)}
               {...swipeProps(row)}
             >
+              {onSelect && (
+                <td className="app-check" onClick={(e) => e.stopPropagation()}>
+                  <input type="checkbox" aria-label={t.selectRow} checked={!!selected?.includes(row.id)} onChange={(e) => onSelect(e.target.checked ? [...(selected ?? []), row.id] : (selected ?? []).filter((id) => id !== row.id))} />
+                </td>
+              )}
               {shown.map((c) => (
                 <td key={c.key} data-label={c.label} data-align={c.align} data-main={c.fixed || undefined}>{c.render(row)}</td>
               ))}

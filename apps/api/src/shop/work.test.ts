@@ -77,5 +77,22 @@ test("manual order, editing with stock and history, comments, responsible, «Н�
   assert.equal((await app.inject({ method: "PATCH", url: `/api/shop/orders/${id}/edit`, payload: { comment: "x" }, headers: H })).json().error, "not_editable");
   assert.equal((await get()).callbackAt, null, "a status change ends «Не додзвонились»");
   assert.equal((await manual({ ...base, items: [{ productId: p!.id, qty: 99 }] })).json().error, "out_of_stock");
+
+  // Bulk: status for several orders at once, cancelling still needs the reason; Excel.
+  const a2 = (await manual({ ...base, customer: { name: "Олег", phone: "+380931110001" }, items: [{ name: "Листівка", price: 20, qty: 1 }] })).json();
+  const b2 = (await manual({ ...base, customer: { name: "Ніна", phone: "+380931110002" }, items: [{ name: "Листівка", price: 20, qty: 1 }] })).json();
+  const bulk = (body: object) => app.inject({ method: "POST", url: "/api/shop/orders/bulk-status", payload: body, headers: H });
+  assert.deepEqual((await bulk({ ids: [a2.id, b2.id], status: "confirmed" })).json(), { done: 2, failed: [] });
+  const noReason = (await bulk({ ids: [a2.id, b2.id], status: "cancelled" })).json();
+  assert.equal(noReason.done, 0);
+  assert.deepEqual(noReason.failed.map((x: { error: string }) => x.error), ["reason_required", "reason_required"]);
+  assert.equal((await bulk({ ids: [a2.id], status: "cancelled", reason: "changed_mind" })).json().done, 1);
+  const csv = await app.inject({ url: `/api/shop/orders/export?ids=${a2.id},${b2.id}`, headers: { cookie } });
+  assert.match(String(csv.headers["content-type"]), /text\/csv/);
+  const text = csv.body.replace(/^\uFEFF/, "");
+  const [head, ...lines] = text.split("\r\n");
+  assert.equal(head, "№;Дата;Статус;Покупець;Телефон;Товари;Сума, грн;Оплата;Доставка;ТТН;Джерело;Коментар");
+  assert.equal(lines.length, 2);
+  assert.ok(lines.some((l) => l.includes("Скасовано") && l.includes("Олег") && l.includes("20,00")));
   await db.delete(sites).where(eq(sites.id, site!.id));
 });

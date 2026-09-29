@@ -2,11 +2,12 @@ import type { FastifyPluginAsync } from "fastify";
 import { and, desc, eq, gt, inArray, lt, ne, sql as dsql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client.ts";
-import { orderEvents, orders, products } from "../db/schema.ts";
+import { orderEvents, orderStatuses, orders, products } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
-import { orderAccess } from "../auth/access.ts";
+import { SHIPPING_STATUSES, orderAccess } from "../auth/access.ts";
 import { audit } from "../audit.ts";
 import { dropExamples } from "../onboarding/routes.ts";
+import { setOrderStatus } from "./service.ts";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Item = { productId: string; name: string; qty: number; priceKop: number };
@@ -239,5 +240,74 @@ export const orderWorkRoutes: FastifyPluginAsync = async (app) => {
     if (!r.ok) return reply.code(r.error === "not_found" ? 404 : 409).send(r);
     await audit(req, "order.merge", userId, { order: req.params.id, other: p.data.other }, acc.org);
     return r;
+  });
+
+  /**
+   * Bulk status change of the orders chosen in the list. Each order goes through the same rules (stock, reason
+   * for cancelling); the answer says which could not be changed and why.
+   */
+  app.post("/orders/bulk-status", async (req, reply) => {
+    const acc = await orderAccess(req);
+    const p = z
+      .object({ ids: z.array(z.string().uuid()).min(1).max(200), status: z.enum(["new", "confirmed", "shipped", "done", "cancelled", "returned"]).optional(), statusId: z.string().uuid().nullable().optional(), reason: z.string().trim().max(200).optional() })
+      .safeParse(req.body);
+    if (!acc || !p.success) return reply.code(400).send({ error: "invalid_input" });
+    if (!acc.full && (p.data.status !== "shipped" || p.data.statusId)) return reply.code(403).send({ error: "forbidden" });
+    const rows = await db.select({ id: orders.id, number: orders.number }).from(orders).where(and(eq(orders.organizationId, acc.org), inArray(orders.id, p.data.ids)));
+    const failed: { number: number; error: string }[] = [];
+    for (const o of rows) {
+      const r = await setOrderStatus(o.id, [acc.org], { status: p.data.status, statusId: p.data.statusId, reason: p.data.reason }, req.auth!.user.id, acc.full ? undefined : ["confirmed"]);
+      if (!r.ok) failed.push({ number: o.number, error: r.error });
+    }
+    await audit(req, "order.bulk_status", req.auth!.user.id, { n: rows.length, status: p.data.status ?? p.data.statusId }, acc.org);
+    return { done: rows.length - failed.length, failed };
+  });
+
+  /**
+   * Excel (CSV that Excel opens: UTF-8 with BOM, «;»). The chosen orders or the current filter. No sums without
+   * «Фінанси»; «Комплектувальник» gets only the orders to send and partly hidden phones.
+   */
+  app.get<{ Querystring: { ids?: string; status?: string } }>("/orders/export", async (req, reply) => {
+    const acc = await orderAccess(req);
+    if (!acc) return reply.code(403).send({ error: "forbidden" });
+    const ids = String(req.query.ids ?? "").split(",").filter((x) => z.string().uuid().safeParse(x).success).slice(0, 5000);
+    const st = z.enum(["new", "confirmed", "shipped", "done", "cancelled", "returned"]).safeParse(req.query.status);
+    const rows = await db
+      .select()
+      .from(orders)
+      .where(and(eq(orders.organizationId, acc.org), eq(orders.isExample, false), ids.length ? inArray(orders.id, ids) : undefined, st.success ? eq(orders.status, st.data) : undefined, acc.full ? undefined : inArray(orders.status, [...SHIPPING_STATUSES])))
+      .orderBy(desc(orders.createdAt))
+      .limit(5000);
+    const own = new Map((await db.select().from(orderStatuses).where(eq(orderStatuses.organizationId, acc.org))).map((s) => [s.id, s.name]));
+    const GROUP: Record<string, string> = { new: "Нове", confirmed: "В роботі", shipped: "Відправлено", done: "Завершено", cancelled: "Скасовано", returned: "Повернення" };
+    const PAY: Record<string, string> = { unpaid: "Не оплачено", prepaid: "Передоплата", paid: "Оплачено", refunded: "Кошти повернуто" };
+    const date = (d: Date) => d.toLocaleString("uk-UA", { timeZone: "Europe/Kyiv", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    const cell = (v: unknown) => {
+      const s = String(v ?? "");
+      return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const head = ["№", "Дата", "Статус", "Покупець", "Телефон", "Товари", ...(acc.finance ? ["Сума, грн", "Оплата"] : []), "Доставка", "ТТН", "Джерело", "Коментар"];
+    const lines = rows.map((o) =>
+      [
+        o.number,
+        date(o.createdAt),
+        (o.statusId && own.get(o.statusId)) || GROUP[o.status],
+        o.customerName,
+        acc.full ? o.customerPhone : "***",
+        o.items.map((i) => `${i.name} × ${i.qty}`).join(", "),
+        ...(acc.finance ? [(o.totalKop / 100).toFixed(2).replace(".", ","), PAY[o.paymentStatus]] : []),
+        [o.delivery.method, o.delivery.city, o.delivery.branch, o.delivery.address].filter(Boolean).join(", "),
+        o.waybill ?? "",
+        o.source,
+        o.comment ?? "",
+      ]
+        .map(cell)
+        .join(";"),
+    );
+    await audit(req, "order.export", req.auth!.user.id, { n: rows.length }, acc.org);
+    return reply
+      .header("content-type", "text/csv; charset=utf-8")
+      .header("content-disposition", `attachment; filename="orders-${new Date().toISOString().slice(0, 10)}.csv"`)
+      .send(`\uFEFF${[head.join(";"), ...lines].join("\r\n")}`);
   });
 };

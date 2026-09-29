@@ -189,6 +189,28 @@ await card.getByRole("button", { name: "Редагувати" }).click();
 await pg.locator(".app-order-form .app-qty").first().getByRole("button", { name: "Більше" }).click();
 await pg.getByRole("button", { name: "Зберегти зміни" }).click();
 ok(await seen(card.locator(".app-timeline", { hasText: "Змінено: товари" })), "the edit is in the history");
+// Bulk: choose two new orders, «В роботі» for both; Excel of the chosen.
+await pg.locator(".ok-detail").getByRole("button", { name: "Закрити" }).click();
+await pg.getByRole("button", { name: "Нове", exact: true }).click();
+await pg.locator(".app-table tbody tr").nth(1).waitFor();
+await pg.locator(".app-table tbody tr").nth(0).getByLabel("Вибрати рядок").check();
+await pg.locator(".app-table tbody tr").nth(1).getByLabel("Вибрати рядок").check();
+ok(await seen(pg.getByText("Вибрано: 2")), "bulk bar with the count");
+const [csvDl] = await Promise.all([pg.waitForEvent("download"), pg.locator(".app-bulk").getByRole("button", { name: "Excel" }).click()]);
+const csvText = (await import("node:fs")).readFileSync(await csvDl.path(), "utf8");
+ok(csvText.startsWith("\uFEFF№;Дата;Статус") && csvText.trim().split("\r\n").length === 3, "Excel (CSV) of the chosen orders");
+await pg.locator(".app-bulk").getByLabel("Змінити статус…").selectOption("g:confirmed");
+ok(await seen(pg.locator(".app-toast", { hasText: "Змінено: 2" })), "status changed for both");
+// Board: drag a card to another column.
+await pg.getByRole("radio", { name: "Дошка" }).click();
+const newCol = pg.getByRole("listitem", { name: "Нове" });
+await newCol.locator(".app-card").first().waitFor();
+const moved = (await newCol.locator(".app-card b").first().innerText()).trim();
+if (SHOTS) await pg.screenshot({ path: `${SHOTS}/board.png` });
+await newCol.locator(".app-card").first().dragTo(pg.getByRole("listitem", { name: "В роботі" }));
+ok(await seen(pg.locator(".app-toast", { hasText: "В роботі" }).last()), `drag on the board changes the status (${moved})`);
+await pg.getByRole("radio", { name: "Список" }).click();
+await pg.getByRole("button", { name: "Усі", exact: true }).click();
 const f2 = await newOrder("Та сама", "+380501234567");
 await f2.getByRole("button", { name: "Створити замовлення" }).click();
 ok(await seen(pg.locator(".app-dup")), "duplicate warning: the same phone within a day");

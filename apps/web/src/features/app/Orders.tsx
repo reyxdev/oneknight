@@ -395,6 +395,68 @@ function OrderDetail({ id, onChanged, shippingOnly, settings, meName, onClose }:
   );
 }
 
+/** Opens a file the API makes (PDF in a new tab, CSV downloaded); the tab opens on the click so pop-up blockers allow it. */
+async function openFile(url: string, name: string, pdf: boolean) {
+  const w = pdf ? window.open("", "_blank") : null;
+  const res = await fetch(url, { credentials: "same-origin" }).catch(() => null);
+  if (!res?.ok) {
+    w?.close();
+    return { ok: false as const, failed: null };
+  }
+  const href = URL.createObjectURL(await res.blob());
+  if (w) w.location.href = href;
+  else {
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = name;
+    a.click();
+  }
+  return { ok: true as const, failed: res.headers.get("x-failed-orders") };
+}
+
+/** «Дошка»: a column per status group; drag a card to change the status (cancelling still asks the reason). */
+function Board({ rows, settings, finance, onOpen, onMove }: { rows: OrderRow[]; settings: OrderSettings | null; finance: boolean; onOpen: (id: string) => void; onMove: (o: OrderRow, to: Group) => void }) {
+  const d = useDict();
+  const lang = useLang();
+  const [over, setOver] = useState<Group | null>(null);
+  return (
+    <div className="app-board" role="list">
+      {GROUPS.map((g) => {
+        const list = rows.filter((o) => o.status === g);
+        return (
+          <section
+            key={g}
+            role="listitem"
+            className="app-board-col"
+            data-over={over === g || undefined}
+            aria-label={d.ok.orders.status[g]}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setOver(g);
+            }}
+            onDragLeave={() => setOver(null)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setOver(null);
+              const o = rows.find((x) => x.id === e.dataTransfer.getData("text/plain"));
+              if (o && o.status !== g) onMove(o, g);
+            }}
+          >
+            <header><span className="ok-pill" data-s={g}>{d.ok.orders.status[g]}</span><span className="ok-muted num">{list.length}</span></header>
+            {list.map((o) => (
+              <button key={o.id} type="button" className="app-card" draggable onDragStart={(e) => e.dataTransfer.setData("text/plain", o.id)} onClick={() => onOpen(o.id)}>
+                <span className="app-card-top"><span className="num ok-muted">#{o.number}</span>{finance && o.totalKop !== null && <b className="num app-secret">{formatUAH(o.totalKop / 100, lang)}</b>}</span>
+                <b>{o.customerName}</b>
+                {o.statusId && <StatusBadge status={o.status} statusId={o.statusId} settings={settings} />}
+              </button>
+            ))}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
 const FILTERS = ["all", "new", "callback", "nowaybill", "confirmed", "shipped", "done", "cancelled", "returned"] as const;
 /** «Комплектувальник» works only with orders waiting to be sent. */
 const SHIP_FILTERS = ["all", "nowaybill", "confirmed", "shipped"] as const;
@@ -416,15 +478,38 @@ export function OrdersScreen({ tab, shippingOnly = false, finance = true, meName
   const [more, setMore] = useState(false);
   const [open, setOpen] = useState<string | null>(tab?.startsWith("o-") ? tab.slice(2) : !shippingOnly && tab === "new-order" ? "new" : null);
   const [next] = useState(latestOnly);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [bulkTo, setBulkTo] = useState("");
+  const [bulkAsk, setBulkAsk] = useState<null | { to: { status: Group; statusId: string | null }; cancel: boolean }>(null);
+  const [view, setView] = useState<"list" | "board">("list");
+  const [boardRows, setBoardRows] = useState<OrderRow[]>([]);
+  const [moveCancel, setMoveCancel] = useState<OrderRow | null>(null);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("ok.orders.view") === "board" && !shippingOnly) setView("board");
+    } catch {}
+  }, [shippingOnly]);
+  const pickView = (v: "list" | "board") => {
+    setView(v);
+    try {
+      localStorage.setItem("ok.orders.view", v);
+    } catch {}
+  };
   const load = useCallback(async () => {
     const isLatest = next();
+    if (view === "board") {
+      // The board shows the latest 200 orders across all groups.
+      const r = await api<OrderRow[]>(`/shop/orders?limit=200${pay === "all" ? "" : `&payment=${pay}`}`);
+      if (r.ok && isLatest()) setBoardRows(r.data);
+      return;
+    }
     const q = new URLSearchParams({ sort: sort.key, dir: sort.dir, page: String(page), limit: String(PAGE + 1), ...(filter === "all" ? {} : { status: filter }), ...(pay === "all" ? {} : { payment: pay }) });
     const r = await api<OrderRow[]>(`/shop/orders?${q}`);
     if (r.ok && isLatest()) {
       setRows(r.data.slice(0, PAGE));
       setMore(r.data.length > PAGE);
     }
-  }, [filter, pay, sort, page, next]);
+  }, [filter, pay, sort, page, next, view]);
   useEffect(() => {
     void load();
     const id = setInterval(load, 30_000);
@@ -449,6 +534,46 @@ export function OrdersScreen({ tab, shippingOnly = false, finance = true, meName
     const r = await api(`/shop/orders/${o.id}/no-answer`, { method: "POST", body: {} });
     void load();
     toast.show(r.ok ? fmt(t.noAnswerFor, { n: o.number }) : d.app.auth.errors.server_error, r.ok ? "ok" : "warn");
+  };
+  // Bulk actions over the chosen rows: 5 or more ask first; cancelling asks the reason once for all.
+  const runBulk = async (to: { status: Group; statusId: string | null }, reason?: string) => {
+    const r = await api<{ done: number; failed: { number: number; error: string }[] }>("/shop/orders/bulk-status", { method: "POST", body: { ids: selected, ...to, ...(reason ? { reason } : {}) } });
+    setBulkAsk(null);
+    setBulkTo("");
+    void load();
+    if (!r.ok) return toast.show(d.app.auth.errors.server_error, "warn");
+    toast.show(fmt(t.bulkDone, { n: r.data.done }));
+    if (r.data.failed.length) toast.show(fmt(t.bulkFailed, { list: r.data.failed.map((x) => `№${x.number}`).join(", ") }), "warn");
+    setSelected([]);
+  };
+  const askBulk = (value: string) => {
+    const [kind, v] = value.split(":") as ["g" | "s", string];
+    const own = kind === "s" ? settings?.statuses.find((s) => s.id === v) : null;
+    const to = { status: (own?.group ?? v) as Group, statusId: own?.id ?? null };
+    if (to.status === "cancelled" || selected.length >= 5) setBulkAsk({ to, cancel: to.status === "cancelled" });
+    else void runBulk(to);
+  };
+  const printChosen = async () => {
+    const r = await openFile(`/api/integrations/print-ready?kind=marking&ids=${selected.join(",")}`, "labels.pdf", true);
+    if (!r.ok) toast.show(t.bulkNoWaybills, "warn");
+    else if (r.failed) toast.show(fmt(d.app.home.printPartly, { list: r.failed.split(",").map((n) => `№${n}`).join(", ") }), "warn");
+  };
+  const exportCsv = async (ids?: string[]) => {
+    const q = ids?.length ? `ids=${ids.join(",")}` : filter !== "all" && filter !== "nowaybill" && filter !== "callback" ? `status=${filter}` : "";
+    const r = await openFile(`/api/shop/orders/export?${q}`, `orders-${new Date().toISOString().slice(0, 10)}.csv`, false);
+    if (!r.ok) toast.show(d.app.auth.errors.server_error, "warn");
+  };
+  const moveOnBoard = async (o: OrderRow, to: Group, reason?: string) => {
+    if (to === "cancelled" && !reason) return setMoveCancel(o);
+    const r = await api(`/shop/orders/${o.id}`, { method: "PATCH", body: { status: to, ...(reason ? { reason } : {}) } });
+    void load();
+    if (!r.ok) return toast.show(r.error === "out_of_stock" ? t.outOfStock : d.app.auth.errors.server_error, "warn");
+    toast.undo(fmt(t.statusChanged, { n: o.number, s: d.ok.orders.status[to] }), {
+      undo: async () => {
+        await api(`/shop/orders/${o.id}`, { method: "PATCH", body: { status: o.status, statusId: o.statusId } });
+        void load();
+      },
+    });
   };
   const cols: Col<OrderRow>[] = [
     { key: "number", label: t.colNumber, sort: true, render: (o) => <span className="num ok-muted">#{o.number}</span> },
@@ -479,10 +604,19 @@ export function OrdersScreen({ tab, shippingOnly = false, finance = true, meName
     <div className="ok-screen">
       <div className="ok-h">
         <h3>{t.title}</h3>
-        {!shippingOnly && <button type="button" className="btn btn-sm" onClick={() => setOpen("new")}><Icon name="plus" size={15} />{t.addOrder}</button>}
+        <div className="ok-actions">
+          {!shippingOnly && (
+            <div className="ok-seg" role="radiogroup" aria-label={t.view}>
+              {(["list", "board"] as const).map((v) => <button key={v} type="button" role="radio" aria-checked={view === v} onClick={() => pickView(v)}>{t.views[v]}</button>)}
+            </div>
+          )}
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => exportCsv()}><Icon name="doc" size={15} />{t.excel}</button>
+          {!shippingOnly && <button type="button" className="btn btn-sm" onClick={() => setOpen("new")}><Icon name="plus" size={15} />{t.addOrder}</button>}
+        </div>
       </div>
       <div className="ok-chips" role="group" aria-label={d.ok.orders.state}>
-        {(shippingOnly ? SHIP_FILTERS : FILTERS).map((x) => (
+        {/* The board shows every group side by side: status chips only in the list. */}
+        {(view === "board" && !shippingOnly ? [] : shippingOnly ? SHIP_FILTERS : FILTERS).map((x) => (
           <button key={x} type="button" className="ok-chip" aria-pressed={filter === x} onClick={() => { setFilter(x); setPage(1); }}>{x === "all" ? t.all : x === "nowaybill" ? t.noWaybill : x === "callback" ? t.callbackFilter : d.ok.orders.status[x]}</button>
         ))}
         {finance && (
@@ -501,12 +635,55 @@ export function OrdersScreen({ tab, shippingOnly = false, finance = true, meName
           <button type="button" className="ok-link" onClick={async () => { await api("/onboarding/examples", { method: "DELETE" }); setOpen(null); void load(); }}>{t.exampleRemove}</button>
         </p>
       )}
+      {selected.length > 0 && view === "list" && (
+        <div className="app-bulk" role="region" aria-label={t.bulk}>
+          <b>{fmt(t.chosen, { n: selected.length })}</b>
+          {shippingOnly ? (
+            <button type="button" className="btn btn-sm" onClick={() => runBulk({ status: "shipped", statusId: null })}>{t.markShipped}</button>
+          ) : (
+            <label className="ok-select">
+              <span className="sr-only">{t.bulkStatus}</span>
+              <select value={bulkTo} onChange={(e) => { setBulkTo(e.target.value); if (e.target.value) askBulk(e.target.value); }}>
+                <option value="">{t.bulkStatus}</option>
+                {GROUPS.map((g) => (
+                  <optgroup key={g} label={d.ok.orders.status[g]}>
+                    <option value={`g:${g}`}>{d.ok.orders.status[g]}</option>
+                    {settings?.statuses.filter((s) => s.group === g).map((s) => <option key={s.id} value={`s:${s.id}`}>{s.name}</option>)}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+          )}
+          <button type="button" className="btn btn-sm btn-secondary" onClick={printChosen}>{t.bulkLabels}</button>
+          <button type="button" className="btn btn-sm btn-secondary" onClick={() => exportCsv(selected)}>{t.excel}</button>
+          <button type="button" className="ok-link" onClick={() => setSelected([])}>{t.bulkClear}</button>
+        </div>
+      )}
+      {bulkAsk && !bulkAsk.cancel && (
+        <Modal open onClose={() => { setBulkAsk(null); setBulkTo(""); }} labelledBy="ok-bulk-ask">
+          <div className="app-dialog grid gap-4">
+            <h2 id="ok-bulk-ask" className="app-neworders-title">{fmt(t.bulkAsk, { n: selected.length, s: (bulkAsk.to.statusId && settings?.statuses.find((s) => s.id === bulkAsk.to.statusId)?.name) || d.ok.orders.status[bulkAsk.to.status] })}</h2>
+            <div className="ok-actions">
+              <button type="button" className="btn btn-sm" onClick={() => runBulk(bulkAsk.to)}>{t.bulkYes}</button>
+              <button type="button" className="btn btn-sm btn-ghost" onClick={() => { setBulkAsk(null); setBulkTo(""); }}>{t.cancelKeep}</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+      <CancelDialog key={bulkAsk?.cancel ? "bulk" : "none"} open={!!bulkAsk?.cancel} settings={settings} onClose={() => { setBulkAsk(null); setBulkTo(""); }} onConfirm={(reason) => bulkAsk && runBulk(bulkAsk.to, reason)} />
+      <CancelDialog key={moveCancel ? `m${moveCancel.id}` : "m"} open={!!moveCancel} settings={settings} onClose={() => setMoveCancel(null)} onConfirm={(reason) => { const o = moveCancel!; setMoveCancel(null); void moveOnBoard(o, "cancelled", reason); }} />
+      {view === "board" && !shippingOnly ? (
+        <div className="ok-split" data-open={!!open}>
+          <Board rows={boardRows} settings={settings} finance={finance} onOpen={setOpen} onMove={(o, g) => void moveOnBoard(o, g)} />
+          {open && open !== "new" && <OrderDetail id={open} key={open} onChanged={load} shippingOnly={shippingOnly} settings={settings} meName={meName} onClose={() => setOpen(null)} />}
+        </div>
+      ) : (
       <div className="ok-split" data-open={!!open}>
         <Panel>
           {rows && rows.length === 0 && page === 1 ? (
             <Empty icon="cart" text={t.empty} />
           ) : (
-            <Table id="orders" label={t.title} rows={rows ?? []} cols={cols} active={open} onOpen={(o) => setOpen(o.id)} sort={sort} onSort={setSort} page={page} onPage={setPage} hasMore={more} onSwipeRight={shippingOnly ? undefined : (o) => { if (o.status === "new") void confirm(o); }} onSwipeLeft={shippingOnly ? undefined : (o) => { if (o.status === "new" || o.status === "confirmed") void noAnswer(o); }} />
+            <Table id="orders" label={t.title} rows={rows ?? []} cols={cols} active={open} onOpen={(o) => setOpen(o.id)} sort={sort} onSort={setSort} page={page} onPage={setPage} hasMore={more} onSwipeRight={shippingOnly ? undefined : (o) => { if (o.status === "new") void confirm(o); }} onSwipeLeft={shippingOnly ? undefined : (o) => { if (o.status === "new" || o.status === "confirmed") void noAnswer(o); }} selected={selected} onSelect={setSelected} />
           )}
         </Panel>
         {open === "new" && (
@@ -521,6 +698,7 @@ export function OrdersScreen({ tab, shippingOnly = false, finance = true, meName
         )}
         {open && open !== "new" && <OrderDetail id={open} key={open} onChanged={load} shippingOnly={shippingOnly} settings={settings} meName={meName} onClose={() => setOpen(null)} />}
       </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql as dsql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client.ts";
 import { integrations, orders } from "../db/schema.ts";
@@ -392,12 +392,20 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
      * «Надрукувати всі ТТН»: every order waiting to be sent (confirmed or paid) that has a waybill, Nova Poshta
      * and Ukrposhta together, merged into one PDF. Orders whose document could not be fetched are listed in a header.
      */
-    app.get<{ Querystring: { kind?: string } }>("/print-ready", { config: { rateLimit: { max: 20, timeWindow: "10 minutes" } } }, async (req, reply) => {
+    app.get<{ Querystring: { kind?: string; ids?: string } }>("/print-ready", { config: { rateLimit: { max: 20, timeWindow: "10 minutes" } } }, async (req, reply) => {
       const acc = await orderAccess(req);
       const org = acc?.org;
       if (!org) return reply.code(404).send({ error: "not_found" });
       const marking = req.query.kind === "marking";
-      const list = (await toShip(org)).filter((o) => o.waybill && CARRIERS.includes(o.method));
+      // `ids`: the orders chosen in the list (bulk action); otherwise everything waiting to be sent.
+      const ids = String(req.query.ids ?? "").split(",").filter((x) => z.string().uuid().safeParse(x).success).slice(0, 100);
+      const chosen = ids.length
+        ? await db
+            .select({ id: orders.id, number: orders.number, waybill: orders.waybill, method: dsql<string>`${orders.delivery}->>'method'` })
+            .from(orders)
+            .where(and(eq(orders.organizationId, org), inArray(orders.id, ids), eq(orders.isExample, false), acc!.full ? undefined : inArray(orders.status, [...SHIPPING_STATUSES])))
+        : await toShip(org);
+      const list = chosen.filter((o) => o.waybill && CARRIERS.includes(o.method));
       if (!list.length) return reply.code(404).send({ error: "nothing_to_print" });
       const n = await np(org);
       const u = await upOf(org);
