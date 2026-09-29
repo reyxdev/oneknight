@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useDict, useLang } from "@/i18n/provider";
+import { fmt } from "@/i18n";
 import { formatUAH } from "@/data/pricing";
 import { Icon } from "@/components/ui/Icon";
 import { Field } from "@/components/ui/Field";
@@ -12,6 +13,7 @@ import { playSound } from "@/lib/sound";
 import { Empty, Panel, StatusPill, useFlash, useFormat } from "@/features/oneknight/ui/kit";
 import { useSites, type SiteInfo } from "./SiteScreen";
 import { WaybillForm, WaybillPrint } from "./Waybill";
+import { useToast } from "./Toasts";
 
 type Product = { id: string; name: string; description: string; price: number; stock: number | null; active: boolean; photo: string | null };
 type Draft = { name: string; description: string; price: string; stock: string; active: boolean; photo: { name: string; data: string } | null; photoUrl: string | null };
@@ -85,7 +87,19 @@ export function ProductsScreen({ tab }: { tab?: string | null }) {
   const { sites, site, picker } = useSitePicker();
   const [list, setList] = useState<Product[] | null>(null);
   const [editing, setEditing] = useState<string | "new" | null>(tab === "new" ? "new" : null);
-  const [confirm, setConfirm] = useState<string | null>(null);
+  const toast = useToast();
+  // Deleted rows disappear at once; the product is really deleted after «Скасувати» had its 7 s.
+  const [gone, setGone] = useState<string[]>([]);
+  const remove = (p: Product) => {
+    setGone((g) => [...g, p.id]);
+    toast.undo(fmt(t.deleted, { name: p.name }), {
+      undo: () => setGone((g) => g.filter((x) => x !== p.id)),
+      commit: async () => {
+        await api(`/shop/products/${p.id}`, { method: "DELETE", keepalive: true });
+        void load();
+      },
+    });
+  };
   const load = useCallback(async () => {
     if (!site) return;
     const r = await api<Product[]>(`/shop/sites/${site.id}/products`);
@@ -111,7 +125,7 @@ export function ProductsScreen({ tab }: { tab?: string | null }) {
           <Empty icon="box" text={t.empty} />
         ) : (
           <ul className="ok-rows">
-            {(list ?? []).map((p) =>
+            {(list ?? []).filter((p) => !gone.includes(p.id)).map((p) =>
               editing === p.id ? (
                 <li key={p.id}>
                   <ProductForm site={site} initial={{ id: p.id, name: p.name, description: p.description, price: String(p.price), stock: p.stock === null ? "" : String(p.stock), active: p.active, photo: null, photoUrl: p.photo }} onDone={done} onCancel={() => setEditing(null)} />
@@ -123,18 +137,10 @@ export function ProductsScreen({ tab }: { tab?: string | null }) {
                     <b>{p.name}</b>
                     <small>{formatUAH(p.price, lang)} · {p.stock === null ? "∞" : p.stock === 0 ? t.outOfStock : `${t.stock}: ${p.stock}`}{!p.active ? ` · ${t.hidden}` : ""}</small>
                   </span>
-                  {confirm === p.id ? (
-                    <span className="ok-actions">
-                      <span className="ok-muted">{t.deleteConfirm}</span>
-                      <button type="button" className="btn btn-sm" onClick={async () => { await api(`/shop/products/${p.id}`, { method: "DELETE" }); setConfirm(null); void load(); }}>{t.delete}</button>
-                      <button type="button" className="btn btn-sm btn-ghost" onClick={() => setConfirm(null)}>{t.cancel}</button>
-                    </span>
-                  ) : (
-                    <span className="ok-actions">
-                      <button type="button" className="ok-link" onClick={() => setEditing(p.id)}>{t.edit}</button>
-                      <button type="button" className="ok-link ok-danger" onClick={() => setConfirm(p.id)}>{t.delete}</button>
-                    </span>
-                  )}
+                  <span className="ok-actions">
+                    <button type="button" className="ok-link" onClick={() => setEditing(p.id)}>{t.edit}</button>
+                    <button type="button" className="ok-link ok-danger" onClick={() => remove(p)}>{t.delete}</button>
+                  </span>
                 </li>
               ),
             )}
@@ -170,6 +176,7 @@ function OrderDetail({ id, onChanged, shippingOnly }: { id: string; onChanged: (
   const lang = useLang();
   const f = useFormat();
   const [flash, show] = useFlash();
+  const toast = useToast();
   const [o, setO] = useState<OrderFull | null>(null);
   const [waybill, setWaybill] = useState("");
   const [w, setW] = useState({ enabled: false, until: "", note: "" });
@@ -199,6 +206,27 @@ function OrderDetail({ id, onChanged, shippingOnly }: { id: string; onChanged: (
     onChanged();
   };
   const next = FLOW[FLOW.indexOf(o.status) + 1];
+  // Status changes apply at once; «Скасувати» (7 s) puts the previous one back.
+  const setStatus = async (status: Status) => {
+    const prev = o.status;
+    const r = await api(`/shop/orders/${id}`, { method: "PATCH", body: { status } });
+    if (!r.ok) {
+      playSound("error");
+      show(r.error === "out_of_stock" ? t.outOfStock : d.app.auth.errors.server_error, "warn");
+    } else {
+      playSound("success");
+      toast.undo(fmt(t.statusChanged, { n: o.number, s: d.ok.orders.status[status] }), {
+        undo: async () => {
+          const back = await api(`/shop/orders/${id}`, { method: "PATCH", body: { status: prev } });
+          if (!back.ok) show(back.error === "out_of_stock" ? t.outOfStock : d.app.auth.errors.server_error, "warn");
+          void load();
+          onChanged();
+        },
+      });
+    }
+    void load();
+    onChanged();
+  };
   return (
     <Panel className="ok-detail" title={<>#{o.number} · {o.customerName}</>}>
       <div className="ok-kv">
@@ -218,13 +246,13 @@ function OrderDetail({ id, onChanged, shippingOnly }: { id: string; onChanged: (
         {o.totalKop !== null && <li><b className="ok-grow">{t.total}</b><b className="num">{money(o.totalKop)}</b></li>}
       </ul>
       {shippingOnly ? (
-        (o.status === "confirmed" || o.status === "paid") && <div className="ok-actions"><button type="button" className="btn btn-sm" onClick={() => patch({ status: "shipped" })}>{t.markShipped}</button></div>
+        (o.status === "confirmed" || o.status === "paid") && <div className="ok-actions"><button type="button" className="btn btn-sm" onClick={() => setStatus("shipped")}>{t.markShipped}</button></div>
       ) : (
       <div className="ok-actions">
-        {next && o.status !== "cancelled" && <button type="button" className="btn btn-sm" onClick={() => patch({ status: next })}>{d.ok.orders.next.replace("{s}", d.ok.orders.status[next])}</button>}
+        {next && o.status !== "cancelled" && <button type="button" className="btn btn-sm" onClick={() => setStatus(next)}>{d.ok.orders.next.replace("{s}", d.ok.orders.status[next])}</button>}
         <label className="ok-select">
           <span className="sr-only">{d.ok.orders.changeStatus}</span>
-          <select value={o.status} onChange={(e) => patch({ status: e.target.value })}>
+          <select value={o.status} onChange={(e) => setStatus(e.target.value as Status)}>
             {(Object.keys(d.ok.orders.status) as Status[]).map((k) => <option key={k} value={k}>{d.ok.orders.status[k]}</option>)}
           </select>
         </label>

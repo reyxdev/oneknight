@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useId, useMemo, useState, type ReactNode } from "react";
 import { useDict, useLang } from "@/i18n/provider";
 import { fmt } from "@/i18n";
 import { formatUAH } from "@/data/pricing";
@@ -107,10 +107,15 @@ export function AreaChart({ a, b, labelA, labelB, height = 180 }: { a: number[];
   );
 }
 
-/** Short confirmation line inside a screen. Re-triggers on each call. */
+/** Set by the panel's notice area: then `useFlash` sends there instead of drawing a line in the screen. */
+export const FlashContext = createContext<((text: string, tone?: "ok" | "warn") => void) | null>(null);
+
+/** Short confirmation line inside a screen (the landing demo), or a notice in the panel. Re-triggers on each call. */
 export function useFlash() {
+  const global = useContext(FlashContext);
   const [f, setF] = useState<{ text: string; n: number; tone: "ok" | "warn" } | null>(null);
-  const show = (text: string, tone: "ok" | "warn" = "ok") => setF((p) => ({ text, n: (p?.n ?? 0) + 1, tone }));
+  const local = (text: string, tone: "ok" | "warn" = "ok") => setF((p) => ({ text, n: (p?.n ?? 0) + 1, tone }));
+  const show = global ?? local;
   const node = f ? (
     <p className="ok-flash" data-tone={f.tone} role="status" key={f.n} onAnimationEnd={() => setF(null)}>
       {f.text}

@@ -142,14 +142,15 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
     const acc = await orderAccess(req);
     if (!p.success || !uuid.safeParse(req.params.id).success || !acc) return reply.code(400).send({ error: "invalid_input" });
     const orgs = [acc.org];
-    // Shipping only: mark confirmed / paid orders as sent and enter the waybill; nothing else.
-    if (!acc.full && ((p.data.status && p.data.status !== "shipped") || p.data.warranty)) return reply.code(403).send({ error: "forbidden" });
+    // Shipping only: mark confirmed / paid orders as sent (and take it back: «Скасувати»), enter the waybill; nothing else.
+    if (!acc.full && ((p.data.status && !(SHIPPING_STATUSES as readonly string[]).includes(p.data.status)) || p.data.warranty)) return reply.code(403).send({ error: "forbidden" });
     if (!acc.full) {
       const [o] = await db.select({ status: orders.status }).from(orders).where(and(eq(orders.id, req.params.id), eq(orders.organizationId, acc.org)));
       if (!o || !(SHIPPING_STATUSES as readonly string[]).includes(o.status)) return reply.code(404).send({ error: "not_found" });
     }
     if (p.data.status) {
-      const r = await setOrderStatus(req.params.id, orgs, p.data.status, req.auth!.user.id, acc.full ? undefined : ["confirmed", "paid"]);
+      const from = acc.full ? undefined : p.data.status === "shipped" ? (["confirmed", "paid"] as const) : (["shipped"] as const);
+      const r = await setOrderStatus(req.params.id, orgs, p.data.status, req.auth!.user.id, from);
       if (!r.ok) return reply.code(r.error === "not_found" ? 404 : r.error === "forbidden" ? 403 : 409).send({ error: r.error });
     }
     if (p.data.waybill !== undefined || p.data.warranty) {

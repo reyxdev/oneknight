@@ -69,6 +69,11 @@ ok(await pg.getByText("Щоб оформлювати ТТН, підключіт�
 ok(await pg.getByRole("link", { name: "Перейти в Модулі" }).isVisible(), "link to Modules offered");
 await pg.getByRole("button", { name: /Далі: Підтверджене/ }).click();
 await pg.locator(".ok-detail .ok-pill", { hasText: "Підтверджене" }).first().waitFor();
+// «Скасувати» (7 s) puts the previous status back, then the change is made again.
+await pg.locator(".app-toast", { hasText: "Підтверджене" }).getByRole("button", { name: "Скасувати" }).click();
+ok(await pg.locator(".ok-detail .ok-kv .ok-pill", { hasText: "Нове" }).waitFor({ timeout: 5000 }).then(() => true, () => false), "«Скасувати» restores the previous status");
+await pg.getByRole("button", { name: /Далі: Підтверджене/ }).click();
+await pg.locator(".ok-detail .ok-kv .ok-pill", { hasText: "Підтверджене" }).waitFor();
 await pg.getByLabel("Номер ТТН").fill("20450012345678");
 await pg.getByRole("button", { name: "Зберегти" }).click();
 await pg.getByText("Збережено").first().waitFor();
@@ -85,7 +90,7 @@ ok(await pg.locator(".okp", { hasText: "Нова пошта" }).getByText("Не 
 const promCard = pg.locator(".okp", { hasText: "API-токен Prom" });
 await promCard.getByLabel("API-токен Prom").fill("0".repeat(40));
 await promCard.getByRole("button", { name: "Перевірити й підключити" }).click();
-ok(await promCard.getByText("Prom відхилив токен: unauthorized").waitFor({ timeout: 20000 }).then(() => true, () => false), "invalid Prom token rejected by the real Prom API");
+ok(await promCard.locator(".field-error").getByText("Prom відхилив токен: unauthorized").waitFor({ timeout: 20000 }).then(() => true, () => false), "invalid Prom token rejected by the real Prom API");
 // Ukrposhta: keys from the contract; wrong keys are refused by the real eCom API.
 const upCard = pg.locator(".okp", { hasText: "PRODUCTION BEARER eCom" }).first();
 ok(await upCard.getByText(/Укладіть договір з Укрпоштою/).isVisible(), "Ukrposhta connect steps shown");
@@ -96,14 +101,24 @@ await upCard.getByLabel("Прізвище").fill("Майстер");
 await upCard.getByLabel("Ім'я").fill("Іван");
 await upCard.getByLabel("ІПН (10 цифр)").fill("1234567890");
 await upCard.getByRole("button", { name: "Перевірити й підключити" }).click();
-ok(await upCard.getByText(/Укрпошта не прийняла ключі: unauthorized/).waitFor({ timeout: 20000 }).then(() => true, () => false), "wrong Ukrposhta keys rejected by the real API");
+ok(await upCard.locator(".field-error").getByText(/Укрпошта не прийняла ключі: unauthorized/).waitFor({ timeout: 20000 }).then(() => true, () => false), "wrong Ukrposhta keys rejected by the real API");
 const rzCard = pg.locator(".okp", { hasText: "Логін кабінету продавця Rozetka" });
 await rzCard.getByLabel("Логін кабінету продавця Rozetka").fill(`nobody_e2e_${Date.now()}`);
 await rzCard.getByLabel("Пароль").fill("not a real password");
 await rzCard.getByRole("button", { name: "Перевірити й підключити" }).click();
-ok(await rzCard.getByText(/Rozetka не прийняла логін або пароль: incorrect_username_password/).waitFor({ timeout: 20000 }).then(() => true, () => false), "wrong Rozetka login rejected by the real Seller API");
+ok(await rzCard.locator(".field-error").getByText(/Rozetka не прийняла логін або пароль: incorrect_username_password/).waitFor({ timeout: 20000 }).then(() => true, () => false), "wrong Rozetka login rejected by the real Seller API");
 await nav("Товари");
 ok(await pg.getByText("Залишок: 1").waitFor({ timeout: 5000 }).then(() => true, () => false), "stock decreased by the order");
+// Deleting: the row goes at once, «Скасувати» brings it back; without it the product is deleted after 7 s.
+const row = pg.locator(".ok-row", { hasText: "Залишок: 1" });
+await row.getByRole("button", { name: "Видалити" }).click();
+ok(await row.waitFor({ state: "detached", timeout: 3000 }).then(() => true, () => false), "deleted row disappears at once");
+await pg.locator(".app-toast", { hasText: "видалено" }).getByRole("button", { name: "Скасувати" }).click();
+ok(await pg.getByText("Залишок: 1").waitFor({ timeout: 3000 }).then(() => true, () => false), "«Скасувати» brings the product back");
+await pg.locator(".ok-row", { hasText: "Залишок: 1" }).getByRole("button", { name: "Видалити" }).click();
+await pg.waitForTimeout(8000);
+await pg.reload({ waitUntil: "networkidle" });
+ok(!(await pg.getByText("Залишок: 1").count()), "after 7 s the product is really deleted");
 
 cleanupTestData();
 // Known, intermittent React #418 (hydration) seen only after a form sign-up + reloads; tracked in TODO.md.

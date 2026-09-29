@@ -57,11 +57,14 @@ test("«Комплектувальник»: only orders waiting to be sent, only
   const patch = (id: string, payload: object) => app.inject({ method: "PATCH", url: `/api/shop/orders/${id}`, payload, headers: H(packer.cookie) });
   assert.equal((await patch(fresh!.id, { status: "shipped" })).statusCode, 404, "cannot touch a new order");
   assert.equal((await patch(confirmed!.id, { status: "cancelled" })).statusCode, 403, "cannot cancel");
+  assert.equal((await patch(confirmed!.id, { status: "paid" })).statusCode, 403, "cannot mark as paid");
   assert.equal((await patch(confirmed!.id, { warranty: { enabled: true } })).statusCode, 403);
   assert.equal((await patch(confirmed!.id, { status: "shipped", waybill: "20450000000009" })).statusCode, 200);
   const [after] = await db.select().from(orders).where(eq(orders.id, confirmed!.id));
   assert.equal(after!.status, "shipped");
   assert.equal(after!.waybill, "20450000000009");
+  assert.equal((await patch(confirmed!.id, { status: "confirmed" })).statusCode, 200, "«Скасувати» takes «Відправлено» back");
+  assert.equal((await patch(confirmed!.id, { status: "shipped" })).statusCode, 200);
 
   const dash = (await get("/api/dashboard")).json();
   assert.equal(dash.sales, null, "no sales block");

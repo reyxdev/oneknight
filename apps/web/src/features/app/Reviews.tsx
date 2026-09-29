@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import { Empty, Panel, useFormat } from "@/features/oneknight/ui/kit";
 import { useBilling } from "./Billing";
 import { useSites } from "./SiteScreen";
+import { useToast } from "./Toasts";
 
 type Status = "pending" | "published" | "trash";
 type Review = { id: string; name: string; rating: number; text: string; verified: boolean; consent: boolean; product: { id: string; name: string | null } | null; photo: string | null; videoUrl: string | null; date: string; status: Status; trashedAt: string | null; domain: string };
@@ -73,6 +74,7 @@ function Creative({ r }: { r: Review }) {
 export function ReviewsScreen({ goModules }: { goModules: () => void }) {
   const d = useDict();
   const t = d.app.reviews;
+  const toast = useToast();
   const f = useFormat();
   const { data: billing } = useBilling();
   const { sites, load: reloadSites } = useSites();
@@ -93,9 +95,31 @@ export function ReviewsScreen({ goModules }: { goModules: () => void }) {
       live = false;
     };
   }, [tab, bump]);
-  const act = async (id: string, a: string) => {
-    await api(`/reviews/${id}/${a}`, { method: "POST", body: {} });
-    setBump((n) => n + 1);
+  // Every action applies at once and can be taken back for 7 s; «Видалити назавжди» waits those 7 s first.
+  const [gone, setGone] = useState<string[]>([]);
+  const refresh = () => setBump((n) => n + 1);
+  const act = async (r: Review, a: "approve" | "reject" | "restore" | "delete") => {
+    if (a === "delete") {
+      setGone((g) => [...g, r.id]);
+      toast.undo(t.done.delete, {
+        undo: () => setGone((g) => g.filter((x) => x !== r.id)),
+        commit: async () => {
+          await api(`/reviews/${r.id}/delete`, { method: "POST", body: {}, keepalive: true });
+          refresh();
+        },
+      });
+      return;
+    }
+    const back = r.status === "published" ? "approve" : r.status === "trash" ? "reject" : "restore";
+    const res = await api(`/reviews/${r.id}/${a}`, { method: "POST", body: {} });
+    refresh();
+    if (!res.ok) return toast.show(d.app.auth.errors.server_error, "warn");
+    toast.undo(t.done[a], {
+      undo: async () => {
+        await api(`/reviews/${r.id}/${back}`, { method: "POST", body: {} });
+        refresh();
+      },
+    });
   };
   if (!billing) return null;
   if (!active)
@@ -134,7 +158,7 @@ export function ReviewsScreen({ goModules }: { goModules: () => void }) {
           <Empty icon="star" text={t.empty[tab]} />
         ) : (
           <ul className="ok-reviews">
-            {(rows ?? []).map((r) => (
+            {(rows ?? []).filter((r) => !gone.includes(r.id)).map((r) => (
               <li key={r.id} className="ok-review">
                 <header>
                   <b>{r.name}</b>
@@ -155,20 +179,20 @@ export function ReviewsScreen({ goModules }: { goModules: () => void }) {
                 <div className="ok-actions">
                   {r.status === "pending" && (
                     <>
-                      <button type="button" className="btn btn-sm" disabled={!r.consent} onClick={() => act(r.id, "approve")}><Icon name="check" size={16} />{t.approve}</button>
-                      <button type="button" className="btn btn-sm btn-secondary" onClick={() => act(r.id, "reject")}>{t.reject}</button>
+                      <button type="button" className="btn btn-sm" disabled={!r.consent} onClick={() => act(r, "approve")}><Icon name="check" size={16} />{t.approve}</button>
+                      <button type="button" className="btn btn-sm btn-secondary" onClick={() => act(r, "reject")}>{t.reject}</button>
                     </>
                   )}
                   {r.status === "published" && (
                     <>
                       <button type="button" className="btn btn-sm btn-secondary" onClick={() => setCreative(creative === r.id ? null : r.id)}><Icon name="image" size={16} />{t.creative}</button>
-                      <button type="button" className="btn btn-sm btn-ghost" onClick={() => act(r.id, "reject")}>{t.reject}</button>
+                      <button type="button" className="btn btn-sm btn-ghost" onClick={() => act(r, "reject")}>{t.reject}</button>
                     </>
                   )}
                   {r.status === "trash" && (
                     <>
-                      <button type="button" className="btn btn-sm btn-secondary" onClick={() => act(r.id, "restore")}>{t.restore}</button>
-                      <button type="button" className="btn btn-sm btn-ghost ok-danger" onClick={() => act(r.id, "delete")}><Icon name="trash" size={16} />{t.delete}</button>
+                      <button type="button" className="btn btn-sm btn-secondary" onClick={() => act(r, "restore")}>{t.restore}</button>
+                      <button type="button" className="btn btn-sm btn-ghost ok-danger" onClick={() => act(r, "delete")}><Icon name="trash" size={16} />{t.delete}</button>
                     </>
                   )}
                 </div>

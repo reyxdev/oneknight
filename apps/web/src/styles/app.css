@@ -120,3 +120,16 @@
 .ok-ship .ok-grow b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* The panel shows every number on a phone too (the public demo hides some). */
 .app-shell .ok-home-stats > :nth-child(n + 4) { display: grid; }
+
+/* Notices, bottom right (above the bottom bar on a phone). */
+.app-toasts { position: fixed; z-index: 60; right: 16px; bottom: 16px; display: grid; gap: 0.5rem; width: min(380px, calc(100vw - 32px)); pointer-events: none; }
+@media (max-width: 767px) { .app-toasts { bottom: calc(76px + env(safe-area-inset-bottom)); } }
+.app-toast { position: relative; display: flex; align-items: center; gap: 0.6rem; padding: 0.7rem 0.85rem; border-radius: 14px; background: var(--inverse-bg); color: var(--inverse-fg); font-size: 0.875rem; font-weight: 600; box-shadow: var(--shadow-md); overflow: hidden; pointer-events: auto; animation: app-toast-in 0.28s var(--ease-out); }
+.app-toast[data-tone="warn"] { background: var(--bad); color: #fff; }
+.app-toast-undo { flex: none; padding: 0.3rem 0.6rem; border-radius: 8px; font-weight: 700; color: inherit; background: color-mix(in srgb, currentColor 16%, transparent); cursor: pointer; }
+.app-toast-undo:hover { background: color-mix(in srgb, currentColor 26%, transparent); }
+.app-toast-close { flex: none; display: grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: 8px; color: inherit; cursor: pointer; }
+.app-toast-time { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: color-mix(in srgb, currentColor 45%, transparent); transform-origin: left; animation: app-toast-time linear forwards; }
+@keyframes app-toast-in { from { opacity: 0; transform: translateY(10px); } }
+@keyframes app-toast-time { to { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .app-toast { animation: none; } }

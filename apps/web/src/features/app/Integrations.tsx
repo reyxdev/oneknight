@@ -74,6 +74,7 @@ function NovaPoshta({ item, reload }: { item: Item; reload: () => void }) {
   const t = d.app.integrations;
   const [flash, show] = useFlash();
   const [key, setKey] = useState("");
+  const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const connected = item.status === "connected";
@@ -86,7 +87,7 @@ function NovaPoshta({ item, reload }: { item: Item; reload: () => void }) {
     if (!r.ok) {
       playSound("error");
       const detail = (r.body as { detail?: string } | undefined)?.detail;
-      return show(`${(t.errors as Record<string, string>)[r.error] ?? d.app.auth.errors.server_error}${detail ? `: ${detail}` : ""}`, "warn");
+      return setErr(`${(t.errors as Record<string, string>)[r.error] ?? d.app.auth.errors.server_error}${detail ? `: ${detail}` : ""}`);
     }
     playSound("success");
     setKey("");
@@ -104,7 +105,7 @@ function NovaPoshta({ item, reload }: { item: Item; reload: () => void }) {
       {!connected ? (
         <form className="grid gap-3" onSubmit={connect}>
           <ol className="ok-steps">{t.npSteps.map((x) => <li key={x}>{x}</li>)}</ol>
-          <Field label={t.apiKey}>{(p) => <input {...p} className="input" autoComplete="off" spellCheck={false} maxLength={40} value={key} onChange={(e) => setKey(e.target.value)} />}</Field>
+          <Field label={t.apiKey} error={err ?? undefined}>{(p) => <input {...p} className="input" autoComplete="off" spellCheck={false} maxLength={40} value={key} onChange={(e) => { setKey(e.target.value); setErr(null); }} />}</Field>
           <button className="btn btn-sm" type="submit" disabled={busy || key.trim().length < 32} style={{ justifySelf: "start" }}>{busy ? t.checking : t.connect}</button>
         </form>
       ) : (
@@ -139,7 +140,11 @@ function Ukrposhta({ item, reload }: { item: Item; reload: () => void }) {
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const connected = item.status === "connected";
-  const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
+  const [err, setErr] = useState<string | null>(null);
+  const set = (k: keyof typeof f) => (e: { target: { value: string } }) => {
+    setF({ ...f, [k]: e.target.value });
+    setErr(null);
+  };
   const connect = async (e: FormEvent) => {
     e.preventDefault();
     const opt = (v: string) => (v.trim() ? v.trim() : undefined);
@@ -153,7 +158,7 @@ function Ukrposhta({ item, reload }: { item: Item; reload: () => void }) {
     if (!r.ok) {
       playSound("error");
       const detail = (r.body as { detail?: string } | undefined)?.detail;
-      return show(`${(t.upErrors as Record<string, string>)[r.error] ?? d.app.auth.errors.server_error}${detail ? `: ${detail}` : ""}`, "warn");
+      return setErr(`${(t.upErrors as Record<string, string>)[r.error] ?? d.app.auth.errors.server_error}${detail ? `: ${detail}` : ""}`);
     }
     playSound("success");
     reload();
@@ -196,6 +201,7 @@ function Ukrposhta({ item, reload }: { item: Item; reload: () => void }) {
             )}
             {f.type !== "INDIVIDUAL" && <Field label={t.upIban} hint={t.upIbanHint}>{(p) => <input {...p} className="input" spellCheck={false} maxLength={34} value={f.bankAccount} onChange={set("bankAccount")} />}</Field>}
           </div>
+          {err && <p className="field-error" role="alert">{err}</p>}
           <button className="btn btn-sm" type="submit" disabled={busy || f.bearer.trim().length < 10 || f.token.trim().length < 10} style={{ justifySelf: "start" }}>{busy ? t.checking : t.connect}</button>
         </form>
       ) : (
@@ -234,6 +240,7 @@ function Marketplace({ item, cfg, reload }: { item: Item; cfg: MarketConfig; rel
   const f = useFormat();
   const [flash, show] = useFlash();
   const [form, setForm] = useState<Record<string, string>>({});
+  const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const connected = item.status !== "not_connected";
@@ -249,7 +256,7 @@ function Marketplace({ item, cfg, reload }: { item: Item; cfg: MarketConfig; rel
     setBusy(false);
     if (!r.ok) {
       playSound("error");
-      return show(errText(cfg.errors, r), "warn");
+      return setErr(errText(cfg.errors, r));
     }
     playSound("success");
     setForm({});
@@ -283,10 +290,11 @@ function Marketplace({ item, cfg, reload }: { item: Item; cfg: MarketConfig; rel
           <div className="grid gap-3 sm:grid-cols-2">
             {cfg.fields.map((x) => (
               <Field key={x.key} label={x.label}>
-                {(p) => <input {...p} className="input" type={x.type ?? "text"} autoComplete={x.type === "password" ? "new-password" : "off"} spellCheck={false} maxLength={200} value={form[x.key] ?? ""} onChange={(e) => setForm({ ...form, [x.key]: e.target.value })} />}
+                {(p) => <input {...p} className="input" type={x.type ?? "text"} autoComplete={x.type === "password" ? "new-password" : "off"} spellCheck={false} maxLength={200} value={form[x.key] ?? ""} onChange={(e) => { setForm({ ...form, [x.key]: e.target.value }); setErr(null); }} />}
               </Field>
             ))}
           </div>
+          {err && <p className="field-error" role="alert">{err}</p>}
           <button className="btn btn-sm" type="submit" disabled={busy || !ready} style={{ justifySelf: "start" }}>{busy ? t.checking : t.connect}</button>
         </form>
       ) : (

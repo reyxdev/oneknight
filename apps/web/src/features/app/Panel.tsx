@@ -7,6 +7,7 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { KnightMark } from "@/components/global/Logo";
 import type { Me } from "@/lib/api";
 import { AdminLeads } from "./Leads";
+import { Toasts } from "./Toasts";
 import { SiteScreen } from "./SiteScreen";
 import { Clients } from "./Clients";
 import { Bell } from "./Bell";
@@ -123,6 +124,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
   const profileTab = (PROFILE_TABS as string[]).includes(route.tab ?? "") ? (route.tab as ProfileTab) : "profile";
 
   return (
+    <Toasts>
     <div className="app-shell">
       <div className="ok-app" data-accent="alby" data-mode={adminMode ? "admin" : "business"}>
         <aside className="ok-side" aria-label={t.nav.sections}>
@@ -221,5 +223,6 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
         )}
       </div>
     </div>
+    </Toasts>
   );
 }

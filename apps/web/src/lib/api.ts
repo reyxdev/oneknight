@@ -3,13 +3,15 @@
 /** Same-origin JSON client for /api. Never throws: returns a typed result the UI can render. */
 export type ApiResult<T> = { ok: true; status: number; data: T } | { ok: false; status: number; error: string; body?: unknown };
 
-export async function api<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<ApiResult<T>> {
+/** `keepalive`: the request finishes even when the page is being closed (a delayed deletion). */
+export async function api<T>(path: string, init: { method?: string; body?: unknown; keepalive?: boolean } = {}): Promise<ApiResult<T>> {
   try {
     const res = await fetch(`/api${path}`, {
       method: init.method ?? "GET",
       credentials: "same-origin",
       headers: init.body !== undefined ? { "content-type": "application/json" } : {},
       body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+      keepalive: init.keepalive,
     });
     const data = res.status === 204 ? null : await res.json().catch(() => null);
     if (res.ok) return { ok: true, status: res.status, data: data as T };
