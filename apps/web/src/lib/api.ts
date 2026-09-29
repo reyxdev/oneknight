@@ -30,6 +30,7 @@ export type Me = {
   activeOrgId: string | null;
   role: "owner" | "manager" | "marketer" | null;
   permissions: string[];
+  modules: string[];
 };
 
 /** Non-secret hint cookie set by the API next to the HttpOnly session. Lets static pages show "Відкрити ONEKNIGHT". */

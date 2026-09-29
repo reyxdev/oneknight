@@ -1,6 +1,7 @@
 // Support flow: client creates a request with a screenshot, admin replies, client sees the reply.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
+import { go } from "./nav.mjs";
 import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -27,7 +28,7 @@ async function account(email, name) {
   await pg.getByText("Вітаємо").waitFor();
   return pg;
 }
-const nav = (pg, name) => pg.locator(".ok-side nav").getByRole("button", { name, exact: true }).click();
+const nav = (pg, name) => go(pg, name);
 
 const c = await account(client, "Клієнт E2E");
 await nav(c, "Підтримка");
@@ -42,7 +43,7 @@ ok(true, "client creates a request with a screenshot");
 const a = await account(admin, "Адмін E2E");
 execSync(`npm run -s admin:grant -w @oneknight/api -- ${admin}`);
 await a.reload({ waitUntil: "networkidle" });
-await nav(a, "Звернення (адмін)");
+await nav(a, "Звернення");
 await a.locator(".ok-row", { hasText: "Помилка" }).first().click();
 ok(await a.locator(".app-thread img").waitFor({ timeout: 5000 }).then(() => true, () => false), "admin sees the screenshot");
 await a.getByLabel("Відповісти").fill("Дякую! Виправили, перевірте, будь ласка.");

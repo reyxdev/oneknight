@@ -2,6 +2,7 @@
 // and makes a PNG creative from it.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
+import { go } from "./nav.mjs";
 import { execSync } from "node:child_process";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
@@ -13,7 +14,7 @@ pg.on("pageerror", (e) => errs.push(`${pg.url()} ${String(e).slice(0, 80)}`));
 let failed = false;
 const ok = (c, msg) => { if (!c) failed = true; console.log(c ? "PASS" : "FAIL", msg); };
 const email = `rev-e2e${Date.now()}@test.oneknight.local`;
-const nav = (name) => pg.locator(".ok-side nav").getByRole("button", { name, exact: true }).click();
+const nav = (name) => go(pg, name);
 
 await pg.goto(`${BASE}/app/?start=register`, { waitUntil: "networkidle" });
 await pg.getByLabel("Ім'я").fill("Відгуки E2E");
@@ -24,7 +25,7 @@ await pg.getByRole("button", { name: "Створити акаунт" }).click();
 await pg.getByText("Вітаємо").waitFor();
 execSync(`npm run -s admin:grant -w @oneknight/api -- ${email}`);
 await pg.reload({ waitUntil: "networkidle" });
-await nav("Клієнти й сайти");
+await nav("Бізнеси");
 const panel = pg.locator(".okp", { hasText: "Відгуки E2E" }).first();
 await panel.getByRole("button", { name: "Відкрити 3 місяці безкоштовно" }).click();
 await pg.getByText("Безкоштовний період відкрито").waitFor();

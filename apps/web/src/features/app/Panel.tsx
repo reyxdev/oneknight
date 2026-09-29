@@ -6,8 +6,6 @@ import { withLang } from "@/i18n";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { KnightMark } from "@/components/global/Logo";
 import type { Me } from "@/lib/api";
-import { Panel } from "@/features/oneknight/ui/kit";
-import { Security } from "./Security";
 import { AdminLeads } from "./Leads";
 import { SiteScreen } from "./SiteScreen";
 import { Clients } from "./Clients";
@@ -15,7 +13,8 @@ import { Bell } from "./Bell";
 import { BillingScreen, ModulesScreen } from "./Billing";
 import { TopupsAdmin } from "./TopupsAdmin";
 import { KeysAdmin } from "./KeysAdmin";
-import { ProfileScreen } from "./Profile";
+import { PROFILE_TABS, ProfileScreen, type ProfileTab } from "./Profile";
+import { BUSINESS_TABS, BusinessScreen, type BusinessTab } from "./Business";
 import { ServicesScreen } from "./Services";
 import { SupportScreen } from "./Support";
 import { OrdersScreen, ProductsScreen } from "./Shop";
@@ -23,48 +22,58 @@ import { ReviewsScreen } from "./Reviews";
 import { AnalyticsScreen } from "./Analytics";
 import { HomeScreen } from "./Home";
 import { TeamScreen } from "./Team";
-import { IntegrationsScreen } from "./Integrations";
 import { api } from "@/lib/api";
 
-type Screen = "services" | "keys" | "integrations" | "team" | "home" | "orders" | "products" | "reviews" | "analytics" | "site" | "modules" | "billing" | "support" | "security" | "account" | "admin" | "clients" | "topups" | "tickets";
-const NAV: { id: Screen; icon: IconName }[] = [
-  { id: "home", icon: "home" },
-  { id: "orders", icon: "cart" },
-  { id: "products", icon: "box" },
-  { id: "reviews", icon: "star" },
-  { id: "analytics", icon: "chart" },
-  { id: "site", icon: "globe" },
-  { id: "modules", icon: "puzzle" },
-  { id: "integrations", icon: "link" },
-  { id: "billing", icon: "card" },
-  { id: "services", icon: "layers" },
-  { id: "support", icon: "chat" },
-  { id: "team", icon: "person" },
-  { id: "security", icon: "shield" },
-  { id: "account", icon: "person" },
-];
+type ClientScreen = "home" | "orders" | "products" | "reviews" | "analytics" | "site" | "modules" | "services" | "business" | "billing" | "team" | "profile" | "support";
+type AdminScreen = "admin" | "clients" | "tickets" | "topups" | "keys";
+type Screen = ClientScreen | AdminScreen;
+type Item = { id: Screen; icon: IconName };
 
-const SCREENS: Screen[] = ["home", "orders", "products", "reviews", "analytics", "site", "modules", "integrations", "billing", "services", "support", "team", "security", "account"];
-const ADMIN_SCREENS: Screen[] = ["admin", "tickets", "clients", "topups", "keys"];
-function readHash(isAdmin: boolean): Screen {
-  if (typeof window === "undefined") return "home";
-  const h = window.location.hash.slice(1) as Screen;
-  return SCREENS.includes(h) || (isAdmin && ADMIN_SCREENS.includes(h)) ? h : "home";
+/** Menu groups (owner's decision): work, site, growth, settings. Profile and support sit at the bottom. */
+const GROUPS: { key: "work" | "site" | "growth" | "settings"; items: Item[] }[] = [
+  { key: "work", items: [{ id: "home", icon: "home" }, { id: "orders", icon: "cart" }, { id: "products", icon: "box" }, { id: "reviews", icon: "star" }, { id: "analytics", icon: "chart" }] },
+  { key: "site", items: [{ id: "site", icon: "globe" }] },
+  { key: "growth", items: [{ id: "modules", icon: "puzzle" }, { id: "services", icon: "layers" }] },
+  { key: "settings", items: [{ id: "business", icon: "settings" }, { id: "billing", icon: "card" }, { id: "team", icon: "person" }] },
+];
+const FOOT: Item[] = [{ id: "profile", icon: "person" }, { id: "support", icon: "chat" }];
+const ADMIN: Item[] = [{ id: "admin", icon: "table" }, { id: "clients", icon: "layers" }, { id: "tickets", icon: "chat" }, { id: "topups", icon: "card" }, { id: "keys", icon: "lock" }];
+/** Phone bottom bar: the daily screens + «Ще». */
+const MOBILE: Screen[] = ["home", "orders", "products"];
+
+const CLIENT_SCREENS = new Set<Screen>([...GROUPS.flatMap((g) => g.items.map((i) => i.id)), ...FOOT.map((i) => i.id)]);
+const ADMIN_SCREENS = new Set<Screen>(ADMIN.map((i) => i.id));
+/** Old links keep working. */
+const ALIASES: Record<string, string> = { account: "profile", security: "profile/security", integrations: "business/integrations" };
+/** Module a section needs; without it the menu shows a lock (the screen explains and offers to connect). */
+const MODULE_OF: Partial<Record<Screen, string>> = { reviews: "reviews", analytics: "analytics" };
+/** Permission a section needs in the active business; the API enforces the same rules. */
+const NEEDS: Partial<Record<Screen, string>> = { orders: "orders", products: "products", reviews: "reviews", analytics: "analytics", modules: "modules", billing: "billing", support: "support", team: "team" };
+
+type Route = { screen: Screen; tab: string | null };
+function readHash(isAdmin: boolean): Route {
+  if (typeof window === "undefined") return { screen: "home", tab: null };
+  const raw = window.location.hash.slice(1);
+  const [s, tab] = (ALIASES[raw] ?? raw).split("/") as [Screen, string | undefined];
+  if (CLIENT_SCREENS.has(s) || (isAdmin && ADMIN_SCREENS.has(s))) return { screen: s, tab: tab ?? null };
+  return { screen: "home", tab: null };
 }
 
-/** The real ONEKNIGHT account. Only sections backed by real data are shown; the rest arrive as they are built. */
 export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => void; onChange: () => void }) {
   const d = useDict();
   const t = d.app;
   const lang = useLang();
-  // The current section lives in the URL hash: refresh, back/forward and direct links keep it.
-  const [screen, setScreenState] = useState<Screen>(() => readHash(me.isAdmin));
-  const setScreen = useCallback((id: Screen) => {
-    setScreenState(id);
-    if (location.hash.slice(1) !== id) history.pushState(null, "", id === "home" ? location.pathname + location.search : `#${id}`);
+  // The current section (and tab) lives in the URL hash: refresh, back/forward and direct links keep it.
+  const [route, setRoute] = useState<Route>(() => readHash(me.isAdmin));
+  const [more, setMore] = useState(false);
+  const go = useCallback((screen: Screen, tab: string | null = null) => {
+    setRoute({ screen, tab });
+    setMore(false);
+    const hash = screen === "home" && !tab ? "" : `#${screen}${tab ? `/${tab}` : ""}`;
+    if (location.hash !== hash) history.pushState(null, "", hash || location.pathname + location.search);
   }, []);
   useEffect(() => {
-    const on = () => setScreenState(readHash(me.isAdmin));
+    const on = () => setRoute(readHash(me.isAdmin));
     window.addEventListener("popstate", on);
     window.addEventListener("hashchange", on);
     return () => {
@@ -72,90 +81,143 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
       window.removeEventListener("hashchange", on);
     };
   }, [me.isAdmin]);
+
+  const { screen } = route;
+  const adminMode = me.isAdmin && ADMIN_SCREENS.has(screen);
   const org = me.organizations.find((o) => o.id === me.activeOrgId) ?? me.organizations[0];
-  const adminNav: { id: Screen; icon: IconName }[] = me.isAdmin
-    ? [{ id: "admin", icon: "table" }, { id: "tickets", icon: "chat" }, { id: "clients", icon: "layers" }, { id: "topups", icon: "card" }, { id: "keys", icon: "lock" }]
-    : [];
-  // Sections that need a permission in the active business; the API enforces the same rules.
-  const NEEDS: Partial<Record<Screen, string>> = { orders: "orders", products: "products", reviews: "reviews", analytics: "analytics", modules: "modules", integrations: "modules", billing: "billing", support: "support", team: "team" };
-  const allowed = (id: Screen) => !NEEDS[id] || me.permissions.includes(NEEDS[id]!);
-  const clientNav = NAV.filter((n) => allowed(n.id));
-  const nav = [...clientNav, ...adminNav];
+  const allowed = (id: Screen) => (id === "business" ? me.role === "owner" : !NEEDS[id] || me.permissions.includes(NEEDS[id]!));
+  const locked = (id: Screen) => !!MODULE_OF[id] && !me.modules.includes(MODULE_OF[id]!);
   const view: Screen | null = allowed(screen) ? screen : null;
   const label = (id: Screen) =>
-    ({ admin: t.admin.nav, clients: t.clients.nav, topups: t.topupsAdmin.nav, keys: t.keysAdmin.nav, services: t.servicesApp.nav, site: t.site.title, modules: t.modulesApp.nav, integrations: t.integrations.nav, billing: t.billing.nav, support: t.support.nav, team: t.team.nav, orders: t.orders.nav, products: t.products.nav, reviews: t.reviews.nav, analytics: t.analytics.nav, tickets: t.supportAdmin.nav } as Partial<Record<Screen, string>>)[id] ?? t.nav[id as "home" | "security" | "account"];
+    ({
+      home: t.nav.home,
+      admin: t.admin.nav,
+      clients: t.clients.nav,
+      tickets: t.supportAdmin.nav,
+      topups: t.topupsAdmin.nav,
+      keys: t.keysAdmin.nav,
+      services: t.servicesApp.nav,
+      site: t.site.title,
+      modules: t.modulesApp.nav,
+      business: t.nav.business,
+      billing: t.billing.nav,
+      support: t.support.nav,
+      team: t.team.nav,
+      orders: t.orders.nav,
+      products: t.products.nav,
+      reviews: t.reviews.nav,
+      analytics: t.analytics.nav,
+      profile: t.nav.myProfile,
+    })[id];
+  const navBtn = (n: Item) => (
+    <button key={n.id} type="button" className="ok-navbtn" aria-current={screen === n.id ? "page" : undefined} onClick={() => go(n.id)}>
+      <Icon name={n.icon} size={19} />
+      <span>{label(n.id)}</span>
+      {locked(n.id) && <Icon name="lock" size={14} className="app-nav-lock" aria-label={t.nav.locked} />}
+    </button>
+  );
+  const groups = GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => allowed(i.id)) })).filter((g) => g.items.length > 0);
+  const foot = FOOT.filter((i) => allowed(i.id));
+  const businessTab = (BUSINESS_TABS as string[]).includes(route.tab ?? "") ? (route.tab as BusinessTab) : "general";
+  const profileTab = (PROFILE_TABS as string[]).includes(route.tab ?? "") ? (route.tab as ProfileTab) : "profile";
 
   return (
     <div className="app-shell">
-      <div className="ok-app" data-accent="alby">
+      <div className="ok-app" data-accent="alby" data-mode={adminMode ? "admin" : "business"}>
         <aside className="ok-side" aria-label={t.nav.sections}>
           <div className="ok-brand"><span className="ok-brand-mark"><KnightMark size={30} /></span><b>ONEKNIGHT</b></div>
           <nav>
-            {clientNav.map((n) => (
-              <button key={n.id} type="button" className="ok-navbtn" aria-current={screen === n.id ? "page" : undefined} onClick={() => setScreen(n.id)}>
-                <Icon name={n.icon} size={19} /><span>{label(n.id)}</span>
-              </button>
-            ))}
-            {adminNav.length > 0 && <span className="app-nav-sep">{t.nav.adminSection}</span>}
-            {adminNav.map((n) => (
-              <button key={n.id} type="button" className="ok-navbtn" aria-current={screen === n.id ? "page" : undefined} onClick={() => setScreen(n.id)}>
-                <Icon name={n.icon} size={19} /><span>{label(n.id)}</span>
-              </button>
-            ))}
+            {adminMode ? (
+              <>
+                <span className="app-nav-sep">{t.nav.modeAdmin}</span>
+                {ADMIN.map(navBtn)}
+              </>
+            ) : (
+              groups.map((g) => (
+                <div key={g.key} className="app-nav-group" role="group" aria-label={t.nav.groups[g.key]}>
+                  <span className="app-nav-sep">{t.nav.groups[g.key]}</span>
+                  {g.items.map(navBtn)}
+                </div>
+              ))
+            )}
           </nav>
           <div className="app-side-foot">
+            {!adminMode && foot.map(navBtn)}
             <a className="ok-navbtn" href={withLang(lang, "/")}><Icon name="globe" size={19} /><span>{t.nav.site}</span></a>
             <button type="button" className="ok-navbtn" onClick={onLogout}><Icon name="arrow" size={19} style={{ transform: "scaleX(-1)" }} /><span>{t.nav.logout}</span></button>
           </div>
         </aside>
         <div className="ok-main">
           <header className="ok-top">
-            {me.organizations.length > 1 ? (
+            {!adminMode && me.organizations.length > 1 ? (
               <label className="ok-site">
                 <span className="sr-only">{t.team.business}</span>
                 <Icon name="layers" size={16} />
-                <select value={me.activeOrgId ?? ""} onChange={async (e) => { await api("/auth/org", { method: "POST", body: { orgId: e.target.value } }); setScreen("home"); onChange(); }}>
+                <select value={me.activeOrgId ?? ""} onChange={async (e) => { await api("/auth/org", { method: "POST", body: { orgId: e.target.value } }); go("home"); onChange(); }}>
                   {me.organizations.map((o) => <option key={o.id} value={o.id}>{o.name} · {t.team.roles[o.role]}</option>)}
                 </select>
               </label>
             ) : (
-              <b className="app-org">{org?.name ?? me.name}</b>
+              <b className="app-org">{adminMode ? t.nav.modeAdmin : org?.name ?? me.name}</b>
             )}
             <span className="ok-grow" />
+            {me.isAdmin && (
+              <button type="button" className="btn btn-sm btn-secondary app-mode" data-mode-switch data-admin={adminMode} onClick={() => go(adminMode ? "home" : "admin")}>
+                <Icon name={adminMode ? "home" : "settings"} size={15} />
+                {adminMode ? t.nav.modeBusiness : t.nav.modeAdmin}
+              </button>
+            )}
             <span className="app-user"><Icon name="person" size={16} />{me.email}</span>
             <Bell />
           </header>
-          <div className="ok-content" key={screen}>
-            {view === "home" && <HomeScreen me={me} go={(id) => setScreen(id as Screen)} />}
-            {view === "security" && <Security me={me} onChange={onChange} />}
-            {view === "admin" && me.isAdmin && <AdminLeads />}
-            {view === "clients" && me.isAdmin && <Clients />}
-            {view === "site" && <SiteScreen canEdit={me.permissions.includes("site")} />}
-            {view === "billing" && <BillingScreen />}
-            {view === "modules" && <ModulesScreen />}
-            {view === "integrations" && <IntegrationsScreen />}
-            {view === "topups" && me.isAdmin && <TopupsAdmin />}
-            {view === "keys" && me.isAdmin && <KeysAdmin />}
-            {view === "services" && <ServicesScreen />}
-            {view === "support" && <SupportScreen />}
-            {view === "team" && <TeamScreen me={me} />}
-            {!allowed(screen) && <p className="ok-muted">{t.team.noAccess}</p>}
+          <div className="ok-content" key={`${me.activeOrgId}/${screen}/${route.tab ?? ""}`}>
+            {!view && <p className="ok-muted">{screen === "business" ? t.business.ownerOnly : t.team.noAccess}</p>}
+            {view === "home" && <HomeScreen me={me} go={(id) => go(id as Screen)} />}
             {view === "orders" && <OrdersScreen />}
             {view === "products" && <ProductsScreen />}
-            {view === "reviews" && <ReviewsScreen goModules={() => setScreen("modules")} />}
-            {view === "analytics" && <AnalyticsScreen goModules={() => setScreen("modules")} />}
-            {view === "tickets" && me.isAdmin && <SupportScreen admin />}
-            {view === "account" && <ProfileScreen me={me} onChange={onChange} />}
+            {view === "reviews" && <ReviewsScreen goModules={() => go("modules")} />}
+            {view === "analytics" && <AnalyticsScreen goModules={() => go("modules")} />}
+            {view === "site" && <SiteScreen canEdit={me.permissions.includes("site")} />}
+            {view === "modules" && <ModulesScreen />}
+            {view === "services" && <ServicesScreen />}
+            {view === "business" && <BusinessScreen me={me} tab={businessTab} setTab={(tab) => go("business", tab)} onChange={onChange} />}
+            {view === "billing" && <BillingScreen />}
+            {view === "team" && <TeamScreen me={me} />}
+            {view === "profile" && <ProfileScreen me={me} tab={profileTab} setTab={(tab) => go("profile", tab)} onChange={onChange} />}
+            {view === "support" && <SupportScreen />}
+            {adminMode && view === "admin" && <AdminLeads />}
+            {adminMode && view === "clients" && <Clients />}
+            {adminMode && view === "tickets" && <SupportScreen admin />}
+            {adminMode && view === "topups" && <TopupsAdmin />}
+            {adminMode && view === "keys" && <KeysAdmin />}
           </div>
         </div>
         <nav className="ok-bottom" aria-label={t.nav.sections}>
-          {nav.map((n) => (
-            <button key={n.id} type="button" aria-current={screen === n.id ? "page" : undefined} onClick={() => setScreen(n.id)}>
+          {(adminMode ? ADMIN : MOBILE.filter(allowed).map((id) => [...GROUPS.flatMap((g) => g.items)].find((i) => i.id === id)!)).map((n) => (
+            <button key={n.id} type="button" aria-current={screen === n.id ? "page" : undefined} onClick={() => go(n.id)}>
               <Icon name={n.icon} size={20} /><span>{label(n.id)}</span>
             </button>
           ))}
-          <button type="button" onClick={onLogout}><Icon name="arrow" size={20} style={{ transform: "scaleX(-1)" }} /><span>{t.nav.logout}</span></button>
+          {!adminMode && (
+            <button type="button" aria-expanded={more} onClick={() => setMore((m) => !m)}>
+              <Icon name="layers" size={20} /><span>{t.nav.more}</span>
+            </button>
+          )}
         </nav>
+        {more && !adminMode && (
+          <div className="app-more" role="dialog" aria-label={t.nav.more}>
+            {groups.map((g) => (
+              <div key={g.key} className="app-nav-group">
+                <span className="app-nav-sep">{t.nav.groups[g.key]}</span>
+                {g.items.filter((i) => !MOBILE.includes(i.id)).map(navBtn)}
+              </div>
+            ))}
+            <div className="app-nav-group">
+              {foot.map(navBtn)}
+              <button type="button" className="ok-navbtn" onClick={onLogout}><Icon name="arrow" size={19} style={{ transform: "scaleX(-1)" }} /><span>{t.nav.logout}</span></button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

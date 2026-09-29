@@ -63,7 +63,15 @@ export const app = {
     logout: "Вийти",
     adminSection: "Адміністрування",
     sections: "Розділи кабінету",
+    groups: { work: "Робота", site: "Сайт", growth: "Розвиток", settings: "Налаштування" },
+    myProfile: "Мій профіль",
+    business: "Бізнес",
+    more: "Ще",
+    modeBusiness: "Мій бізнес",
+    modeAdmin: "Адмінка",
+    locked: "Модуль не підключено",
   },
+
   home: {
     hello: "Вітаємо, {name}.",
     lead: "Це ваш кабінет ONEKNIGHT. Тут з'являтимуться ваш сайт, заявки, замовлення й підказки.",
@@ -88,7 +96,7 @@ export const app = {
     loadError: "Не вдалося отримати заявки.",
   },
   admin: {
-    nav: "Заявки (адмін)",
+    nav: "Заявки",
     title: "Усі заявки",
     empty: "Заявок поки немає.",
     contact: "Контакт",
@@ -135,7 +143,7 @@ export const app = {
     ticketAnswered: "Підтримка відповіла на звернення №{n}",
   },
   clients: {
-    nav: "Клієнти й сайти",
+    nav: "Бізнеси",
     resetTitle: "Посилання для нового пароля",
     resetLead: "Спершу переконайтеся, що пише саме власник акаунта. Посилання одноразове й діє 24 години; надішліть його в месенджер.",
     resetEmail: "Пошта акаунта",
@@ -143,7 +151,7 @@ export const app = {
     resetCreate: "Створити посилання",
     resetLink: "Посилання (діє 24 години)",
     resetErrors: { user_not_found: "Акаунта з такою поштою немає", invalid_input: "Перевірте пошту" },
-    title: "Клієнти й сайти",
+    title: "Бізнеси",
     empty: "Клієнтів поки немає.",
     addSite: "Додати сайт",
     domain: "Домен",
@@ -264,7 +272,7 @@ export const app = {
     errors: { invalid_input: "Перевірте поля", code_taken: "Такий код уже існує", promo_used: "Код уже використовували: його можна лише вимкнути" },
   },
   topupsAdmin: {
-    nav: "Поповнення (адмін)",
+    nav: "Поповнення",
     title: "Заявки на поповнення",
     empty: "Заявок немає.",
     confirm: "Гроші надійшли",
@@ -297,7 +305,7 @@ export const app = {
     close: "Закрити звернення",
     errors: { invalid_input: "Опишіть проблему хоча б кількома словами", unsupported_file: "Додайте зображення PNG, JPG або WebP", file_too_large: "Файл завеликий, максимум 4 МБ", server_error: "Не вдалося надіслати" },
   },
-  supportAdmin: { nav: "Звернення (адмін)", title: "Звернення клієнтів", empty: "Звернень немає." },
+  supportAdmin: { nav: "Звернення", title: "Звернення клієнтів", empty: "Звернень немає." },
   products: {
     nav: "Товари",
     title: "Товари",
@@ -667,6 +675,15 @@ export const app = {
     kindsTitle: "Що надсилати",
     kinds: { order: "Замовлення", review: "Відгуки", site: "Робота сайту", billing: "Оплата", ticket: "Відповіді підтримки", team: "Команда" },
   },
+  business: {
+    title: "Бізнес",
+    ownerOnly: "Налаштування бізнесу доступні лише власнику.",
+    tabs: { general: "Загальне", integrations: "Інтеграції", backups: "Резервні копії" },
+    name: "Назва бізнесу",
+    save: "Зберегти",
+    saved: "Збережено",
+  },
+  profileTabs: { profile: "Профіль", security: "Безпека", notifications: "Сповіщення" },
   account: {
     title: "Профіль",
     name: "Ім'я",

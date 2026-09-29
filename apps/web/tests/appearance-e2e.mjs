@@ -2,6 +2,7 @@
 import { chromium } from "playwright-core";
 import { execSync } from "node:child_process";
 import { cleanupTestData } from "./cleanup.mjs";
+import { go } from "./nav.mjs";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
 const b = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox", "--disable-features=LocalNetworkAccessChecks,PrivateNetworkAccessSendPreflights,PrivateNetworkAccessRespectPreflightResults,BlockInsecurePrivateNetworkRequests"] });
@@ -12,7 +13,7 @@ pg.on("pageerror", (e) => errs.push(`${pg.url()} ${String(e).slice(0, 80)}`));
 let failed = false;
 const ok = (c, msg) => { if (!c) failed = true; console.log(c ? "PASS" : "FAIL", msg); };
 const email = `look-e2e${Date.now()}@test.oneknight.local`;
-const nav = (name) => pg.locator(".ok-side nav").getByRole("button", { name, exact: true }).click();
+const nav = (name) => go(pg, name);
 
 await pg.goto(`${BASE}/app/?start=register`, { waitUntil: "networkidle" });
 await pg.getByLabel("Ім'я").fill("Вигляд E2E");
@@ -23,7 +24,7 @@ await pg.getByRole("button", { name: "Створити акаунт" }).click();
 await pg.getByText("Вітаємо").waitFor();
 execSync(`npm run -s admin:grant -w @oneknight/api -- ${email}`);
 await pg.reload({ waitUntil: "networkidle" });
-await nav("Клієнти й сайти");
+await nav("Бізнеси");
 const panel = pg.locator(".okp", { hasText: "Вигляд E2E" }).first();
 await panel.getByLabel("Домен").fill("example.info");
 await panel.getByRole("button", { name: "Додати" }).click();

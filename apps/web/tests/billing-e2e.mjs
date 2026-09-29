@@ -2,6 +2,7 @@
 // PAYMENT_RECIPIENT="Test recipient" PAYMENT_IBAN="UA000000000000000000000000000" npm start -w @oneknight/api
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
+import { go } from "./nav.mjs";
 import { execSync } from "node:child_process";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
@@ -13,7 +14,7 @@ pg.on("pageerror", (e) => errs.push(`${pg.url()} ${String(e).slice(0, 80)}`));
 let failed = false;
 const ok = (c, msg) => { if (!c) failed = true; console.log(c ? "PASS" : "FAIL", msg); };
 const email = `bill-e2e${Date.now()}@test.oneknight.local`;
-const nav = (name) => pg.locator(".ok-side nav").getByRole("button", { name, exact: true }).click();
+const nav = (name) => go(pg, name);
 
 await pg.goto(`${BASE}/app/?start=register`, { waitUntil: "networkidle" });
 await pg.getByLabel("Ім'я").fill("Оплата E2E");
@@ -27,7 +28,7 @@ ok(await pg.getByText("Підписка ще не активна").waitFor({ tim
 
 execSync(`npm run -s admin:grant -w @oneknight/api -- ${email}`);
 await pg.reload({ waitUntil: "networkidle" });
-await nav("Клієнти й сайти");
+await nav("Бізнеси");
 await pg.locator(".okp", { hasText: "Оплата E2E" }).getByRole("button", { name: "Відкрити 3 місяці безкоштовно" }).click();
 await pg.getByText("Безкоштовний період відкрито").waitFor();
 await nav("Оплата");
@@ -43,7 +44,7 @@ const purpose = await pg.getByText(/Поповнення балансу ONEKNIGH
 ok(/OK-[0-9A-F]{8}/.test(purpose), "top-up shows requisites and a unique payment reference");
 ok((await pg.locator(".ok-stat", { hasText: "Баланс" }).innerText()).includes("0"), "balance does not change before the money arrives");
 
-await nav("Поповнення (адмін)");
+await nav("Поповнення");
 await pg.locator("li", { hasText: purpose.match(/OK-[0-9A-F]{8}/)[0] }).getByRole("button", { name: "Гроші надійшли" }).click();
 await pg.getByText("Зараховано на баланс").waitFor();
 await nav("Оплата");

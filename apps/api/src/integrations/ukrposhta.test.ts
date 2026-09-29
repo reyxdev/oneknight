@@ -13,7 +13,7 @@ const TOKEN = "t".repeat(36);
 const calls: { method: string; url: string; body: any }[] = [];
 let addr = 1000;
 /** Responses shaped as in the Ukrposhta docs (eCom 0.0.1, address classifier v3.22). */
-const fake: UpFetch = async (url, init) => {
+const fake: UpFetch = async (url, init: { method?: string; bearer: string; body?: any; binary?: boolean }) => {
   calls.push({ method: init.method ?? "GET", url, body: init.body });
   if (init.bearer !== BEARER) return { status: 401, body: { error: "unauthorized", error_description: "Unauthorized - invalid or missing token" } };
   const u = new URL(url);

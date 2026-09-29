@@ -65,7 +65,15 @@ export const app: Dict["app"] = {
     logout: "Log out",
     adminSection: "Administration",
     sections: "Account sections",
+    groups: { work: "Work", site: "Website", growth: "Growth", settings: "Settings" },
+    myProfile: "My profile",
+    business: "Business",
+    more: "More",
+    modeBusiness: "My business",
+    modeAdmin: "Admin",
+    locked: "Module not connected",
   },
+
   home: {
     hello: "Welcome, {name}.",
     lead: "This is your ONEKNIGHT account. Your website, requests, orders and tips will appear here.",
@@ -90,7 +98,7 @@ export const app: Dict["app"] = {
     loadError: "Could not load requests.",
   },
   admin: {
-    nav: "Requests (admin)",
+    nav: "Requests",
     title: "All requests",
     empty: "No requests yet.",
     contact: "Contact",
@@ -137,7 +145,7 @@ export const app: Dict["app"] = {
     ticketAnswered: "Support replied to request no. {n}",
   },
   clients: {
-    nav: "Clients and sites",
+    nav: "Businesses",
     resetTitle: "New password link",
     resetLead: "First make sure it is really the account owner writing. The link works once and for 24 hours; send it through a messenger.",
     resetEmail: "Account email",
@@ -145,7 +153,7 @@ export const app: Dict["app"] = {
     resetCreate: "Create link",
     resetLink: "Link (valid for 24 hours)",
     resetErrors: { user_not_found: "No account with this email", invalid_input: "Check the email" },
-    title: "Clients and sites",
+    title: "Businesses",
     empty: "No clients yet.",
     addSite: "Add a site",
     domain: "Domain",
@@ -266,7 +274,7 @@ export const app: Dict["app"] = {
     errors: { invalid_input: "Check the fields", code_taken: "This code already exists", promo_used: "The code has been used: it can only be switched off" },
   },
   topupsAdmin: {
-    nav: "Top-ups (admin)",
+    nav: "Top-ups",
     title: "Top-up requests",
     empty: "No requests.",
     confirm: "Money received",
@@ -299,7 +307,7 @@ export const app: Dict["app"] = {
     close: "Close the request",
     errors: { invalid_input: "Describe the problem in at least a few words", unsupported_file: "Attach a PNG, JPG or WebP image", file_too_large: "The file is too large, 4 MB max", server_error: "Could not send" },
   },
-  supportAdmin: { nav: "Requests (admin)", title: "Client requests", empty: "No requests." },
+  supportAdmin: { nav: "Support requests", title: "Client requests", empty: "No requests." },
   products: {
     nav: "Products",
     title: "Products",
@@ -669,6 +677,15 @@ export const app: Dict["app"] = {
     kindsTitle: "What to send",
     kinds: { order: "Orders", review: "Reviews", site: "Website status", billing: "Payments", ticket: "Support replies", team: "Team" },
   },
+  business: {
+    title: "Business",
+    ownerOnly: "Business settings are available to the owner only.",
+    tabs: { general: "General", integrations: "Integrations", backups: "Backups" },
+    name: "Business name",
+    save: "Save",
+    saved: "Saved",
+  },
+  profileTabs: { profile: "Profile", security: "Security", notifications: "Notifications" },
   account: {
     title: "Profile",
     name: "Name",

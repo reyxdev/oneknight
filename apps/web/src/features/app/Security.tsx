@@ -19,7 +19,7 @@ function device(ua: string | null, fallback: string) {
   return [b, o].filter(Boolean).join(" · ") || fallback;
 }
 
-export function Security({ me, onChange }: { me: Me; onChange: () => void }) {
+export function Security({ me, onChange, embedded = false }: { me: Me; onChange: () => void; embedded?: boolean }) {
   const d = useDict();
   const t = d.app.security;
   const e2 = d.app.auth.errors as Record<string, string>;
@@ -92,7 +92,7 @@ export function Security({ me, onChange }: { me: Me; onChange: () => void }) {
 
   return (
     <div className="ok-screen">
-      <div className="ok-h"><h3>{t.title}</h3></div>
+      {!embedded && <div className="ok-h"><h3>{t.title}</h3></div>}
       <Panel title={t.twoFa} action={<span className="ok-pill" data-s={me.totpEnabled ? "done" : "cancelled"}>{me.totpEnabled ? t.on : t.off}</span>}>
         <p className="ok-muted">{t.twoFaText}</p>
         {!me.totpEnabled && !setup && (

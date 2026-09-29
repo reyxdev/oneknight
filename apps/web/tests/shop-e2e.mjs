@@ -2,6 +2,7 @@
 // public API (server prices), the order shows up and moves through statuses.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
+import { go } from "./nav.mjs";
 import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -16,7 +17,7 @@ pg.on("pageerror", (e) => errs.push(`${pg.url()} ${String(e).slice(0, 80)}`));
 let failed = false;
 const ok = (c, msg) => { if (!c) failed = true; console.log(c ? "PASS" : "FAIL", msg); };
 const email = `shop-e2e${Date.now()}@test.oneknight.local`;
-const nav = (name) => pg.locator(".ok-side nav").getByRole("button", { name, exact: true }).click();
+const nav = (name) => go(pg, name);
 
 await pg.goto(`${BASE}/app/?start=register`, { waitUntil: "networkidle" });
 await pg.getByLabel("Ім'я").fill("Магазин E2E");
@@ -30,7 +31,7 @@ ok(await pg.getByText("потрібен сайт").waitFor({ timeout: 5000 }).th
 
 execSync(`npm run -s admin:grant -w @oneknight/api -- ${email}`);
 await pg.reload({ waitUntil: "networkidle" });
-await nav("Клієнти й сайти");
+await nav("Бізнеси");
 const panel = pg.locator(".okp", { hasText: "Магазин E2E" }).first();
 await panel.getByLabel("Домен").fill(DOMAIN);
 await panel.getByRole("button", { name: "Додати" }).click();

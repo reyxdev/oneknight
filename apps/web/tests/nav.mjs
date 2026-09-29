@@ -1,0 +1,23 @@
+// Navigation in the ONEKNIGHT panel for browser tests: grouped menu, «Мій профіль» at the bottom,
+// tabs inside «Бізнес» / «Мій профіль», and the separate admin mode.
+const ADMIN = new Set(["Заявки", "Бізнеси", "Звернення", "Поповнення", "Ключі й промокоди"]);
+const TABS = {
+  "Інтеграції": ["Бізнес", "Інтеграції"],
+  "Резервні копії": ["Бізнес", "Резервні копії"],
+  "Безпека": ["Мій профіль", "Безпека"],
+  "Сповіщення": ["Мій профіль", "Сповіщення"],
+};
+
+export async function go(pg, name) {
+  const toggle = pg.locator("[data-mode-switch]");
+  if (await toggle.count()) {
+    const inAdmin = (await toggle.getAttribute("data-admin")) === "true";
+    if (inAdmin !== ADMIN.has(name)) {
+      await toggle.click();
+      await pg.waitForFunction((want) => document.querySelector("[data-mode-switch]")?.getAttribute("data-admin") === String(want), ADMIN.has(name));
+    }
+  }
+  const [item, tab] = TABS[name] ?? [name];
+  await pg.locator(".ok-side").getByRole("button", { name: item, exact: true }).click();
+  if (tab) await pg.getByRole("tab", { name: tab, exact: true }).click();
+}

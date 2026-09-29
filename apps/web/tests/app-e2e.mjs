@@ -1,6 +1,7 @@
 // Real account flow through the browser: npm run build, API running, npm run serve. BASE defaults to :8080.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
+import { go } from "./nav.mjs";
 import { generate } from "otplib";
 import { execSync } from "node:child_process";
 
@@ -37,7 +38,7 @@ await pg.goto(`${BASE}/`, { waitUntil: "networkidle" });
 ok(await pg.locator("header .btn", { hasText: "Відкрити ONEKNIGHT" }).count() === 1, "landing shows Відкрити ONEKNIGHT when signed in");
 await pg.goto(`${BASE}/app/`, { waitUntil: "networkidle" });
 
-await pg.locator(".ok-side .ok-navbtn", { hasText: "Безпека" }).click();
+await go(pg, "Безпека");
 await pg.getByRole("button", { name: "Увімкнути" }).click();
 const key = (await pg.locator(".app-key").innerText()).replace(/\s/g, "");
 ok(key.length >= 16 && (await pg.locator(".app-qr svg").count()) === 1, "2FA setup shows QR and key");
@@ -62,7 +63,7 @@ await pg.getByRole("button", { name: "Підтвердити" }).click();
 await pg.getByText("Вітаємо, Тест E2E.").waitFor();
 ok(true, "login with password + fresh TOTP code");
 
-await pg.locator(".ok-side .ok-navbtn", { hasText: "Безпека" }).click();
+await go(pg, "Безпека");
 await pg.getByText("Пароль вірний, очікується код").first().waitFor();
 ok((await pg.getByText("Невірний пароль").count()) >= 1, "login history lists the failed attempt");
 

@@ -311,7 +311,7 @@ function Marketplace({ item, cfg, reload }: { item: Item; cfg: MarketConfig; rel
   );
 }
 
-export function IntegrationsScreen() {
+export function IntegrationsScreen({ embedded = false }: { embedded?: boolean }) {
   const t = useDict().app.integrations;
   const [items, setItems] = useState<Item[] | null>(null);
   const load = useCallback(async () => {
@@ -328,7 +328,7 @@ export function IntegrationsScreen() {
   const rozetka = items.find((i) => i.provider === "rozetka");
   return (
     <div className="ok-screen">
-      <div className="ok-h"><h3>{t.title}</h3></div>
+      {!embedded && <div className="ok-h"><h3>{t.title}</h3></div>}
       <p className="ok-muted">{t.lead}</p>
       {np && <NovaPoshta item={np} key={np.status} reload={load} />}
       {ukr && <Ukrposhta item={ukr} key={`up-${ukr.status}`} reload={load} />}

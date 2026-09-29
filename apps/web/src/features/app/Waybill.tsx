@@ -110,7 +110,7 @@ export function WaybillForm({ provider, orderId, onCreated, notify }: { provider
     return (
       <div className="ok-note app-waybill-need">
         <span className="ok-grow">{needModule ? (up ? t.needModuleUp : t.needModule) : up ? t.needKeyUp : t.needKey}</span>
-        <a className="ok-link" href={needModule ? "#modules" : "#integrations"}>{needModule ? t.goModules : t.goIntegrations}</a>
+        <a className="ok-link" href={needModule ? "#modules" : "#business/integrations"}>{needModule ? t.goModules : t.goIntegrations}</a>
       </div>
     );
   }

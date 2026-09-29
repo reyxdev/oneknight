@@ -6,22 +6,26 @@ import { Field } from "@/components/ui/Field";
 import { api, type Me } from "@/lib/api";
 import { playSound } from "@/lib/sound";
 import { Panel, useFlash } from "@/features/oneknight/ui/kit";
-import { BackupsPanel } from "./Backups";
 import { TelegramPanel } from "./TelegramPanel";
+import { Security } from "./Security";
+import { Tabs } from "./Tabs";
 
-export function ProfileScreen({ me, onChange }: { me: Me; onChange: () => void }) {
+export type ProfileTab = "profile" | "security" | "notifications";
+export const PROFILE_TABS: ProfileTab[] = ["profile", "security", "notifications"];
+
+/** «Мій профіль»: personal things only; business settings live in «Бізнес». */
+export function ProfileScreen({ me, tab, setTab, onChange }: { me: Me; tab: ProfileTab; setTab: (t: ProfileTab) => void; onChange: () => void }) {
   const d = useDict();
   const t = d.app.account;
   const [flash, show] = useFlash();
   const org = me.organizations.find((o) => o.id === me.activeOrgId) ?? me.organizations[0];
-  const owner = me.role === "owner";
-  const [f, setF] = useState({ name: me.name, phone: me.phone, businessName: org?.name ?? "" });
+  const [f, setF] = useState({ name: me.name, phone: me.phone });
   const [pw, setPw] = useState({ current: "", next: "" });
   const err = (e: string) => (t.errors as Record<string, string>)[e] ?? d.app.auth.errors.server_error;
 
   const save = async (e: FormEvent) => {
     e.preventDefault();
-    const body = { name: f.name, phone: f.phone, ...(owner && f.businessName !== org?.name ? { businessName: f.businessName } : {}) };
+    const body = { name: f.name, phone: f.phone };
     const r = await api("/auth/profile", { method: "PATCH", body });
     if (!r.ok) {
       playSound("error");
@@ -46,13 +50,17 @@ export function ProfileScreen({ me, onChange }: { me: Me; onChange: () => void }
 
   return (
     <div className="ok-screen">
-      <div className="ok-h"><h3>{t.title}</h3></div>
+      <div className="ok-h"><h3>{d.app.nav.myProfile}</h3></div>
+      <Tabs label={d.app.nav.myProfile} value={tab} onChange={setTab} tabs={PROFILE_TABS.map((id) => ({ id, label: d.app.profileTabs[id] }))} />
+      {tab === "security" && <Security me={me} onChange={onChange} embedded />}
+      {tab === "notifications" && <TelegramPanel />}
+      {tab === "profile" && (
+      <>
       <Panel>
         <form className="grid gap-3" onSubmit={save} noValidate>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label={t.name}>{(p) => <input {...p} className="input" autoComplete="name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />}</Field>
             <Field label={t.phone}>{(p) => <input {...p} className="input" type="tel" autoComplete="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />}</Field>
-            {owner && <Field label={t.businessName}>{(p) => <input {...p} className="input" maxLength={120} value={f.businessName} onChange={(e) => setF({ ...f, businessName: e.target.value })} />}</Field>}
           </div>
           <div className="ok-kv">
             <div><span>{t.email}</span><b>{me.email}</b></div>
@@ -70,8 +78,8 @@ export function ProfileScreen({ me, onChange }: { me: Me; onChange: () => void }
           <button className="btn btn-sm btn-secondary" type="submit" disabled={!pw.current || !pw.next} style={{ justifySelf: "start" }}>{t.changePassword}</button>
         </form>
       </Panel>
-      <TelegramPanel />
-      {owner && <BackupsPanel />}
+      </>
+      )}
       {flash}
     </div>
   );

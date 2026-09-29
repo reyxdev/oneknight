@@ -2,6 +2,7 @@
 // activates both in «Оплата», the admin sees the key as activated.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
+import { go } from "./nav.mjs";
 import { execSync } from "node:child_process";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
@@ -25,7 +26,7 @@ async function signup(name, email) {
   await pg.getByText("Вітаємо").waitFor();
   return pg;
 }
-const nav = (pg, name) => pg.locator(".ok-side nav").getByRole("button", { name, exact: true }).click();
+const nav = (pg, name) => go(pg, name);
 
 const adminEmail = `keys-admin${Date.now()}@test.oneknight.local`;
 const admin = await signup("Адмін E2E", adminEmail);

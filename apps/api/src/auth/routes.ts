@@ -3,7 +3,7 @@ import { and, desc, eq, isNull, ne } from "drizzle-orm";
 import QRCode from "qrcode";
 import { z } from "zod";
 import { db } from "../db/client.ts";
-import { loginEvents, memberships, organizations, sessions, users } from "../db/schema.ts";
+import { loginEvents, memberships, moduleInstalls, organizations, sessions, users } from "../db/schema.ts";
 import { hashPassword, verifyPassword } from "../security/password.ts";
 import { decrypt, encrypt } from "../security/crypto.ts";
 import { checkTotp, newTotpSecret, totpUri } from "../security/totp.ts";
@@ -39,6 +39,8 @@ async function me(user: Auth["user"], activeOrgId: string | null = null) {
     .orderBy(memberships.createdAt);
   const all = await membershipsOf(user.id);
   const active = all.find((m) => m.orgId === activeOrgId) ?? all[0] ?? null;
+  // Installed modules of the active business: the menu shows a lock on sections whose module is not connected.
+  const modules = active ? (await db.select({ id: moduleInstalls.moduleId }).from(moduleInstalls).where(eq(moduleInstalls.organizationId, active.orgId))).map((m) => m.id) : [];
   return {
     id: user.id,
     name: user.name,
@@ -50,6 +52,7 @@ async function me(user: Auth["user"], activeOrgId: string | null = null) {
     activeOrgId: active?.orgId ?? null,
     role: active?.role ?? null,
     permissions: active?.permissions ?? [],
+    modules,
   };
 }
 

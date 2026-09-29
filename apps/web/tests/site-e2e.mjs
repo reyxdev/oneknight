@@ -1,6 +1,7 @@
 // Admin adds a real site to a client; the client sees live monitoring. Needs the API with network access.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
+import { go } from "./nav.mjs";
 import { execSync } from "node:child_process";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
@@ -21,12 +22,12 @@ await pg.getByLabel("Електронна пошта").fill(email);
 await pg.getByLabel("Пароль").fill("site e2e pass");
 await pg.getByRole("button", { name: "Створити акаунт" }).click();
 await pg.getByText("Вітаємо").waitFor();
-await pg.locator(".ok-side nav").getByRole("button", { name: "Сайт", exact: true }).click();
+await go(pg, "Сайт");
 ok(await pg.getByText("Сайту поки немає").waitFor({ timeout: 5000 }).then(() => true, () => false), "empty site state before any site");
 
 execSync(`npm run -s admin:grant -w @oneknight/api -- ${email}`);
 await pg.reload({ waitUntil: "networkidle" });
-await pg.locator(".ok-side .ok-navbtn", { hasText: "Клієнти й сайти" }).click();
+await go(pg, "Бізнеси");
 const panel = pg.locator(".okp", { hasText: "Сайт E2E" }).first();
 await panel.getByLabel("Домен").fill("localhost");
 await panel.getByRole("button", { name: "Додати" }).click();
@@ -38,7 +39,7 @@ await panel.getByRole("button", { name: "Перевірити зараз" }).cli
 await pg.getByText("Перевірено").waitFor({ timeout: 20000 });
 ok(true, "admin adds a site and runs a check");
 
-await pg.locator(".ok-side nav").getByRole("button", { name: "Сайт", exact: true }).click();
+await go(pg, "Сайт");
 await pg.locator(".ok-stat", { hasText: "Доступність" }).waitFor();
 const status = await pg.locator(".ok-stat").first().innerText();
 ok(/Працює|Недоступний/.test(status), `site status is a real probe result (${status.split("\n")[1]})`);

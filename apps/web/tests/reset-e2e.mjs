@@ -1,6 +1,7 @@
 // Password reset: the admin creates a one-time link, the person sets a new password with it and signs in.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
+import { go } from "./nav.mjs";
 import { execSync } from "node:child_process";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
@@ -32,7 +33,7 @@ const admin = await signup("Адмін E2E", adminEmail);
 const user = await signup("Олена E2E", userEmail);
 execSync(`npm run -s admin:grant -w @oneknight/api -- ${adminEmail}`);
 await admin.reload({ waitUntil: "networkidle" });
-await admin.locator(".ok-side nav").getByRole("button", { name: "Клієнти й сайти", exact: true }).click();
+await go(admin, "Бізнеси");
 await admin.getByLabel("Пошта акаунта").fill(`nobody${stamp}@test.oneknight.local`);
 await admin.getByRole("button", { name: "Створити посилання" }).click();
 ok(await seen(admin.getByText("Акаунта з такою поштою немає")), "unknown email refused");
@@ -56,14 +57,15 @@ await pg.getByLabel("Пароль").fill("brand new e2e pass");
 await pg.getByRole("button", { name: "Увійти", exact: true }).click();
 ok(await seen(pg.getByText("Вітаємо")), "signed in with the new password");
 
-// Backups (owner): create a copy in the profile and download it.
-await pg.locator(".ok-side nav").getByRole("button", { name: "Профіль", exact: true }).click();
+// Backups (owner): «Бізнес → Резервні копії».
+await go(pg, "Резервні копії");
 await pg.getByRole("button", { name: "Створити копію зараз" }).click();
 ok(await seen(pg.getByText(/Вручну · \d+ KB · товарів 0 · замовлень 0 · відгуків 0/)), "manual backup listed");
 const [dl] = await Promise.all([pg.waitForEvent("download"), pg.getByRole("link", { name: "Завантажити" }).first().click()]);
 ok(/^oneknight-backup-\d{4}-\d\d-\d\d\.json\.gz$/.test(dl.suggestedFilename()), `backup downloads (${dl.suggestedFilename()})`);
 
-// Telegram notifications: the real bot is configured; a one-time link is issued (not opened here).
+// Telegram notifications: «Мій профіль → Сповіщення»; the real bot is configured, a one-time link is issued (not opened here).
+await go(pg, "Сповіщення");
 ok(await seen(pg.getByRole("button", { name: "Підключити Telegram" })), "Telegram connect offered");
 const tgLink = await pg.evaluate(() => fetch("/api/telegram/link", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then((r) => r.json()));
 ok(/^https:\/\/t\.me\/\w+\?start=[\w-]{20,}$/.test(tgLink.url ?? ""), "Telegram link points to the bot with a one-time token");
@@ -71,10 +73,12 @@ const kinds = pg.getByRole("group", { name: "Що надсилати" });
 await kinds.getByRole("button", { name: "Відгуки" }).click();
 ok(await seen(kinds.locator('[aria-pressed="false"]', { hasText: "Відгуки" })), "notification kinds can be switched off");
 
-// Profile: edit own data and the business name, change the password.
+// Business name: «Бізнес → Загальне»; password: «Мій профіль».
+await go(pg, "Бізнес");
 await pg.getByLabel("Назва бізнесу").fill("Майстерня Олени");
 await pg.getByRole("button", { name: "Зберегти", exact: true }).click();
 ok(await seen(pg.locator(".app-org", { hasText: "Майстерня Олени" })), "business name changed");
+await go(pg, "Мій профіль");
 await pg.getByLabel("Поточний пароль").fill("wrong one");
 await pg.getByLabel("Новий пароль").fill("second new pass");
 await pg.getByRole("button", { name: "Змінити пароль" }).click();
