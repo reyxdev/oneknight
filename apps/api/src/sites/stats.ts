@@ -25,6 +25,7 @@ export async function sitesWithStats(orgIds: string[]) {
         name: s.name,
         status: s.status,
         publicKey: s.publicKey,
+        reviewModeration: s.reviewModeration,
         checks30d: u?.total ?? 0,
         uptime30d: u && u.total ? u.up / u.total : null,
         avgMs24h: r?.ms ? Math.round(Number(r.ms)) : null,

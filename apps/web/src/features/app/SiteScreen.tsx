@@ -11,6 +11,7 @@ import { SiteApiPanel } from "./Shop";
 export type SiteInfo = {
   id: string;
   publicKey?: string;
+  reviewModeration?: "off" | "manual";
   domain: string;
   name: string;
   status: "building" | "live" | "paused";

@@ -41,3 +41,5 @@
 .app-photo:has(:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
 .app-thumb { flex: none; width: 2.75rem; height: 2.75rem; border-radius: 10px; object-fit: cover; }
 .app-code-block { margin: 0.5rem 0 0; padding: 0.75rem 1rem; border-radius: 10px; background: var(--surface-2); font: 12px/1.6 var(--font-code); white-space: pre-wrap; word-break: break-all; }
+.app-creative { width: min(100%, 320px); aspect-ratio: 1; border-radius: 16px; box-shadow: var(--shadow-md); }
+.app-review-photo { max-width: 12rem; border-radius: 10px; border: 1px solid var(--line); }

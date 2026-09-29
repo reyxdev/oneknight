@@ -14,6 +14,8 @@ export const topupStatusEnum = pgEnum("topup_status", ["pending", "confirmed", "
 export const ticketCategoryEnum = pgEnum("ticket_category", ["bug", "question", "change", "oneknight", "site", "other"]);
 export const ticketStatusEnum = pgEnum("ticket_status", ["open", "answered", "closed"]);
 export const orderStatusEnum = pgEnum("order_status", ["new", "confirmed", "paid", "shipped", "done", "cancelled"]);
+export const reviewStatusEnum = pgEnum("review_status", ["pending", "published", "trash"]);
+export const moderationEnum = pgEnum("review_moderation", ["off", "manual"]);
 export const leadStatusEnum = pgEnum("lead_status", ["new", "in_progress", "won", "lost"]);
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
@@ -144,6 +146,7 @@ export const sites = pgTable(
     name: text("name").notNull(),
     status: siteStatusEnum("status").notNull().default("live"),
     /** Key the client's website uses for the public API (products, orders, reviews, analytics). Not a secret for reading. */
+    reviewModeration: moderationEnum("review_moderation").notNull().default("manual"),
     publicKey: text("public_key").notNull().unique().default(sql`'sk_' || replace(gen_random_uuid()::text, '-', '')`),
     /** Result of the last check, cached for quick lists and for detecting up/down transitions. */
     lastUp: boolean("last_up"),
@@ -350,4 +353,30 @@ export const orderEvents = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("order_events_order_idx").on(t.orderId, t.createdAt)],
+);
+
+export const reviews = pgTable(
+  "reviews",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    siteId: uuid("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+    productId: uuid("product_id").references(() => products.id, { onDelete: "set null" }),
+    orderId: uuid("order_id").references(() => orders.id, { onDelete: "set null" }),
+    /** True when the author proved a purchase (order number + the phone used in that order). */
+    verified: boolean("verified").notNull().default(false),
+    authorName: text("author_name").notNull(),
+    rating: smallint("rating").notNull(),
+    text: text("text").notNull(),
+    /** Without consent a review can never be published. */
+    consent: boolean("consent").notNull(),
+    photoFileId: uuid("photo_file_id").references(() => files.id, { onDelete: "set null" }),
+    videoUrl: text("video_url"),
+    status: reviewStatusEnum("status").notNull(),
+    trashedAt: timestamp("trashed_at", { withTimezone: true }),
+    ip: inet("ip"),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("reviews_site_status_idx").on(t.siteId, t.status, t.createdAt), index("reviews_org_idx").on(t.organizationId, t.createdAt)],
 );

@@ -4,13 +4,18 @@ import { sql } from "./db/client.ts";
 import { startMonitor } from "./monitor/scheduler.ts";
 import { runBilling } from "./billing/service.ts";
 import { sweepOrphans } from "./files/store.ts";
+import { purgeTrash } from "./reviews/routes.ts";
 
 const app = await buildApp();
 const stopMonitor = startMonitor(app.log, env.MONITOR_INTERVAL_MIN);
 // Billing: renewals, grace periods and suspensions, hourly (idempotent, row-locked).
 const billingTimer = setInterval(() => void runBilling().catch((e) => app.log.error(e)), 3600_000);
 void runBilling().catch((e) => app.log.error(e));
-const sweepTimer = setInterval(() => void sweepOrphans().catch((e) => app.log.error(e)), 24 * 3600_000);
+const sweepTimer = setInterval(() => {
+  void sweepOrphans().catch((e) => app.log.error(e));
+  void purgeTrash().catch((e) => app.log.error(e));
+}, 24 * 3600_000);
+void purgeTrash().catch((e) => app.log.error(e));
 
 const shutdown = async () => {
   stopMonitor();

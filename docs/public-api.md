@@ -29,3 +29,18 @@ Active products of the site, in the order set in the account.
 - Prices and names are taken from ONEKNIGHT, never from the request. Stock is reserved atomically.
 - `201 { "number": 1041, "total": 2200, "status": "new" }`
 - `409 { "error": "out_of_stock", "productId": "…" }` or `{ "error": "unknown_product" }`, `400 invalid_input`, `401 invalid_site_key`, `403 bad_origin`, `429` rate limit (10 orders per 10 minutes per IP).
+
+## Reviews (module «Відгуки» must be connected)
+
+`GET /reviews` returns published reviews: `[{ id, name, rating, text, verified, product: { id, name } | null, photo, videoUrl, date }]`.
+
+`POST /reviews`:
+
+```json
+{ "name": "Оксана", "rating": 5, "text": "…", "consent": true, "productId": "optional", "photo": { "data": "data:image/jpeg;base64,…" }, "videoUrl": "https://…", "orderNumber": 1041, "phone": "+380…" }
+```
+
+- `consent: false` is stored but can never be published.
+- `orderNumber` + the phone used in that order mark the review as a verified purchase; with a single-item order the product is attached automatically.
+- With moderation off (set in the account) a consented review is published immediately; otherwise it waits for approval. Photos stay private until the review is published.
+- `201 { id, status: "pending" | "published", verified }`, `403 module_not_active`, `400 invalid_input | unsupported_file | file_too_large`, `429` (5 per 10 minutes per IP).

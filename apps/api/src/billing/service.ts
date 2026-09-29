@@ -163,3 +163,14 @@ export async function billingOverview(orgId: string) {
     topups: tops,
   };
 }
+
+/** A module works for an organization when it is installed and the subscription is not suspended. */
+export async function hasModule(orgId: string, moduleId: ModuleId): Promise<boolean> {
+  const [row] = await db
+    .select({ status: subscriptions.status })
+    .from(moduleInstalls)
+    .innerJoin(subscriptions, eq(subscriptions.organizationId, moduleInstalls.organizationId))
+    .where(and(eq(moduleInstalls.organizationId, orgId), eq(moduleInstalls.moduleId, moduleId)))
+    .limit(1);
+  return !!row && ["trial", "active", "grace"].includes(row.status);
+}

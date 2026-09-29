@@ -5,6 +5,7 @@ import { db } from "../db/client.ts";
 import { products, sites } from "../db/schema.ts";
 import { env } from "../config.ts";
 import { placeOrder } from "../shop/service.ts";
+import { reviewPublicRoutes } from "../reviews/routes.ts";
 
 type Site = typeof sites.$inferSelect;
 declare module "fastify" {
@@ -60,6 +61,11 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
       .header("access-control-max-age", "600")
       .code(204)
       .send();
+  });
+
+  await app.register(async (scoped) => {
+    scoped.addHook("preHandler", siteByKey);
+    await scoped.register(reviewPublicRoutes);
   });
 
   app.get("/products", { preHandler: siteByKey }, async (req) => {

@@ -43,6 +43,7 @@ node apps/web/tests/site-e2e.mjs      # admin adds a site, client sees monitorin
 node apps/web/tests/billing-e2e.mjs   # trial, IBAN top-up, admin confirmation (API started with test PAYMENT_* values)
 node apps/web/tests/support-e2e.mjs   # support request with screenshot, admin reply
 node apps/web/tests/shop-e2e.mjs      # products, public API order, statuses
+node apps/web/tests/reviews-e2e.mjs   # reviews module, moderation, PNG creative
 ```
 
 Public API for client websites: [docs/public-api.md](docs/public-api.md).

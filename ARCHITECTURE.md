@@ -369,3 +369,10 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 - `products` per site (price in kopecks, stock or null = made to order, public photo, active, sort). `orders` store an items snapshot with prices from the database, delivery, payment, comment, warranty as data only, waybill; `order_events` keep the status history.
 - Placing an order locks product rows, checks and reserves stock, creates the order and an in-account notification. Cancelling returns stock; reopening a cancelled order takes it again (or fails if stock is gone).
 - Account: «Замовлення» (filters, detail, next status, any status, waybill, warranty, history), «Товари» (photo, price, stock, visibility), site key with an example on «Сайт».
+
+## 23. Reviews module (first live module)
+
+- `reviews` table, `sites.review_moderation` (off / manual). Module gate: `hasModule(org, "reviews")` = installed and subscription trial / active / grace.
+- Public submit with consent, rating, optional photo (private until published), https video link, product, verified purchase by order number + phone. Moderation: approve (needs consent) publishes, reject moves to trash, trash is purged after 30 days (daily job), permanent delete removes the photo too.
+- Account «Відгуки»: moderation switch, tabs, actions, and a 1080×1080 PNG creative drawn in the browser (canvas) from a published review.
+- Not built yet: automatic review requests after a purchase (needs an email/SMS/Telegram channel to the customer).
