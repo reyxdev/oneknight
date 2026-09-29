@@ -11,9 +11,10 @@ import { IntegrationsScreen } from "./Integrations";
 import { BackupsPanel } from "./Backups";
 import { BusinessOrders } from "./BusinessOrders";
 import { RequisitesPanel } from "./Requisites";
+import { BusinessCustomers } from "./Customers";
 
-export type BusinessTab = "general" | "requisites" | "orders" | "integrations" | "backups";
-export const BUSINESS_TABS: BusinessTab[] = ["general", "requisites", "orders", "integrations", "backups"];
+export type BusinessTab = "general" | "requisites" | "orders" | "customers" | "integrations" | "backups";
+export const BUSINESS_TABS: BusinessTab[] = ["general", "requisites", "orders", "customers", "integrations", "backups"];
 
 function General({ me, onChange }: { me: Me; onChange: () => void }) {
   const t = useDict().app.business;
@@ -53,6 +54,7 @@ export function BusinessScreen({ me, tab, setTab, onChange }: { me: Me; tab: Bus
       {tab === "general" && <General me={me} onChange={onChange} />}
       {tab === "requisites" && <RequisitesPanel />}
       {tab === "orders" && <BusinessOrders />}
+      {tab === "customers" && <BusinessCustomers />}
       {tab === "integrations" && <IntegrationsScreen embedded />}
       {tab === "backups" && <BackupsPanel />}
     </div>

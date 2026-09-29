@@ -24,20 +24,21 @@ import { ServicesScreen } from "./Services";
 import { SupportScreen } from "./Support";
 import { ProductsScreen } from "./Shop";
 import { OrdersScreen } from "./Orders";
+import { CustomersScreen } from "./Customers";
 import { ReviewsScreen } from "./Reviews";
 import { AnalyticsScreen } from "./Analytics";
 import { HomeScreen } from "./Home";
 import { TeamScreen } from "./Team";
 import { api } from "@/lib/api";
 
-type ClientScreen = "home" | "orders" | "products" | "reviews" | "analytics" | "site" | "modules" | "services" | "business" | "billing" | "team" | "profile" | "support";
+type ClientScreen = "home" | "orders" | "customers" | "products" | "reviews" | "analytics" | "site" | "modules" | "services" | "business" | "billing" | "team" | "profile" | "support";
 type AdminScreen = "admin" | "clients" | "tickets" | "topups" | "keys";
 type Screen = ClientScreen | AdminScreen;
 type Item = { id: Screen; icon: IconName };
 
 /** Menu groups (owner's decision): work, site, growth, settings. Profile and support sit at the bottom. */
 const GROUPS: { key: "work" | "site" | "growth" | "settings"; items: Item[] }[] = [
-  { key: "work", items: [{ id: "home", icon: "home" }, { id: "orders", icon: "cart" }, { id: "products", icon: "box" }, { id: "reviews", icon: "star" }, { id: "analytics", icon: "chart" }] },
+  { key: "work", items: [{ id: "home", icon: "home" }, { id: "orders", icon: "cart" }, { id: "customers", icon: "person" }, { id: "products", icon: "box" }, { id: "reviews", icon: "star" }, { id: "analytics", icon: "chart" }] },
   { key: "site", items: [{ id: "site", icon: "globe" }] },
   { key: "growth", items: [{ id: "modules", icon: "puzzle" }, { id: "services", icon: "layers" }] },
   { key: "settings", items: [{ id: "business", icon: "settings" }, { id: "billing", icon: "card" }, { id: "team", icon: "person" }] },
@@ -54,7 +55,7 @@ const ALIASES: Record<string, string> = { account: "profile", security: "profile
 /** Module a section needs; without it the menu shows a lock (the screen explains and offers to connect). */
 const MODULE_OF: Partial<Record<Screen, string>> = { reviews: "reviews", analytics: "analytics" };
 /** Permission a section needs in the active business; the API enforces the same rules. */
-const NEEDS: Partial<Record<Screen, string>> = { orders: "orders", products: "products", reviews: "reviews", analytics: "analytics", modules: "modules", billing: "billing", support: "support", team: "team" };
+const NEEDS: Partial<Record<Screen, string>> = { orders: "orders", customers: "orders", products: "products", reviews: "reviews", analytics: "analytics", modules: "modules", billing: "billing", support: "support", team: "team" };
 
 type Route = { screen: Screen; tab: string | null };
 function readHash(isAdmin: boolean): Route {
@@ -112,6 +113,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
       support: t.support.nav,
       team: t.team.nav,
       orders: t.orders.nav,
+      customers: t.customers.nav,
       products: t.products.nav,
       reviews: t.reviews.nav,
       analytics: t.analytics.nav,
@@ -258,6 +260,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             {!view && <p className="ok-muted">{screen === "business" ? t.business.ownerOnly : t.team.noAccess}</p>}
             {view === "home" && <HomeScreen me={me} go={(id, tab) => go(id as Screen, tab ?? null)} />}
             {view === "orders" && <OrdersScreen tab={route.tab} shippingOnly={!me.permissions.includes("orders")} finance={me.permissions.includes("finance")} meName={me.name} />}
+            {view === "customers" && <CustomersScreen tab={route.tab} finance={me.permissions.includes("finance")} go={(id, tab) => go(id as Screen, tab ?? null)} />}
             {view === "products" && <ProductsScreen tab={route.tab} />}
             {view === "reviews" && <ReviewsScreen goModules={() => go("modules")} />}
             {view === "analytics" && <AnalyticsScreen goModules={() => go("modules")} />}

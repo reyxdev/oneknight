@@ -56,6 +56,8 @@ export const organizations = pgTable("organizations", {
   /** Numbering of orders: the last number given (the first order gets 1001). */
   orderSeq: integer("order_seq").notNull().default(1000),
   /** «Бізнес → Замовлення»: own cancel reasons, own sources of manual orders, hours until a new order is urgent. */
+  /** «Бізнес → Клієнти»: own customer tags with colours, days without a purchase after which a customer is «сплячий». */
+  customerSettings: jsonb("customer_settings").notNull().default(sql`'{}'::jsonb`).$type<{ tags?: { id: string; name: string; color: string }[]; sleepDays?: number }>(),
   orderSettings: jsonb("order_settings").notNull().default(sql`'{}'::jsonb`).$type<{ reasons?: string[]; sources?: string[]; urgentHours?: number }>(),
   /**
    * «Бізнес → Реквізити й документи»: the business's own details for its customers' documents (invoice, delivery
@@ -360,6 +362,49 @@ export const products = pgTable(
   (t) => [index("products_site_idx").on(t.siteId, t.sort)],
 );
 
+/**
+ * «Клієнти»: people who buy from the business. One phone = one customer per business (merged customers keep the
+ * other phones in `extraPhones`). Built from orders; numbers (orders, sum, last) are counted from orders.
+ */
+export const customers = pgTable(
+  "customers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    /** Digits only, with the country code (380…): the key that joins orders to the customer. Null once anonymised. */
+    phoneKey: text("phone_key"),
+    phone: text("phone"),
+    extraPhones: text("extra_phones").array().notNull().default(sql`'{}'::text[]`),
+    email: text("email"),
+    company: text("company"),
+    edrpou: text("edrpou"),
+    /** The last delivery used: suggested for the next manual order. */
+    delivery: jsonb("delivery").$type<{ method: string; city?: string; branch?: string; address?: string }>(),
+    /** Where the first order came from. */
+    firstSource: text("first_source"),
+    /** Manual tags: preset ids («vip», «wholesale») or the business's own tag ids. «Постійний» / «Проблемний» are counted. */
+    tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+    anonymizedAt: timestamp("anonymized_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("customers_org_phone_uq").on(t.organizationId, t.phoneKey), index("customers_org_idx").on(t.organizationId, t.createdAt)],
+);
+
+/** Notes about a customer; the whole team with access to orders sees them. */
+export const customerNotes = pgTable(
+  "customer_notes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    customerId: uuid("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    text: text("text").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("customer_notes_idx").on(t.customerId, t.createdAt)],
+);
+
 export const orders = pgTable(
   "orders",
   {
@@ -376,6 +421,7 @@ export const orders = pgTable(
     customerName: text("customer_name").notNull(),
     customerPhone: text("customer_phone").notNull(),
     customerEmail: text("customer_email"),
+    customerId: uuid("customer_id").references(() => customers.id, { onDelete: "set null" }),
     /** Snapshot at the moment of ordering: prices are taken from the database, never from the request. */
     items: jsonb("items").notNull().$type<{ productId: string; name: string; qty: number; priceKop: number }[]>(),
     totalKop: integer("total_kop").notNull(),

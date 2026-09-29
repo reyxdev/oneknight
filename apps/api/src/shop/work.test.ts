@@ -96,3 +96,11 @@ test("manual order, editing with stock and history, comments, responsible, «Н�
   assert.ok(lines.some((l) => l.includes("Скасовано") && l.includes("Олег") && l.includes("20,00")));
   await db.delete(sites).where(eq(sites.id, site!.id));
 });
+
+test("orders entered by hand do not pop up as «Нове замовлення»", async () => {
+  const r = await app.inject({ method: "POST", url: "/api/auth/register", payload: { name: "Fresh", phone: "+380500000017", email: `${tag}f@test.oneknight.local`, password: "long enough" }, headers: { origin: ORIGIN } });
+  const cookie = `ok_session=${r.cookies.find((c) => c.name === "ok_session")!.value}`;
+  const first = (await app.inject({ url: "/api/shop/orders/fresh", headers: { cookie } })).json();
+  await app.inject({ method: "POST", url: "/api/shop/orders", payload: { customer: { name: "Вручну", phone: "+380931110009" }, items: [{ name: "Листівка", price: 20, qty: 1 }], delivery: { method: "pickup" }, payment: "cod", source: "call" }, headers: { cookie, origin: ORIGIN } });
+  assert.deepEqual((await app.inject({ url: `/api/shop/orders/fresh?after=${encodeURIComponent(first.now)}`, headers: { cookie } })).json().orders, []);
+});

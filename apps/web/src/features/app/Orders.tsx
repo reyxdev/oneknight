@@ -15,8 +15,10 @@ import { WaybillForm, WaybillPrint } from "./Waybill";
 import { useToast } from "./Toasts";
 import { PAGE, Table, useEscClose, type Col, type Sort } from "./Table";
 import { OrderForm, emptyOrder, type OrderDraft } from "./OrderForm";
+import { formatPhone } from "./AuthScreen";
 import { printDocument, renderDocument, type DocKind } from "./documents";
 import { useRequisites } from "./Requisites";
+import { TagChip, useCustomerSettings } from "./Customers";
 
 export type Group = "new" | "confirmed" | "shipped" | "done" | "cancelled" | "returned";
 export const GROUPS: Group[] = ["new", "confirmed", "shipped", "done", "cancelled", "returned"];
@@ -69,6 +71,7 @@ type OrderFull = OrderRow & {
   comment: string | null;
   warranty: { enabled: boolean; until?: string; note?: string };
   assignee: string | null;
+  customer: { id: string; name: string; tags: string[]; auto: string[]; orders: number } | null;
   trackAt: string | null;
   arrivedAt: string | null;
   duplicates: { id: string; number: number; status: Group; createdAt: string }[];
@@ -189,6 +192,7 @@ function OrderDetail({ id, onChanged, shippingOnly, settings, meName, onClose }:
   const [editing, setEditing] = useState(false);
   const [comment, setComment] = useState("");
   const { data: req } = useRequisites();
+  const { settings: customerSettings } = useCustomerSettings();
   const [noReq, setNoReq] = useState(false);
   const load = useCallback(async () => {
     const r = await api<OrderFull>(`/shop/orders/${id}`);
@@ -306,6 +310,14 @@ function OrderDetail({ id, onChanged, shippingOnly, settings, meName, onClose }:
       )}
       {o.waybill && o.trackText && <p className="app-track"><Icon name="truck" size={15} />{fmt(t.parcel, { s: o.trackText, t: f.dateTime(new Date(o.trackAt ?? o.createdAt).getTime()) })}</p>}
       {o.callbackAt && (o.status === "new" || o.status === "confirmed") && <p className="ok-note">{fmt(t.callbackAt, { t: f.dateTime(new Date(o.callbackAt).getTime()) })}</p>}
+      {o.customer && (
+        <div className="app-mini-customer">
+          <a className="ok-link" href={`#customers/c-${o.customer.id}`}><Icon name="person" size={14} />{o.customer.name}</a>
+          <span className="ok-muted">{fmt(d.app.customers.ordersCount, { n: o.customer.orders })}</span>
+          {[...o.customer.auto, ...o.customer.tags].map((x) => <TagChip key={x} id={x} settings={customerSettings} />)}
+        </div>
+      )}
+      {o.customer?.auto.includes("problem") && <p className="ok-note app-warn">{d.app.customers.problemAdvice}</p>}
       {!shippingOnly && (
         <p className="app-assignee">
           <Icon name="person" size={15} />
@@ -507,7 +519,18 @@ export function OrdersScreen({ tab, shippingOnly = false, finance = true, meName
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<OrderRow[] | null>(null);
   const [more, setMore] = useState(false);
-  const [open, setOpen] = useState<string | null>(tab?.startsWith("o-") ? tab.slice(2) : !shippingOnly && tab === "new-order" ? "new" : null);
+  const [open, setOpen] = useState<string | null>(tab?.startsWith("o-") ? tab.slice(2) : !shippingOnly && tab?.startsWith("new-order") ? "new" : null);
+  // «Нове замовлення» from a customer card: the form starts with the customer's details.
+  const [prefill, setPrefill] = useState<OrderDraft | null>(null);
+  useEffect(() => {
+    const cid = tab?.startsWith("new-order:") ? tab.slice(10) : null;
+    if (!cid) return;
+    void api<{ name: string; phone: string | null; email: string | null; delivery: OrderDraft["delivery"] | null }>(`/customers/${cid}`).then((r) => {
+      if (!r.ok) return;
+      const e = emptyOrder();
+      setPrefill({ ...e, customer: { name: r.data.name, phone: r.data.phone ? formatPhone(r.data.phone) : e.customer.phone, email: r.data.email ?? "" }, delivery: { ...e.delivery, ...(r.data.delivery ?? {}), city: r.data.delivery?.city ?? "", branch: r.data.delivery?.branch ?? "", address: r.data.delivery?.address ?? "" } });
+    });
+  }, [tab]);
   const [next] = useState(latestOnly);
   const [selected, setSelected] = useState<string[]>([]);
   const [bulkTo, setBulkTo] = useState("");
@@ -720,7 +743,8 @@ export function OrdersScreen({ tab, shippingOnly = false, finance = true, meName
         {open === "new" && (
           <Panel className="ok-detail" title={t.addOrder} action={<button type="button" className="btn btn-sm btn-ghost btn-icon" aria-label={d.app.toast.close} onClick={() => setOpen(null)}><Icon name="close" size={16} /></button>}>
             <OrderForm
-              initial={emptyOrder()}
+              key={prefill ? "prefill" : "empty"}
+              initial={prefill ?? emptyOrder()}
               settings={settings}
               onDone={(id, number) => { toast.show(fmt(t.created, { n: number ?? "" })); setOpen(id); void load(); }}
               onCancel={() => setOpen(null)}

@@ -239,8 +239,38 @@ await pg.locator(".app-dup").getByRole("button", { name: /Об'єднати з �
 ok(await seen(pg.locator(".app-toast", { hasText: "скасовано як дубль" })), "duplicates merged");
 await pg.locator(".ok-side").getByRole("button", { name: "Головна", exact: true }).click();
 
+// «Клієнти»: base from orders, segments, card with contacts, tags, notes, «Нове замовлення» prefilled.
+await pg.locator(".ok-side").getByRole("button", { name: "Бізнес", exact: true }).click();
+await pg.getByRole("tab", { name: "Клієнти" }).click();
+await pg.getByLabel("Своя мітка").fill("Блогер");
+await pg.getByRole("button", { name: "Додати", exact: true }).click();
+await pg.locator(".app-tag", { hasText: "Блогер" }).waitFor();
+await pg.locator(".ok-side").getByRole("button", { name: "Клієнти", exact: true }).click();
+await pg.locator(".app-table tbody tr").first().waitFor();
+ok((await pg.locator(".app-table tbody tr").count()) >= 7, "customers built from the orders");
+await pg.getByRole("button", { name: "Топ за сумою" }).click();
+await pg.getByRole("button", { name: "Усі", exact: true }).click();
+await pg.getByPlaceholder("Ім'я або телефон").fill("Олена Коваль");
+await pg.locator(".app-table tbody tr", { hasText: "Олена Коваль" }).first().click();
+const cc = pg.locator(".ok-detail");
+ok(await seen(cc.getByRole("link", { name: "Viber" })), "contact buttons: call, Viber, Telegram, WhatsApp");
+ok((await cc.getByRole("link", { name: "Зателефонувати" }).getAttribute("href")) === "tel:+380671112233", "call link with the full number");
+await cc.getByRole("button", { name: "VIP" }).click();
+ok(await seen(cc.locator(".app-order-top .app-tag", { hasText: "VIP" })), "VIP tag set");
+await cc.getByRole("button", { name: "Блогер" }).click();
+ok(await seen(cc.locator(".app-order-top .app-tag", { hasText: "Блогер" })), "own tag set");
+await cc.getByPlaceholder("Нотатка про клієнта (бачить команда)").fill("Бере на подарунки");
+await cc.getByRole("button", { name: "Додати", exact: true }).click();
+ok(await seen(cc.locator(".app-comment", { hasText: "Бере на подарунки" })), "note in the customer's line");
+await cc.getByRole("button", { name: "Нове замовлення" }).click();
+ok(await seen(pg.locator(".app-order-form").getByLabel("Ім'я та прізвище")), "order form opened");
+ok(await pg.waitForFunction(() => [...document.querySelectorAll(".app-order-form input")].some((i) => i.value === "Олена Коваль"), null, { timeout: 5000 }).then(() => true, () => false), "the order starts with the customer's details");
+await pg.locator(".app-order-form").getByRole("button", { name: "Скасувати" }).click();
+await pg.locator(".ok-side").getByRole("button", { name: "Головна", exact: true }).click();
+
 // «Приховати суми й телефони»: blurred, remembered; text size from «Мій профіль».
 await pg.getByRole("button", { name: "Приховати суми й телефони" }).click();
+await pg.locator(".ok-home-stats .app-secret").first().waitFor();
 ok((await pg.locator("[data-private='true'] .app-secret:visible").count()) > 0, "sums are hidden");
 await pg.reload({ waitUntil: "networkidle" });
 ok((await pg.locator(".ok-app").getAttribute("data-private")) === "true", "the choice is remembered");

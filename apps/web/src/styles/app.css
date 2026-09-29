@@ -289,3 +289,16 @@ dialog.modal:has(.app-dialog) { max-width: min(520px, calc(100vw - 1.5rem)); }
 .app-seal-label { font-weight: 700; font-size: 0.875rem; }
 .app-seal img { max-height: 90px; max-width: 200px; object-fit: contain; }
 .app-track { display: flex; align-items: center; gap: 0.45rem; margin: 0; font-size: 0.875rem; }
+
+/* Customers: tags, contact buttons, mini card in the order. */
+.app-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.2rem; }
+.app-tag { --tag: var(--fg-muted); display: inline-flex; align-items: center; padding: 0.05rem 0.5rem; border-radius: 99px; font-size: 0.72rem; font-weight: 700; color: var(--tag); background: color-mix(in srgb, var(--tag) 14%, transparent); white-space: nowrap; }
+.app-tag[data-tag="vip"] { --tag: #a8701a; }
+.app-tag[data-tag="wholesale"] { --tag: var(--accent-strong); }
+.app-tag[data-tag="regular"] { --tag: var(--ok); }
+.app-tag[data-tag="problem"] { --tag: var(--bad); }
+.app-contact { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.app-mini-customer { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; }
+.app-warn { border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); color: var(--bad); }
+.app-filter-search .input { height: 2.1rem; max-width: 16rem; }
+.app-colors { display: flex; gap: 0.35rem; align-items: center; } .app-colors button { width: 1.5rem; height: 1.5rem; border-radius: 50%; cursor: pointer; border: 2px solid transparent; } .app-colors button[aria-checked="true"] { border-color: var(--fg); }

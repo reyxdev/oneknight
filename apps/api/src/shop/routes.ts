@@ -2,7 +2,8 @@ import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { and, asc, count, desc, eq, gt, ilike, inArray, lte, or, sql as dsql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client.ts";
-import { orderEvents, orders, products, sites, users } from "../db/schema.ts";
+import { customers, orderEvents, orders, products, sites, users } from "../db/schema.ts";
+import { autoTags } from "../customers/routes.ts";
 import { requireAuth } from "../auth/routes.ts";
 import { SHIPPING_STATUSES, orderAccess, orgScope, type Permission } from "../auth/access.ts";
 import { audit } from "../audit.ts";
@@ -214,6 +215,9 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
     return { orders: found, products: prods };
   });
 
+  // Orders the team entered by hand are not «new» for the window: whoever entered it already knows.
+  const MANUAL_NOT = dsql`not exists (select 1 from order_events e where e.order_id = ${orders.id} and e.kind = 'created')`;
+
   /**
    * New orders since the last check, for the «Нове замовлення» window and sound while the panel is open, plus
    * how many wait for confirmation (the browser tab counter). The first call (no `after`) returns only `now`.
@@ -228,7 +232,7 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
       ? await db
           .select({ id: orders.id, number: orders.number, customerName: orders.customerName, totalKop: orders.totalKop, items: orders.items, createdAt: orders.createdAt })
           .from(orders)
-          .where(and(eq(orders.organizationId, acc.org), eq(orders.isExample, false), eq(orders.status, "new"), gt(orders.createdAt, new Date(after.data)), lte(orders.createdAt, now)))
+          .where(and(eq(orders.organizationId, acc.org), eq(orders.isExample, false), eq(orders.status, "new"), MANUAL_NOT, gt(orders.createdAt, new Date(after.data)), lte(orders.createdAt, now)))
           .orderBy(asc(orders.createdAt))
           .limit(10)
       : [];
@@ -252,7 +256,17 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
       .where(eq(orderEvents.orderId, o.id))
       .orderBy(asc(orderEvents.createdAt));
     const [assignee] = o.assigneeId ? await db.select({ name: users.name }).from(users).where(eq(users.id, o.assigneeId)) : [];
-    const extra = { assignee: assignee?.name ?? null, duplicates: acc.full && !o.isExample ? await duplicatesOf(o) : [] };
+    // Mini card of the customer: tags (with «Проблемний» → advice «лише передоплата») and how many orders.
+    let customer = null;
+    if (acc.full && o.customerId) {
+      const [c] = await db.select({ id: customers.id, name: customers.name, tags: customers.tags }).from(customers).where(eq(customers.id, o.customerId));
+      const [s] = await db
+        .select({ orders: dsql<number>`count(*) filter (where ${orders.status} <> 'cancelled')`.mapWith(Number), done: dsql<number>`count(*) filter (where ${orders.status} = 'done')`.mapWith(Number), returned: dsql<number>`count(*) filter (where ${orders.status} = 'returned')`.mapWith(Number) })
+        .from(orders)
+        .where(and(eq(orders.customerId, o.customerId), eq(orders.isExample, false)));
+      if (c && s) customer = { ...c, orders: s.orders, auto: autoTags(s) };
+    }
+    const extra = { assignee: assignee?.name ?? null, duplicates: acc.full && !o.isExample ? await duplicatesOf(o) : [], customer };
     const { ip: _ip, ...base } = o;
     const all = { ...base, ...extra };
     // «Комплектувальник» sees the phone partly (the carrier has it on the waybill anyway).
