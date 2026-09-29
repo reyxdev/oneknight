@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import type { Dict } from "@/i18n";
 import { ServiceDemo, type ServiceId } from "./ServiceDemo";
 
@@ -18,7 +19,10 @@ export function ServicesSection({ dict }: { dict: Dict }) {
             const id = c.id as ServiceId;
             const tone = TONE[id];
             return (
-              <article key={c.id} className={`svc-card ${tone === "dark" ? "scheme-dark" : ""}`} data-tone={tone} style={{ ["--n" as string]: i }} aria-labelledby={`svc-${c.id}`}>
+              <Fragment key={c.id}>
+              {/* Guided-scroll stop: where this card starts to stick. */}
+              <i className="svc-mark" data-stop data-stop-sticky aria-hidden="true" />
+              <article className={`svc-card ${tone === "dark" ? "scheme-dark" : ""}`} data-tone={tone} style={{ ["--n" as string]: i }} aria-labelledby={`svc-${c.id}`}>
                 <div className="svc-copy">
                   <span className="svc-num num">{String(i + 1).padStart(2, "0")}</span>
                   <h3 id={`svc-${c.id}`} className="h2 svc-title">{c.title}</h3>
@@ -35,6 +39,7 @@ export function ServicesSection({ dict }: { dict: Dict }) {
                   {id !== "websites" && <p className="svc-note">{s.demoNote}</p>}
                 </div>
               </article>
+              </Fragment>
             );
           })}
         </div>

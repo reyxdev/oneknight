@@ -157,7 +157,7 @@ export function ChaosScene() {
   }, [cards]);
 
   return (
-    <section id="chaos" ref={root} data-chapter data-scene className="chaos scheme-dark" aria-label={dict.chaos.label}>
+    <section id="chaos" ref={root} data-chapter data-scene data-stops="0,0.12,0.32,0.52,0.84,1" className="chaos scheme-dark" aria-label={dict.chaos.label}>
       <div className="stage chaos-stage" ref={stage}>
         <div className="chaos-frame" aria-hidden="true">
           <div className="chaos-frame-head">

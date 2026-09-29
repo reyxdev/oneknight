@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { startMotionRuntime } from "@/lib/motion/runtime";
+import { startGuidedScroll } from "@/lib/motion/guided-scroll";
 import { initPrefs, getPrefs } from "@/lib/prefs";
 import { playSound, unlockSound } from "@/lib/sound";
 
@@ -12,6 +13,7 @@ export function MotionRuntime() {
   useEffect(() => {
     initPrefs();
     const stop = startMotionRuntime();
+    const stopGuided = startGuidedScroll();
     const onDown = (e: PointerEvent) => {
       if (!getPrefs().sound) return;
       unlockSound();
@@ -24,6 +26,7 @@ export function MotionRuntime() {
     return () => {
       document.removeEventListener("pointerdown", onDown, { capture: true });
       stop();
+      stopGuided();
     };
   }, []);
   return null;

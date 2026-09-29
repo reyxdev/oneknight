@@ -313,3 +313,13 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 - Monorepo with npm workspaces: `apps/web`, `apps/api`, `packages/domain`.
 - Proposed URL layout: site `oneknight.pro`, panel `oneknight.pro/app`, API `oneknight.pro/api` behind one reverse proxy. Same origin means session cookies stay `HttpOnly; Secure; SameSite=Lax` with no CORS. (Replaces the earlier app./api. subdomain idea.)
 - First vertical slice: accounts (register without email verification, login, sessions, login history, rate limiting, TOTP 2FA) and brief/lead storage with an admin list and Telegram alert.
+
+## 16. Guided scrolling (landing)
+
+`apps/web/src/lib/motion/guided-scroll.ts`. One wheel gesture, PageDown or Space moves smoothly (eased tween, 650-1250 ms) to the next stop, so scroll-driven scenes play like animations.
+
+- Stops: top of every block in `<main>` and the footer; `data-stops="..."` fractions inside sticky scenes (hero, chaos, not-a-template, case intro, ONEKNIGHT intro, process); `<i data-stop data-stop-sticky>` markers where each sticky service card lands.
+- Far stops: glide 0.8 screen per move (never skips content, keeps overlap).
+- Gesture detection: a new gesture needs a 180 ms pause that is not a decaying inertia tail, or a clear acceleration. One trackpad swipe = one move; one wheel notch = one move.
+- Never hijacked: touch scrolling, Ctrl+wheel zoom, horizontal wheel, open modal or menu, calm motion mode, anything inside an element with its own scroll (the ONEKNIGHT demo, dialogs, inputs).
+- Same-page anchor links glide too and update the URL. Pointer or touch input cancels a glide.

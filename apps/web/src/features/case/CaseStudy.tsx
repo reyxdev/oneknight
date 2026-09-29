@@ -10,7 +10,7 @@ export function CaseStudy({ dict, lang }: { dict: Dict; lang: Lang }) {
   const t = dict.karpatu;
   return (
     <section id="work" data-chapter className="case" aria-labelledby="case-title">
-      <div data-scene className="case-intro">
+      <div data-scene data-stops="0,0.5,1" className="case-intro">
         <div className="stage case-stage">
           <p className="eyebrow case-eyebrow">{t.eyebrow} 01</p>
           <h2 id="case-title" className="case-title display" aria-label="Karpatu.shop">

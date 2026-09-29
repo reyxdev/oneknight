@@ -106,3 +106,5 @@
 .seo-txt { display: grid; min-width: 0; line-height: 1.25; }
 .seo-txt b { font-size: 0.9375rem; }
 .seo-txt small { font-size: 0.8125rem; color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.svc-mark { display: block; height: 0; margin-bottom: -1.25rem; }

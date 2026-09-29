@@ -32,7 +32,7 @@
 [data-accent="forest"] { --ok-accent: #3f7a5a; }
 [data-accent="clay"] { --ok-accent: #b8643f; }
 
-.ok-app { display: grid; grid-template-columns: 15rem minmax(0, 1fr); height: 100%; transition: grid-template-columns var(--dur-slow) var(--ease-out); }
+.ok-app { display: grid; grid-template-columns: 15rem minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 100%; transition: grid-template-columns var(--dur-slow) var(--ease-out); }
 .ok-app[data-collapsed="true"] { grid-template-columns: 4.25rem minmax(0, 1fr); }
 .ok-side { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.9rem 0.6rem; border-right: 1px solid var(--line); background: var(--bg-soft); overflow: hidden auto; scrollbar-width: none; }
 .ok-brand { display: flex; align-items: center; gap: 0.6rem; padding: 0.3rem 0.45rem 0.9rem; white-space: nowrap; color: var(--fg); }
@@ -47,7 +47,7 @@
 .ok-dot { position: absolute; left: 1.7rem; top: 0.45rem; width: 7px; height: 7px; border-radius: 50%; background: var(--bad); }
 .ok-collapse { margin-top: auto; }
 
-.ok-main { position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; }
+.ok-main { position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; }
 .ok-top { display: flex; align-items: center; gap: 0.75rem; padding: 0.7rem 1rem; border-bottom: 1px solid var(--line); }
 .ok-site { position: relative; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0 0.3rem 0 0.7rem; border-radius: 10px; border: 1px solid var(--line); color: var(--fg-muted); }
 .ok-site select { min-height: 2.25rem; border: 0; background: transparent; font-weight: 600; color: var(--fg); padding-right: 0.25rem; cursor: pointer; }

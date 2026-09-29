@@ -10,7 +10,7 @@ const Marketplace = dynamic(() => import("./Marketplace"));
 export function OneKnightIntro({ dict }: { dict: Dict }) {
   const t = dict.ok.intro;
   return (
-    <section id="oneknight" data-chapter data-scene className="okx scheme-dark" aria-labelledby="okx-title">
+    <section id="oneknight" data-chapter data-scene data-stops="0,0.28,0.62,1" className="okx scheme-dark" aria-labelledby="okx-title">
       <div className="stage okx-stage">
         <div className="okx-glow" aria-hidden="true" />
         <div className="okx-mark" aria-hidden="true"><KnightMark size={120} /></div>

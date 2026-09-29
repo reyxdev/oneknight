@@ -8,7 +8,7 @@ export function ProcessTimeline({ dict }: { dict: Dict }) {
   const t = dict.process;
   const n = t.steps.length;
   return (
-    <section id="process" data-chapter data-scene className="proc" aria-labelledby="proc-title" style={{ ["--n" as string]: n }}>
+    <section id="process" data-chapter data-scene data-stops="0,0.25,0.5,0.75,1" className="proc" aria-labelledby="proc-title" style={{ ["--n" as string]: n }}>
       <div className="stage proc-stage">
         <div className="wrap proc-head">
           <p className="eyebrow">{t.eyebrow}</p>
