@@ -34,3 +34,6 @@ Owner input needed before launch. The UI shows an honest placeholder for each.
 - [ ] Rozetka: connect a real seller account (a separate manager user) and check one import; field mapping follows the official example
 - [ ] Ukrposhta: built from the official docs; needs the contract keys to check one real shipment and label
 - [ ] OLX: needs a partner app (client id/secret) from OLX before it can be built and tested honestly
+- [ ] Build: «Почати підписку» in Оплата for clients without a website order (balance → 149 UAH now, active, no free months)
+- [ ] Build: admin marks «Підтримка за договором» on a business; the cabinet shows it (no purchase in the cabinet)
+- [ ] Owner: choose hosting/VPS for oneknight.pro
