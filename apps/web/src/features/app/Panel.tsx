@@ -15,6 +15,7 @@ import { Bell } from "./Bell";
 import { BillingScreen, ModulesScreen } from "./Billing";
 import { TopupsAdmin } from "./TopupsAdmin";
 import { KeysAdmin } from "./KeysAdmin";
+import { BackupsPanel } from "./Backups";
 import { SupportScreen } from "./Support";
 import { OrdersScreen, ProductsScreen } from "./Shop";
 import { ReviewsScreen } from "./Reviews";
@@ -153,6 +154,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
                   </div>
                   <p className="ok-muted">{t.account.note}</p>
                 </Panel>
+                {me.role === "owner" && <BackupsPanel />}
               </div>
             )}
           </div>

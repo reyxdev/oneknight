@@ -431,3 +431,10 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 - No email is sent (by decision), so the admin creates the link in «Клієнти й сайти» after confirming the person in a messenger: `POST /api/admin/password-reset`. Token 256-bit, stored as SHA-256 (`password_resets`), valid 24 hours, one use; a new link cancels the previous one.
 - `/app/?reset=<token>`: the token is removed from the address bar immediately. `GET /api/auth/reset/:token` returns the name and whether a 2FA code is needed; `POST /api/auth/reset` sets the password, revokes every session of the user and records it in the audit log.
 - 2FA is still required when it is on (a leaked link alone is not enough). If the phone is lost, the admin ticks "also switch off 2FA" when creating the link.
+
+## 32. Backups of business data
+
+- `backups` table + gzip JSON files in `UPLOAD_DIR/backups` (format `oneknight-backup/1`): organization, team (names, contacts, roles), sites, products, orders with history, reviews, support requests and messages, subscription, modules and ledger, integration settings, and uploaded images embedded as base64 (up to 200 MB per copy, then metadata only).
+- Never included: password hashes, 2FA secrets, sessions, integration credentials, IP addresses, raw analytics events.
+- Automatic: hourly job, one copy per business with a working subscription per 23 hours (restarts never skip or double a day); 14 automatic and 10 manual copies are kept, older files deleted. A daily sweep removes files of deleted businesses.
+- Owner only (the copy holds the team and billing): «Профіль → Резервні копії», `GET/POST /api/backups`, `GET /api/backups/:id/download` (attachment, no-store, audited). Restore is done through support for now.

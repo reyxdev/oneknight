@@ -56,6 +56,13 @@ await pg.getByLabel("Пароль").fill("brand new e2e pass");
 await pg.getByRole("button", { name: "Увійти", exact: true }).click();
 ok(await seen(pg.getByText("Вітаємо")), "signed in with the new password");
 
+// Backups (owner): create a copy in the profile and download it.
+await pg.locator(".ok-side nav").getByRole("button", { name: "Профіль", exact: true }).click();
+await pg.getByRole("button", { name: "Створити копію зараз" }).click();
+ok(await seen(pg.getByText(/Вручну · \d+ KB · товарів 0 · замовлень 0 · відгуків 0/)), "manual backup listed");
+const [dl] = await Promise.all([pg.waitForEvent("download"), pg.getByRole("link", { name: "Завантажити" }).first().click()]);
+ok(/^oneknight-backup-\d{4}-\d\d-\d\d\.json\.gz$/.test(dl.suggestedFilename()), `backup downloads (${dl.suggestedFilename()})`);
+
 await user.reload({ waitUntil: "networkidle" });
 ok(await seen(user.locator(".app-auth-card")), "the old session was signed out");
 await pg.goto(link, { waitUntil: "networkidle" });

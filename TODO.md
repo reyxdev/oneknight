@@ -22,7 +22,8 @@ Owner input needed before launch. The UI shows an honest placeholder for each.
 - [ ] Google and Telegram sign-in (buttons shown as "Скоро"): need a Google OAuth client and a Telegram bot token
 - [ ] Telegram alerts for new requests: create a bot in @BotFather, then set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env
 - [ ] Register your own account in /app and run `npm run admin:grant -w @oneknight/api -- your@email` to see all requests
-- [ ] Backups and API/error monitoring: possible once client sites are hosted on an ONEKNIGHT server (decide hosting)
+- [x] Backups of ONEKNIGHT data: daily automatic + manual, download for the owner
+- [ ] Backups of the website files themselves and API/error monitoring: possible once client sites are hosted on an ONEKNIGHT server (decide hosting). Restore from a copy in the UI (now through support)
 - [ ] Telegram: send any message to @oneknight_bot (or add it to the group) so it can write to TELEGRAM_CHAT_ID; check with `npm run notify:test -w @oneknight/api`
 - [x] Live modules: reviews, analytics, Nova Poshta, Prom (orders import). Others become installable by setting `live: true` once they work
 - [ ] Nova Poshta: connect your real API key in «Інтеграції» and create one test waybill (tests use recorded-shape responses; a real key was not available)

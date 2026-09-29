@@ -16,6 +16,7 @@ import { analyticsRoutes } from "./analytics/routes.ts";
 import { dashboardRoutes } from "./dashboard/routes.ts";
 import { teamRoutes } from "./team/routes.ts";
 import { resetRoutes } from "./auth/reset.ts";
+import { backupRoutes } from "./backups/routes.ts";
 import { integrationRoutes } from "./integrations/routes.ts";
 import type { NpCall } from "./integrations/novaposhta.ts";
 import type { PromFetch } from "./integrations/prom.ts";
@@ -53,6 +54,7 @@ export async function buildApp(opts: FastifyServerOptions = {}, deps: { npCall?:
   await app.register(analyticsRoutes, { prefix: "/api/analytics" });
   await app.register(dashboardRoutes, { prefix: "/api/dashboard" });
   await app.register(teamRoutes, { prefix: "/api/team" });
+  await app.register(backupRoutes, { prefix: "/api/backups" });
   await app.register(integrationRoutes(deps.npCall, deps.promFetch), { prefix: "/api/integrations" });
   return app;
 }

@@ -547,3 +547,22 @@ export const passwordResets = pgTable("password_resets", {
   usedAt: timestamp("used_at", { withTimezone: true }),
   createdAt: createdAt(),
 });
+
+export const backupKindEnum = pgEnum("backup_kind", ["auto", "manual"]);
+
+/** Backups of a business's ONEKNIGHT data: gzip JSON files in UPLOAD_DIR/backups. */
+export const backups = pgTable(
+  "backups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    kind: backupKindEnum("kind").notNull(),
+    size: integer("size").notNull(),
+    /** Row counts per section, shown in the list. */
+    counts: jsonb("counts").notNull().$type<Record<string, number>>(),
+    storageKey: text("storage_key").notNull(),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("backups_org_idx").on(t.organizationId, t.createdAt)],
+);
