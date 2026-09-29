@@ -380,3 +380,28 @@ export const reviews = pgTable(
   },
   (t) => [index("reviews_site_status_idx").on(t.siteId, t.status, t.createdAt), index("reviews_org_idx").on(t.organizationId, t.createdAt)],
 );
+
+/**
+ * Website analytics without cookies: page views, leads and orders with their traffic source.
+ * `session` is a random per-tab id from sessionStorage; no IP or personal data is stored.
+ */
+export const analyticsEvents = pgTable(
+  "analytics_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    siteId: uuid("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+    type: text("type").notNull(), // pageview | lead | order
+    session: text("session").notNull(),
+    path: text("path"),
+    /** Human channel: instagram, facebook, google, telegram, tiktok, youtube, email, direct, other:<host>. */
+    channel: text("channel").notNull(),
+    source: text("source"),
+    medium: text("medium"),
+    campaign: text("campaign"),
+    content: text("content"),
+    valueKop: integer("value_kop"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("analytics_site_time_idx").on(t.siteId, t.createdAt), index("analytics_site_session_idx").on(t.siteId, t.session)],
+);

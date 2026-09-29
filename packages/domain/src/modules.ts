@@ -9,7 +9,7 @@ import { oneknightPricing } from "./pricing";
 export const moduleCatalog: (ModuleDef & { live: boolean })[] = [
   { id: "novaposhta", price: oneknightPricing.modulePerMonth, paid: true, availability: "available", live: false },
   { id: "ukrposhta", price: oneknightPricing.modulePerMonth, paid: true, availability: "available", live: false },
-  { id: "analytics", price: oneknightPricing.modulePerMonth, paid: true, availability: "available", live: false },
+  { id: "analytics", price: oneknightPricing.modulePerMonth, paid: true, availability: "available", live: true },
   { id: "reviews", price: oneknightPricing.modulePerMonth, paid: true, availability: "available", live: true },
   { id: "olx", price: oneknightPricing.modulePerMonth, paid: true, availability: "available", live: false },
   { id: "prom", price: oneknightPricing.modulePerMonth, paid: true, availability: "available", live: false },

@@ -6,6 +6,8 @@ import { products, sites } from "../db/schema.ts";
 import { env } from "../config.ts";
 import { placeOrder } from "../shop/service.ts";
 import { reviewPublicRoutes } from "../reviews/routes.ts";
+import { Context, analyticsPublicRoutes, recordEvent } from "../analytics/routes.ts";
+import { hasModule } from "../billing/service.ts";
 
 type Site = typeof sites.$inferSelect;
 declare module "fastify" {
@@ -45,6 +47,8 @@ const Order = z.object({
   payment: z.enum(["cod", "iban", "card"]),
   comment: z.string().max(1000).optional(),
   website: z.string().max(0).optional(),
+  /** From the tracking script (window.oneknight.context()): ties the order to its traffic source. */
+  analytics: Context.optional(),
 });
 
 /**
@@ -66,6 +70,7 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
   await app.register(async (scoped) => {
     scoped.addHook("preHandler", siteByKey);
     await scoped.register(reviewPublicRoutes);
+    await scoped.register(analyticsPublicRoutes);
   });
 
   app.get("/products", { preHandler: siteByKey }, async (req) => {
@@ -86,6 +91,7 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
     if (!p.success) return reply.code(400).send({ error: "invalid_input" });
     const r = await placeOrder(req.site!, p.data, req.ip);
     if (!r.ok) return reply.code(409).send(r);
+    if (p.data.analytics && (await hasModule(req.site!.organizationId, "analytics"))) await recordEvent(req.site!, "order", p.data.analytics, { valueKop: r.order.totalKop });
     return reply.code(201).send({ number: r.order.number, total: r.order.totalKop / 100, status: r.order.status });
   });
 };

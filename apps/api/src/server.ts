@@ -5,6 +5,7 @@ import { startMonitor } from "./monitor/scheduler.ts";
 import { runBilling } from "./billing/service.ts";
 import { sweepOrphans } from "./files/store.ts";
 import { purgeTrash } from "./reviews/routes.ts";
+import { purgeAnalytics } from "./analytics/routes.ts";
 
 const app = await buildApp();
 const stopMonitor = startMonitor(app.log, env.MONITOR_INTERVAL_MIN);
@@ -14,6 +15,7 @@ void runBilling().catch((e) => app.log.error(e));
 const sweepTimer = setInterval(() => {
   void sweepOrphans().catch((e) => app.log.error(e));
   void purgeTrash().catch((e) => app.log.error(e));
+  void purgeAnalytics().catch((e) => app.log.error(e));
 }, 24 * 3600_000);
 void purgeTrash().catch((e) => app.log.error(e));
 

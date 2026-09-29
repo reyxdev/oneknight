@@ -376,3 +376,10 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 - Public submit with consent, rating, optional photo (private until published), https video link, product, verified purchase by order number + phone. Moderation: approve (needs consent) publishes, reject moves to trash, trash is purged after 30 days (daily job), permanent delete removes the photo too.
 - Account «Відгуки»: moderation switch, tabs, actions, and a 1080×1080 PNG creative drawn in the browser (canvas) from a published review.
 - Not built yet: automatic review requests after a purchase (needs an email/SMS/Telegram channel to the customer).
+
+## 24. Analytics module
+
+- `analytics_events` (pageview / lead / order, per-tab random session, first-touch source, channel, value). No cookies, no IP, DNT respected, bot user agents dropped, 400-day retention.
+- Channel mapping (`channelOf`): utm_source aliases and referrer hosts to Instagram, Facebook, Google, Telegram, TikTok, YouTube, Viber, email, other search, direct, or `other:<host>`.
+- Tracking script `apps/web/public/ok.js` (about 2.5 KB) served from oneknight.pro. Orders from the public API carry `analytics` and become "order" events with revenue.
+- Account «Аналітика»: visitors, requests, sales, revenue, conversion, chart, sources in plain language with correct Ukrainian plurals, raw UTM toggle, install instructions.

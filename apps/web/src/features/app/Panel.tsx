@@ -17,13 +17,15 @@ import { TopupsAdmin } from "./TopupsAdmin";
 import { SupportScreen } from "./Support";
 import { OrdersScreen, ProductsScreen } from "./Shop";
 import { ReviewsScreen } from "./Reviews";
+import { AnalyticsScreen } from "./Analytics";
 
-type Screen = "home" | "orders" | "products" | "reviews" | "site" | "modules" | "billing" | "support" | "security" | "account" | "admin" | "clients" | "topups" | "tickets";
+type Screen = "home" | "orders" | "products" | "reviews" | "analytics" | "site" | "modules" | "billing" | "support" | "security" | "account" | "admin" | "clients" | "topups" | "tickets";
 const NAV: { id: Screen; icon: IconName }[] = [
   { id: "home", icon: "home" },
   { id: "orders", icon: "cart" },
   { id: "products", icon: "box" },
   { id: "reviews", icon: "star" },
+  { id: "analytics", icon: "chart" },
   { id: "site", icon: "globe" },
   { id: "modules", icon: "puzzle" },
   { id: "billing", icon: "card" },
@@ -44,7 +46,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
     : [];
   const nav = [...NAV, ...adminNav];
   const label = (id: Screen) =>
-    ({ admin: t.admin.nav, clients: t.clients.nav, topups: t.topupsAdmin.nav, site: t.site.title, modules: t.modulesApp.nav, billing: t.billing.nav, support: t.support.nav, orders: t.orders.nav, products: t.products.nav, reviews: t.reviews.nav, tickets: t.supportAdmin.nav } as Partial<Record<Screen, string>>)[id] ?? t.nav[id as "home" | "security" | "account"];
+    ({ admin: t.admin.nav, clients: t.clients.nav, topups: t.topupsAdmin.nav, site: t.site.title, modules: t.modulesApp.nav, billing: t.billing.nav, support: t.support.nav, orders: t.orders.nav, products: t.products.nav, reviews: t.reviews.nav, analytics: t.analytics.nav, tickets: t.supportAdmin.nav } as Partial<Record<Screen, string>>)[id] ?? t.nav[id as "home" | "security" | "account"];
   const { sites } = useSites();
 
   return (
@@ -134,6 +136,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             {screen === "orders" && <OrdersScreen />}
             {screen === "products" && <ProductsScreen />}
             {screen === "reviews" && <ReviewsScreen goModules={() => setScreen("modules")} />}
+            {screen === "analytics" && <AnalyticsScreen goModules={() => setScreen("modules")} />}
             {screen === "tickets" && me.isAdmin && <SupportScreen admin />}
             {screen === "account" && (
               <div className="ok-screen">

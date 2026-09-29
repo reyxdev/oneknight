@@ -44,3 +44,17 @@ Active products of the site, in the order set in the account.
 - `orderNumber` + the phone used in that order mark the review as a verified purchase; with a single-item order the product is attached automatically.
 - With moderation off (set in the account) a consented review is published immediately; otherwise it waits for approval. Photos stay private until the review is published.
 - `201 { id, status: "pending" | "published", verified }`, `403 module_not_active`, `400 invalid_input | unsupported_file | file_too_large`, `429` (5 per 10 minutes per IP).
+
+## Analytics (module «Аналітика» must be connected)
+
+Add to every page of the website:
+
+```html
+<script src="https://oneknight.pro/ok.js" data-key="sk_…" defer></script>
+```
+
+- Page views are sent automatically (also on client-side navigation). No cookies, no IPs stored, `Do Not Track` is respected, bots are ignored.
+- The first touch of a browsing session (`utm_*` and the referrer) is kept in `sessionStorage` and attached to every event.
+- Count a request: `oneknight.track()` after a form is sent.
+- Attribute an order: send `analytics: oneknight.context()` with `POST /orders`.
+- Raw endpoint: `POST /events { type: "pageview" | "lead", session, path?, source?, medium?, campaign?, content?, referrer? }` → `204`.
