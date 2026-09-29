@@ -18,7 +18,10 @@ export type BillingData = {
   subscription: Sub | null;
   balanceKop: number;
   monthlyKop: number;
-  modules: { id: string; free: boolean }[];
+  monthlyFullKop: number;
+  discount: { percent: number; monthsLeft: number } | null;
+  coveredUntil: string | null;
+  modules: { id: string; free: boolean; paidUntil: string | null }[];
   freeModulesLeft: number;
   paymentsConfigured: boolean;
   requisites: Requisites;
@@ -71,7 +74,32 @@ export function BillingScreen() {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [fresh, setFresh] = useState<{ reference: string; amountKop: number; requisites: Requisites } | null>(null);
-  const [flash] = useFlash();
+  const [flash, show] = useFlash();
+  const [code, setCode] = useState("");
+  const [codeErr, setCodeErr] = useState<string | null>(null);
+
+  const redeem = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!code.trim()) return;
+    setBusy(true);
+    type R = { type: "key"; kind: "oneknight" | "module"; moduleId: string | null; until: string } | { type: "promo"; kind: "percent" | "bonus"; value: number; months: number };
+    const r = await api<R>("/billing/redeem", { method: "POST", body: { code } });
+    setBusy(false);
+    if (!r.ok) {
+      playSound("error");
+      return setCodeErr((t.redeemErrors as Record<string, string>)[r.error] ?? d.app.auth.errors.server_error);
+    }
+    playSound("success");
+    setCodeErr(null);
+    setCode("");
+    const x = r.data;
+    show(
+      x.type === "key"
+        ? fmt(t.redeemed[x.kind], { date: f.date(new Date(x.until).getTime()), m: d.ok.modules.items[x.moduleId as keyof typeof d.ok.modules.items]?.name ?? "" })
+        : fmt(t.redeemed[x.kind], { v: x.value, n: x.months }),
+    );
+    void load();
+  };
 
   const create = async (e: FormEvent) => {
     e.preventDefault();
@@ -93,7 +121,7 @@ export function BillingScreen() {
   if (error) return <p className="ok-muted">{d.app.leads.loadError} <button type="button" className="ok-link" onClick={load}>{d.app.offline.retry}</button></p>;
   if (!data) return null;
   const s = data.subscription;
-  const reason = (r: string) => (r === "renewal" ? t.reasons.renewal : r.startsWith("module:") ? `${t.reasons.module}: ${d.ok.modules.items[r.slice(7) as keyof typeof d.ok.modules.items]?.name ?? r.slice(7)}` : r.startsWith("topup:") ? r.slice(6) : r);
+  const reason = (r: string) => (r === "renewal" ? t.reasons.renewal : r.startsWith("promo:") ? `${t.promo} ${r.slice(6)}` : r.startsWith("module:") ? `${t.reasons.module}: ${d.ok.modules.items[r.slice(7) as keyof typeof d.ok.modules.items]?.name ?? r.slice(7)}` : r.startsWith("topup:") ? r.slice(6) : r);
 
   return (
     <div className="ok-screen">
@@ -107,9 +135,13 @@ export function BillingScreen() {
           icon="shield"
           value={s ? t.status[s.status] : "—"}
           tone={s?.status === "active" || s?.status === "trial" ? "ok" : s ? "bad" : undefined}
-          sub={s ? (s.status === "trial" ? fmt(t.trialUntil, { date: f.date(new Date(s.periodEnd).getTime()) }) : fmt(t.paidUntil, { date: f.date(new Date(s.periodEnd).getTime()) })) : undefined}
+          sub={
+            data.coveredUntil && new Date(data.coveredUntil) > new Date()
+              ? fmt(t.coveredUntil, { date: f.date(new Date(data.coveredUntil).getTime()) })
+              : s ? (s.status === "trial" ? fmt(t.trialUntil, { date: f.date(new Date(s.periodEnd).getTime()) }) : fmt(t.paidUntil, { date: f.date(new Date(s.periodEnd).getTime()) })) : undefined
+          }
         />
-        <Stat label={s?.status === "trial" ? t.monthly : t.monthlyActive} icon="refresh" value={money(data.monthlyKop)} sub={s?.status === "trial" ? fmt(t.freeModules, { n: data.freeModulesLeft }) : undefined} />
+        <Stat label={s?.status === "trial" ? t.monthly : t.monthlyActive} icon="refresh" value={money(data.monthlyKop)} sub={data.discount ? fmt(t.discount, { p: data.discount.percent, n: data.discount.monthsLeft }) : s?.status === "trial" ? fmt(t.freeModules, { n: data.freeModulesLeft }) : undefined} />
       </div>
       {!s && <Panel><p className="ok-muted">{t.none}</p></Panel>}
 
@@ -137,6 +169,16 @@ export function BillingScreen() {
             <button className="btn" type="submit" disabled={busy} data-loading={busy}>{t.create}</button>
           </form>
         )}
+      </Panel>
+
+      <Panel title={t.redeemTitle}>
+        <form className="ok-form-row" onSubmit={redeem} noValidate>
+          <Field label={t.redeemCode} error={codeErr ?? undefined}>
+            {(p) => <input {...p} className="input" placeholder={t.redeemHint} autoComplete="off" spellCheck={false} maxLength={60} value={code} onChange={(e) => setCode(e.target.value)} />}
+          </Field>
+          <span />
+          <button className="btn btn-secondary" type="submit" disabled={busy || !code.trim()}>{t.redeem}</button>
+        </form>
       </Panel>
 
       <div className="ok-grid-2">
@@ -181,9 +223,14 @@ export function ModulesScreen() {
   const d = useDict();
   const t = d.app.modulesApp;
   const lang = useLang();
+  const f = useFormat();
   const { data, load } = useBilling();
   const [flash, show] = useFlash();
   const installed = new Set(data?.modules.map((m) => m.id));
+  const byKey = (id: string) => {
+    const until = data?.modules.find((m) => m.id === id)?.paidUntil;
+    return until && new Date(until) > new Date() ? until : null;
+  };
   const act = async (id: string, on: boolean) => {
     const r = await api(`/billing/modules/${id}`, { method: on ? "POST" : "DELETE", ...(on ? { body: {} } : {}) });
     if (!r.ok) {
@@ -212,7 +259,7 @@ export function ModulesScreen() {
               </header>
               <p>{item.desc}</p>
               <footer>
-                <span />
+                {on && byKey(m.id) ? <small className="ok-muted">{fmt(t.byKey, { date: f.date(new Date(byKey(m.id)!).getTime()) })}</small> : <span />}
                 {!m.live ? (
                   <button type="button" className="btn btn-sm btn-secondary" disabled>{t.soon}</button>
                 ) : on ? (

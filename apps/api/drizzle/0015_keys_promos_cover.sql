@@ -1,0 +1,1 @@
+ALTER TABLE "subscriptions" ADD COLUMN "covered_until" timestamp with time zone;

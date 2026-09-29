@@ -28,3 +28,4 @@ Owner input needed before launch. The UI shows an honest placeholder for each.
 - [ ] Nova Poshta: connect your real API key in «Інтеграції» and create one test waybill (tests use recorded-shape responses; a real key was not available)
 - [ ] Prom: connect a real API token in «Інтеграції» and check one import; then decide on pushing status changes back (`orders/set_status`)
 - [ ] Investigate an intermittent React #418 (hydration) on /app in production builds: seen only after signing up through the form and reloading several times, then opening /app/. No functional impact (the account section is kept in the URL hash and React recovers), not reproducible in dev
+- [ ] Contests / public promotions: decide the rules (who takes part, prizes as keys or promo codes); the key and promo code system already covers the rewards

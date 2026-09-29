@@ -7,6 +7,7 @@ import { moduleInstalls } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
 import { orgScope } from "../auth/access.ts";
 import { audit } from "../audit.ts";
+import { redeem } from "./keys.ts";
 import { billingOverview, createTopup, installModule, paymentsConfigured, requisites } from "./service.ts";
 
 const Topup = z.object({ amountUah: z.number().int().min(50).max(100_000) });
@@ -30,6 +31,17 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
     const t = await createTopup(org, req.auth!.user.id, p.data.amountUah);
     await audit(req, "topup.create", req.auth!.user.id, { topup: t.id, amount: p.data.amountUah }, org);
     return reply.code(201).send({ id: t.id, reference: t.reference, amountKop: t.amountKop, status: t.status, requisites: requisites() });
+  });
+
+  /** Access key or promo code. Tight rate limit: codes must not be guessable by trying. */
+  app.post("/redeem", { config: { rateLimit: { max: 10, timeWindow: "15 minutes" } } }, async (req, reply) => {
+    const [org] = await orgScope(req, "billing");
+    if (!org) return reply.code(404).send({ error: "not_found" });
+    const p = z.object({ code: z.string().max(60) }).safeParse(req.body);
+    if (!p.success) return reply.code(400).send({ error: "invalid_code" });
+    const r = await redeem(org, p.data.code, req.auth!.user.id);
+    await audit(req, "billing.redeem", req.auth!.user.id, r.ok ? { type: r.type, kind: r.kind } : { error: r.error }, org);
+    return r.ok ? r : reply.code(r.error === "invalid_code" ? 404 : 409).send({ error: r.error });
   });
 
   app.post<{ Params: { id: string } }>("/modules/:id", async (req, reply) => {

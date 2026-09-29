@@ -1,8 +1,8 @@
 import { randomBytes } from "node:crypto";
-import { and, count, desc, eq, inArray, sum } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNull, lte, or, sum } from "drizzle-orm";
 import { moduleById, oneknightPricing as P, type ModuleId } from "@oneknight/domain";
 import { db } from "../db/client.ts";
-import { ledgerEntries, moduleInstalls, notifications, subscriptions, topups } from "../db/schema.ts";
+import { ledgerEntries, moduleInstalls, notifications, promoCodes, promoRedemptions, subscriptions, topups } from "../db/schema.ts";
 import { env } from "../config.ts";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -23,14 +23,37 @@ export async function balanceKop(orgId: string, x: Exec = db): Promise<number> {
   return Number(r?.s ?? 0);
 }
 
-async function paidModules(orgId: string, x: Exec) {
-  const [r] = await x.select({ n: count() }).from(moduleInstalls).where(eq(moduleInstalls.organizationId, orgId));
+/** Modules charged at a renewal starting at `at`: the ones not covered by an access key at that moment. */
+async function paidModules(orgId: string, x: Exec, at: Date) {
+  const [r] = await x
+    .select({ n: count() })
+    .from(moduleInstalls)
+    .where(and(eq(moduleInstalls.organizationId, orgId), or(isNull(moduleInstalls.paidUntil), lte(moduleInstalls.paidUntil, at))));
   return r?.n ?? 0;
 }
 
-/** What one month costs after the free period: ONEKNIGHT + every installed paid module. */
-export async function monthlyKop(orgId: string, x: Exec = db): Promise<number> {
-  return (P.perMonth + (await paidModules(orgId, x)) * P.modulePerMonth) * UAH;
+/** The best percent discount still available to the organization (from promo codes). */
+async function activeDiscount(orgId: string, x: Exec) {
+  const [d] = await x
+    .select({ promoId: promoRedemptions.promoId, percent: promoCodes.value, monthsLeft: promoRedemptions.monthsLeft })
+    .from(promoRedemptions)
+    .innerJoin(promoCodes, eq(promoCodes.id, promoRedemptions.promoId))
+    .where(and(eq(promoRedemptions.organizationId, orgId), eq(promoCodes.kind, "percent"), gt(promoRedemptions.monthsLeft, 0)))
+    .orderBy(desc(promoCodes.value))
+    .limit(1);
+  return d ?? null;
+}
+
+/**
+ * What the renewal starting at `at` costs: ONEKNIGHT (unless covered by a key) + every paid module not
+ * covered by a key, minus the best promo discount.
+ */
+export async function monthlyKop(orgId: string, x: Exec = db, at = new Date()): Promise<{ total: number; full: number; discount: Awaited<ReturnType<typeof activeDiscount>> }> {
+  const [sub] = await x.select({ coveredUntil: subscriptions.coveredUntil }).from(subscriptions).where(eq(subscriptions.organizationId, orgId));
+  const base = sub?.coveredUntil && sub.coveredUntil > at ? 0 : P.perMonth;
+  const full = (base + (await paidModules(orgId, x, at)) * P.modulePerMonth) * UAH;
+  const discount = full > 0 ? await activeDiscount(orgId, x) : null;
+  return { total: discount ? Math.round((full * (100 - discount.percent)) / 100) : full, full, discount };
 }
 
 async function note(x: Exec, orgId: string, key: string, params: Record<string, string | number> = {}) {
@@ -59,12 +82,13 @@ export async function settle(orgId: string, now = new Date()): Promise<"renewed"
     const due = sub.status === "grace" || sub.status === "suspended" || sub.periodEnd <= now;
     if (!due) return "noop";
 
-    const total = await monthlyKop(orgId, tx);
+    const start = sub.periodEnd > now ? sub.periodEnd : now;
+    const { total, discount } = await monthlyKop(orgId, tx, start);
     const bal = await balanceKop(orgId, tx);
     if (bal >= total) {
-      const start = sub.periodEnd > now ? sub.periodEnd : now;
       const periodEnd = addMonths(start, 1);
-      await tx.insert(ledgerEntries).values({ organizationId: orgId, kind: "charge", amountKop: -total, reason: "renewal", meta: { from: start.toISOString(), to: periodEnd.toISOString() } });
+      if (total > 0) await tx.insert(ledgerEntries).values({ organizationId: orgId, kind: "charge", amountKop: -total, reason: "renewal", meta: { from: start.toISOString(), to: periodEnd.toISOString(), ...(discount ? { discountPercent: discount.percent } : {}) } });
+      if (discount) await tx.update(promoRedemptions).set({ monthsLeft: discount.monthsLeft - 1 }).where(and(eq(promoRedemptions.promoId, discount.promoId), eq(promoRedemptions.organizationId, orgId)));
       // After the free period every installed module is paid.
       await tx.update(moduleInstalls).set({ free: false }).where(eq(moduleInstalls.organizationId, orgId));
       await tx.update(subscriptions).set({ status: "active", periodEnd, graceUntil: null, updatedAt: now }).where(eq(subscriptions.organizationId, orgId));
@@ -155,8 +179,13 @@ export async function billingOverview(orgId: string) {
   return {
     subscription: sub ? { status: sub.status, trialEndsAt: sub.trialEndsAt, periodEnd: sub.periodEnd, graceUntil: sub.graceUntil } : null,
     balanceKop: await balanceKop(orgId),
-    monthlyKop: await monthlyKop(orgId),
-    modules: mods.map((m) => ({ id: m.moduleId, free: m.free, installedAt: m.installedAt })),
+    ...(await (async () => {
+      // The next renewal: its price with key coverage and discounts applied.
+      const m = await monthlyKop(orgId, db, sub && sub.periodEnd > new Date() ? sub.periodEnd : new Date());
+      return { monthlyKop: m.total, monthlyFullKop: m.full, discount: m.discount ? { percent: m.discount.percent, monthsLeft: m.discount.monthsLeft } : null };
+    })()),
+    coveredUntil: sub?.coveredUntil ?? null,
+    modules: mods.map((m) => ({ id: m.moduleId, free: m.free, paidUntil: m.paidUntil, installedAt: m.installedAt })),
     freeModulesLeft: sub?.status === "trial" ? Math.max(0, P.freeModules - mods.filter((m) => m.free).length) : 0,
     paymentsConfigured: paymentsConfigured(),
     ledger,

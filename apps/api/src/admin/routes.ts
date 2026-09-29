@@ -7,6 +7,7 @@ import { normalizeDomain } from "../monitor/probe.ts";
 import { checkSite } from "../monitor/scheduler.ts";
 import { billingOverview, confirmTopup, startTrial } from "../billing/service.ts";
 import { supportAdminRoutes } from "../support/routes.ts";
+import { keyAdminRoutes } from "../billing/admin-keys.ts";
 import { subscriptions, topups } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
 import { audit } from "../audit.ts";
@@ -26,6 +27,7 @@ const uuid = z.string().uuid();
 export const adminRoutes: FastifyPluginAsync = async (app) => {
   app.addHook("preHandler", requireAdmin);
   await app.register(supportAdminRoutes, { prefix: "/tickets" });
+  await app.register(keyAdminRoutes);
 
   app.get("/leads", async () => {
     return db.select().from(leads).orderBy(desc(leads.createdAt)).limit(200);

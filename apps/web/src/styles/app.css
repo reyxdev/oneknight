@@ -54,3 +54,12 @@
 .app-options:empty { display: none; }
 .app-options > li { padding: 0.4rem 0.1rem; }
 .app-options button { text-align: left; font-size: 0.875rem; }
+
+/* Admin: access key batches */
+.app-batches { display: grid; margin: 0; padding: 0; list-style: none; }
+.app-batch { display: grid; gap: 0.5rem; padding: 0.75rem 0.1rem; border-bottom: 1px solid var(--line); }
+.app-batch:last-child { border-bottom: 0; }
+.app-batch-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+.app-batch-head .ok-grow { display: grid; gap: 0.15rem; min-width: 14rem; }
+.app-batch-head small { color: var(--fg-muted); }
+.app-codes { font-family: var(--font-mono, ui-monospace, monospace); resize: vertical; min-height: 6rem; }

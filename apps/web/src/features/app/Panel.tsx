@@ -14,6 +14,7 @@ import { Clients } from "./Clients";
 import { Bell } from "./Bell";
 import { BillingScreen, ModulesScreen } from "./Billing";
 import { TopupsAdmin } from "./TopupsAdmin";
+import { KeysAdmin } from "./KeysAdmin";
 import { SupportScreen } from "./Support";
 import { OrdersScreen, ProductsScreen } from "./Shop";
 import { ReviewsScreen } from "./Reviews";
@@ -23,7 +24,7 @@ import { TeamScreen } from "./Team";
 import { IntegrationsScreen } from "./Integrations";
 import { api } from "@/lib/api";
 
-type Screen = "integrations" | "team" | "home" | "orders" | "products" | "reviews" | "analytics" | "site" | "modules" | "billing" | "support" | "security" | "account" | "admin" | "clients" | "topups" | "tickets";
+type Screen = "keys" | "integrations" | "team" | "home" | "orders" | "products" | "reviews" | "analytics" | "site" | "modules" | "billing" | "support" | "security" | "account" | "admin" | "clients" | "topups" | "tickets";
 const NAV: { id: Screen; icon: IconName }[] = [
   { id: "home", icon: "home" },
   { id: "orders", icon: "cart" },
@@ -41,7 +42,7 @@ const NAV: { id: Screen; icon: IconName }[] = [
 ];
 
 const SCREENS: Screen[] = ["home", "orders", "products", "reviews", "analytics", "site", "modules", "integrations", "billing", "support", "team", "security", "account"];
-const ADMIN_SCREENS: Screen[] = ["admin", "tickets", "clients", "topups"];
+const ADMIN_SCREENS: Screen[] = ["admin", "tickets", "clients", "topups", "keys"];
 function readHash(isAdmin: boolean): Screen {
   if (typeof window === "undefined") return "home";
   const h = window.location.hash.slice(1) as Screen;
@@ -70,7 +71,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
   }, [me.isAdmin]);
   const org = me.organizations.find((o) => o.id === me.activeOrgId) ?? me.organizations[0];
   const adminNav: { id: Screen; icon: IconName }[] = me.isAdmin
-    ? [{ id: "admin", icon: "table" }, { id: "tickets", icon: "chat" }, { id: "clients", icon: "layers" }, { id: "topups", icon: "card" }]
+    ? [{ id: "admin", icon: "table" }, { id: "tickets", icon: "chat" }, { id: "clients", icon: "layers" }, { id: "topups", icon: "card" }, { id: "keys", icon: "lock" }]
     : [];
   // Sections that need a permission in the active business; the API enforces the same rules.
   const NEEDS: Partial<Record<Screen, string>> = { orders: "orders", products: "products", reviews: "reviews", analytics: "analytics", modules: "modules", integrations: "modules", billing: "billing", support: "support", team: "team" };
@@ -79,7 +80,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
   const nav = [...clientNav, ...adminNav];
   const view: Screen | null = allowed(screen) ? screen : null;
   const label = (id: Screen) =>
-    ({ admin: t.admin.nav, clients: t.clients.nav, topups: t.topupsAdmin.nav, site: t.site.title, modules: t.modulesApp.nav, integrations: t.integrations.nav, billing: t.billing.nav, support: t.support.nav, team: t.team.nav, orders: t.orders.nav, products: t.products.nav, reviews: t.reviews.nav, analytics: t.analytics.nav, tickets: t.supportAdmin.nav } as Partial<Record<Screen, string>>)[id] ?? t.nav[id as "home" | "security" | "account"];
+    ({ admin: t.admin.nav, clients: t.clients.nav, topups: t.topupsAdmin.nav, keys: t.keysAdmin.nav, site: t.site.title, modules: t.modulesApp.nav, integrations: t.integrations.nav, billing: t.billing.nav, support: t.support.nav, team: t.team.nav, orders: t.orders.nav, products: t.products.nav, reviews: t.reviews.nav, analytics: t.analytics.nav, tickets: t.supportAdmin.nav } as Partial<Record<Screen, string>>)[id] ?? t.nav[id as "home" | "security" | "account"];
 
   return (
     <div className="app-shell">
@@ -131,6 +132,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             {view === "modules" && <ModulesScreen />}
             {view === "integrations" && <IntegrationsScreen />}
             {view === "topups" && me.isAdmin && <TopupsAdmin />}
+            {view === "keys" && me.isAdmin && <KeysAdmin />}
             {view === "support" && <SupportScreen />}
             {view === "team" && <TeamScreen me={me} />}
             {!allowed(screen) && <p className="ok-muted">{t.team.noAccess}</p>}
