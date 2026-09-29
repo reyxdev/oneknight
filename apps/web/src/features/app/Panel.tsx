@@ -16,6 +16,7 @@ import { BillingScreen, ModulesScreen } from "./Billing";
 import { TopupsAdmin } from "./TopupsAdmin";
 import { KeysAdmin } from "./KeysAdmin";
 import { ProfileScreen } from "./Profile";
+import { ServicesScreen } from "./Services";
 import { SupportScreen } from "./Support";
 import { OrdersScreen, ProductsScreen } from "./Shop";
 import { ReviewsScreen } from "./Reviews";
@@ -25,7 +26,7 @@ import { TeamScreen } from "./Team";
 import { IntegrationsScreen } from "./Integrations";
 import { api } from "@/lib/api";
 
-type Screen = "keys" | "integrations" | "team" | "home" | "orders" | "products" | "reviews" | "analytics" | "site" | "modules" | "billing" | "support" | "security" | "account" | "admin" | "clients" | "topups" | "tickets";
+type Screen = "services" | "keys" | "integrations" | "team" | "home" | "orders" | "products" | "reviews" | "analytics" | "site" | "modules" | "billing" | "support" | "security" | "account" | "admin" | "clients" | "topups" | "tickets";
 const NAV: { id: Screen; icon: IconName }[] = [
   { id: "home", icon: "home" },
   { id: "orders", icon: "cart" },
@@ -36,13 +37,14 @@ const NAV: { id: Screen; icon: IconName }[] = [
   { id: "modules", icon: "puzzle" },
   { id: "integrations", icon: "link" },
   { id: "billing", icon: "card" },
+  { id: "services", icon: "layers" },
   { id: "support", icon: "chat" },
   { id: "team", icon: "person" },
   { id: "security", icon: "shield" },
   { id: "account", icon: "person" },
 ];
 
-const SCREENS: Screen[] = ["home", "orders", "products", "reviews", "analytics", "site", "modules", "integrations", "billing", "support", "team", "security", "account"];
+const SCREENS: Screen[] = ["home", "orders", "products", "reviews", "analytics", "site", "modules", "integrations", "billing", "services", "support", "team", "security", "account"];
 const ADMIN_SCREENS: Screen[] = ["admin", "tickets", "clients", "topups", "keys"];
 function readHash(isAdmin: boolean): Screen {
   if (typeof window === "undefined") return "home";
@@ -81,7 +83,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
   const nav = [...clientNav, ...adminNav];
   const view: Screen | null = allowed(screen) ? screen : null;
   const label = (id: Screen) =>
-    ({ admin: t.admin.nav, clients: t.clients.nav, topups: t.topupsAdmin.nav, keys: t.keysAdmin.nav, site: t.site.title, modules: t.modulesApp.nav, integrations: t.integrations.nav, billing: t.billing.nav, support: t.support.nav, team: t.team.nav, orders: t.orders.nav, products: t.products.nav, reviews: t.reviews.nav, analytics: t.analytics.nav, tickets: t.supportAdmin.nav } as Partial<Record<Screen, string>>)[id] ?? t.nav[id as "home" | "security" | "account"];
+    ({ admin: t.admin.nav, clients: t.clients.nav, topups: t.topupsAdmin.nav, keys: t.keysAdmin.nav, services: t.servicesApp.nav, site: t.site.title, modules: t.modulesApp.nav, integrations: t.integrations.nav, billing: t.billing.nav, support: t.support.nav, team: t.team.nav, orders: t.orders.nav, products: t.products.nav, reviews: t.reviews.nav, analytics: t.analytics.nav, tickets: t.supportAdmin.nav } as Partial<Record<Screen, string>>)[id] ?? t.nav[id as "home" | "security" | "account"];
 
   return (
     <div className="app-shell">
@@ -134,6 +136,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             {view === "integrations" && <IntegrationsScreen />}
             {view === "topups" && me.isAdmin && <TopupsAdmin />}
             {view === "keys" && me.isAdmin && <KeysAdmin />}
+            {view === "services" && <ServicesScreen />}
             {view === "support" && <SupportScreen />}
             {view === "team" && <TeamScreen me={me} />}
             {!allowed(screen) && <p className="ok-muted">{t.team.noAccess}</p>}

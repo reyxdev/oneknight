@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import { playSound } from "@/lib/sound";
 
 export type OrderStart = "choose" | "call" | "brief";
-export type OrderOptions = { siteType?: string };
+export type OrderOptions = { siteType?: string; service?: "website" | "automation" | "analytics" | "advertising" | "seo" };
 
 type Ctx = {
   openOrder: (start?: OrderStart, opts?: OrderOptions) => void;

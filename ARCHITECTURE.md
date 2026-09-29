@@ -442,3 +442,7 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 ## 33. Profile
 
 - «Профіль»: name and phone (`PATCH /api/auth/profile`), business name for the owner of the active business, password change with the current password (`POST /api/auth/password`, signs out every other device, failed attempts go to the login history). Email is the login and stays as is.
+
+## 34. Services inside ONEKNIGHT
+
+- «Послуги» lists the same five directions as the public site (websites with the real "from" price, automation, analytics, advertising, SEO/GEO/AI). «Замовити» opens the site's brief with the service preselected; signed in, contacts come from the account and the request appears in «Ваші заявки» (listed on the same screen).

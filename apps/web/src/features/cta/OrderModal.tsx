@@ -55,7 +55,7 @@ export function OrderModal() {
     setErrors({});
     setSendError(null);
     if (state.start === "brief") {
-      setService("website");
+      setService(state.opts.service ?? "website");
       setBrief((b) => ({ ...b, siteType: state.opts.siteType ?? "unsure" }));
       setView("brief");
     } else setView(state.start);

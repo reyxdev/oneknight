@@ -79,6 +79,13 @@ await M.getByRole("button", { name: "Готово" }).click();
 await pg.getByText("Кав'ярня в Івано-Франківську").waitFor();
 ok(true, "account request is stored and listed with status");
 
+// «Послуги»: ordering a service opens the brief with that service already chosen.
+await pg.locator(".ok-side .ok-navbtn", { hasText: "Послуги" }).click();
+await pg.locator(".ok-svc", { hasText: "Автоматизація" }).getByRole("button", { name: "Замовити" }).click();
+ok(await pg.locator("dialog[open]").getByLabel("Напрям").inputValue() === "automation", "services screen preselects the service in the brief");
+await pg.keyboard.press("Escape");
+await pg.locator("dialog[open]").waitFor({ state: "detached", timeout: 3000 }).catch(() => {});
+
 // Anonymous request from the public pricing section.
 const anon = await b.newPage({ viewport: { width: 1280, height: 860 } });
 await anon.goto(`${BASE}/`, { waitUntil: "networkidle" });

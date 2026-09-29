@@ -594,6 +594,13 @@ export const app: Dict["app"] = {
     restore: "Restoring from a copy is done through support: tell us which copy to restore.",
     errors: { too_many_requests: "Too many copies this hour, try later", owner_only: "Copies are available to the owner only" },
   },
+  servicesApp: {
+    nav: "Services",
+    title: "Services",
+    lead: "Order work right from ONEKNIGHT: the request reaches us at once with your contacts.",
+    order: "Order",
+    from: "from {price}",
+  },
   account: {
     title: "Profile",
     name: "Name",
