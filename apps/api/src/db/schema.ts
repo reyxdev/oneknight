@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, inet, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, inet, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 /*
  * First slice of the ONEKNIGHT schema: accounts, organizations, sessions, login history, audit log.
@@ -22,6 +22,8 @@ export const users = pgTable(
     /** TOTP secret, encrypted at rest (set when 2FA is enabled). */
     totpSecretEnc: text("totp_secret_enc"),
     totpEnabled: boolean("totp_enabled").notNull().default(false),
+    /** Last accepted TOTP time step: a code can be used only once (replay protection). */
+    totpLastStep: integer("totp_last_step"),
     /** Platform administrator (Ivan). Not an organization role. */
     isAdmin: boolean("is_admin").notNull().default(false),
     createdAt: createdAt(),
@@ -54,6 +56,8 @@ export const sessions = pgTable(
   {
     /** SHA-256 of the session token. The token itself is only ever in the user's cookie. */
     idHash: text("id_hash").primaryKey(),
+    /** Public id used to list and revoke sessions. Never the token. */
+    id: uuid("id").notNull().defaultRandom().unique(),
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     /** False until the second factor is confirmed for users with 2FA. */
     mfaPassed: boolean("mfa_passed").notNull().default(false),

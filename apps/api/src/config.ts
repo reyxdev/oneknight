@@ -6,6 +6,9 @@ const Env = z.object({
   DATABASE_URL: z.string().url(),
   API_PORT: z.coerce.number().int().positive().default(4000),
   API_HOST: z.string().default("127.0.0.1"),
+  TOTP_ENC_KEY: z.string().refine((v) => Buffer.from(v, "base64").length === 32, "TOTP_ENC_KEY must be 32 bytes, base64"),
+  APP_ORIGINS: z.string().transform((v) => v.split(",").map((s) => s.trim()).filter(Boolean)),
+  COOKIE_SECURE: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
 });
 
 export const env = Env.parse(process.env);
