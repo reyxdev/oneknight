@@ -330,4 +330,11 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 - States: loading, offline (API unreachable, with retry), login/register, TOTP step, account.
 - Account sections backed by real data only: Home (honest empty states), Security (2FA with QR, sessions with revoke, sign-in history), Profile. Other ONEKNIGHT sections appear as their data exists; the full picture stays in the public demo.
 - Landing: "Увійти" and "Замовити через ONEKNIGHT" lead to `/app`; a non-secret `ok_auth=1` cookie tells static pages to show "Відкрити ONEKNIGHT". The old browser-only demo account was removed.
-- The brief from the pricing calculator still ends in a Telegram/WhatsApp hand-off until leads are stored (next step).
+
+## 18. Requests (leads)
+
+- Table `leads` (numbered from 1001), `POST /api/leads` from the public brief (needs name and phone) or from the account (uses the account contact), `GET /api/leads/mine`, admin `GET /api/admin/leads` and `PATCH /api/admin/leads/:id` (status new / in_progress / won / lost).
+- Abuse control: per-route rate limit, max 5 anonymous requests per IP per hour, honeypot field.
+- The modal sends the brief to ONEKNIGHT; if the server is unreachable it offers the messenger hand-off, so a request is never lost.
+- Telegram alert to the owner when `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are set; silently off otherwise.
+- Admin role: `users.is_admin`, granted with `npm run admin:grant -w @oneknight/api -- email`.

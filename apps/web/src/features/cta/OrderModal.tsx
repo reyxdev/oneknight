@@ -12,9 +12,11 @@ import { formatUAH, websiteTypes } from "@/data/pricing";
 import { useSignedIn } from "@/lib/session";
 import { withLang } from "@/i18n";
 import { playSound } from "@/lib/sound";
+import { api } from "@/lib/api";
 
-type View = "choose" | "call" | "brief" | "handoff";
+type View = "choose" | "call" | "brief" | "handoff" | "done";
 type ServiceId = "website" | "automation" | "analytics" | "advertising" | "seo";
+const SERVICES: ServiceId[] = ["website", "automation", "analytics", "advertising", "seo"];
 const FEATURES = ["catalog", "cart", "payment", "delivery", "form", "multilang", "booking", "blog"] as const;
 
 type Brief = {
@@ -42,11 +44,16 @@ export function OrderModal() {
   const [service, setService] = useState<ServiceId>("website");
   const [brief, setBrief] = useState<Brief>(emptyBrief);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [contact, setContact] = useState({ name: "", phone: "", email: "", website: "" });
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [leadNo, setLeadNo] = useState<number | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!state.open) return;
     setErrors({});
+    setSendError(null);
     if (state.start === "brief") {
       setService("website");
       setBrief((b) => ({ ...b, siteType: state.opts.siteType ?? "unsure" }));
@@ -66,16 +73,53 @@ export function OrderModal() {
     window.location.href = withLang(lang, signedIn ? "/app/" : "/app/?start=register");
   };
 
-  const submitBrief = (e: FormEvent<HTMLFormElement>) => {
+  /** Sends the brief to ONEKNIGHT. If the server is unreachable, the messenger hand-off is offered instead. */
+  const submitBrief = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (brief.business.trim().length < 3) {
-      setErrors({ business: d.brief.errBusiness });
+    const form = e.currentTarget;
+    const err: Record<string, string> = {};
+    if (brief.business.trim().length < 3) err.business = d.brief.errBusiness;
+    if (!signedIn) {
+      if (contact.name.trim().length < 2) err.name = d.send.errContact;
+      if (!/^\+?[0-9\s()-]{9,20}$/.test(contact.phone.trim())) err.phone = d.send.errContact;
+    }
+    setErrors(err);
+    setSendError(null);
+    if (Object.keys(err).length) {
       playSound("error");
-      focusFirstInvalid(e.currentTarget);
+      focusFirstInvalid(form);
       return;
     }
-    playSound("success");
-    go("handoff");
+    setSending(true);
+    const r = await api<{ number: number }>("/leads", {
+      method: "POST",
+      body: {
+        service,
+        ...(service === "website" ? { siteType: brief.siteType || "unsure" } : {}),
+        business: brief.business,
+        about: brief.about,
+        audience: brief.audience,
+        logo: brief.logo,
+        photos: brief.photos,
+        features: brief.features,
+        references: brief.references,
+        special: brief.special,
+        locale: lang,
+        ...(signedIn ? {} : { name: contact.name, phone: contact.phone, email: contact.email }),
+        website: contact.website,
+      },
+    });
+    setSending(false);
+    if (r.ok) {
+      playSound("success");
+      setLeadNo(r.data.number);
+      setBrief(emptyBrief);
+      window.dispatchEvent(new Event("ok:lead-created"));
+      go("done");
+      return;
+    }
+    playSound("error");
+    setSendError(r.status === 429 ? d.send.errLimit : r.error === "contact_required" ? d.send.errContact : d.send.errNetwork);
   };
 
   const selectedType = websiteTypes.find((t) => t.id === brief.siteType);
@@ -117,12 +161,13 @@ export function OrderModal() {
     call: d.callTitle,
     brief: d.brief.title,
     handoff: d.handoff.title,
+    done: fmt(d.send.doneTitle, { n: leadNo ?? "" }),
   }[view];
 
   return (
     <Modal open={state.open} onClose={close} labelledBy="order-title">
       <div ref={bodyRef} className="p-6 pt-8 sm:p-10">
-        {view !== "choose" && (
+        {view !== "choose" && view !== "done" && (
           <button
             type="button"
             className="btn btn-ghost btn-sm mb-4 -ml-3"
@@ -160,6 +205,15 @@ export function OrderModal() {
         {view === "brief" && (
           <form onSubmit={submitBrief} noValidate className="grid gap-5">
             <p className="lead">{d.brief.lead}</p>
+            <Field label={d.send.service}>
+              {(p) => (
+                <select {...p} className="input" value={service} onChange={(e) => setService(e.target.value as ServiceId)}>
+                  {SERVICES.map((sv) => (
+                    <option key={sv} value={sv}>{d.service[sv]}</option>
+                  ))}
+                </select>
+              )}
+            </Field>
             <Field label={d.brief.business} hint={d.brief.businessHint} error={errors.business}>
               {(p) => <input {...p} className="input" value={brief.business} onChange={(e) => setBrief({ ...brief, business: e.target.value })} />}
             </Field>
@@ -215,8 +269,39 @@ export function OrderModal() {
                 </Field>
               </div>
             </details>
-            <button className="btn btn-lg" type="submit">{dict.common.next}</button>
+            {!signedIn && (
+              <fieldset className="grid gap-4">
+                <legend className="mb-2 text-[1.0625rem] font-bold">{d.send.contactTitle}</legend>
+                <Field label={d.send.name} error={errors.name}>
+                  {(p) => <input {...p} className="input" autoComplete="name" value={contact.name} onChange={(e) => setContact({ ...contact, name: e.target.value })} />}
+                </Field>
+                <Field label={d.send.phone} error={errors.phone}>
+                  {(p) => <input {...p} className="input" type="tel" inputMode="tel" autoComplete="tel" value={contact.phone} onChange={(e) => setContact({ ...contact, phone: e.target.value })} />}
+                </Field>
+                <Field label={d.send.email} optionalLabel={dict.common.optional}>
+                  {(p) => <input {...p} className="input" type="email" autoComplete="email" value={contact.email} onChange={(e) => setContact({ ...contact, email: e.target.value })} />}
+                </Field>
+              </fieldset>
+            )}
+            {/* Honeypot for bots: hidden from people and screen readers. */}
+            <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" className="sr-only" value={contact.website} onChange={(e) => setContact({ ...contact, website: e.target.value })} />
+            {sendError && <p className="field-error" role="alert">{sendError}</p>}
+            <button className="btn btn-lg" type="submit" disabled={sending} data-loading={sending}>{d.send.submit}</button>
+            <button type="button" className="btn btn-ghost" onClick={() => go("handoff")}>{d.send.orMessenger}</button>
           </form>
+        )}
+
+        {view === "done" && (
+          <div className="grid gap-5">
+            <p className="lead">{d.send.doneText}</p>
+            {signedIn && <p className="small">{d.send.doneApp}</p>}
+            <div className="flex flex-wrap gap-3">
+              {signedIn && !window.location.pathname.includes("/app") && (
+                <a className="btn btn-lg" href={withLang(lang, "/app/")}>{d.send.openApp}</a>
+              )}
+              <button type="button" className="btn btn-lg btn-secondary" onClick={close}>{d.send.close}</button>
+            </div>
+          </div>
         )}
 
         {view === "handoff" && (

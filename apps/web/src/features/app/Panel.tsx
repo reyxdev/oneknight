@@ -5,12 +5,12 @@ import { useDict, useLang } from "@/i18n/provider";
 import { fmt, withLang } from "@/i18n";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { KnightMark } from "@/components/global/Logo";
-import { contacts } from "@/data/contacts";
 import type { Me } from "@/lib/api";
 import { Panel } from "@/features/oneknight/ui/kit";
 import { Security } from "./Security";
+import { AdminLeads, MyLeads } from "./Leads";
 
-type Screen = "home" | "security" | "account";
+type Screen = "home" | "security" | "account" | "admin";
 const NAV: { id: Screen; icon: IconName }[] = [
   { id: "home", icon: "home" },
   { id: "security", icon: "shield" },
@@ -24,6 +24,8 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
   const lang = useLang();
   const [screen, setScreen] = useState<Screen>("home");
   const org = me.organizations[0];
+  const nav = me.isAdmin ? [...NAV, { id: "admin" as const, icon: "table" as IconName }] : NAV;
+  const label = (id: Screen) => (id === "admin" ? t.admin.nav : t.nav[id]);
 
   return (
     <div className="app-shell">
@@ -31,9 +33,9 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
         <aside className="ok-side" aria-label={t.nav.sections}>
           <div className="ok-brand"><span className="ok-brand-mark"><KnightMark size={30} /></span><b>ONEKNIGHT</b></div>
           <nav>
-            {NAV.map((n) => (
+            {nav.map((n) => (
               <button key={n.id} type="button" className="ok-navbtn" aria-current={screen === n.id ? "page" : undefined} onClick={() => setScreen(n.id)}>
-                <Icon name={n.icon} size={19} /><span>{t.nav[n.id]}</span>
+                <Icon name={n.icon} size={19} /><span>{label(n.id)}</span>
               </button>
             ))}
           </nav>
@@ -57,10 +59,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
                 </div>
                 <div className="ok-grid-2">
                   <Panel title={t.home.siteTitle}><p className="ok-muted">{t.home.siteEmpty}</p></Panel>
-                  <Panel title={t.home.ordersTitle}>
-                    <p className="ok-muted">{t.home.ordersEmpty}</p>
-                    <a className="btn btn-sm" style={{ justifySelf: "start" }} href={contacts.telegram.url} target="_blank" rel="noopener"><Icon name="send" size={15} />{t.home.discuss}</a>
-                  </Panel>
+                  <MyLeads />
                 </div>
                 <div className="ok-grid-2">
                   <Panel title={t.home.securityTitle}>
@@ -81,6 +80,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
               </div>
             )}
             {screen === "security" && <Security me={me} onChange={onChange} />}
+            {screen === "admin" && me.isAdmin && <AdminLeads />}
             {screen === "account" && (
               <div className="ok-screen">
                 <div className="ok-h"><h3>{t.account.title}</h3></div>
@@ -98,9 +98,9 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
           </div>
         </div>
         <nav className="ok-bottom" aria-label={t.nav.sections}>
-          {NAV.map((n) => (
+          {nav.map((n) => (
             <button key={n.id} type="button" aria-current={screen === n.id ? "page" : undefined} onClick={() => setScreen(n.id)}>
-              <Icon name={n.icon} size={20} /><span>{t.nav[n.id]}</span>
+              <Icon name={n.icon} size={20} /><span>{label(n.id)}</span>
             </button>
           ))}
           <button type="button" onClick={onLogout}><Icon name="arrow" size={20} style={{ transform: "scaleX(-1)" }} /><span>{t.nav.logout}</span></button>

@@ -63,6 +63,35 @@ await pg.locator(".ok-side .ok-navbtn", { hasText: "Безпека" }).click();
 await pg.getByText("Пароль вірний, очікується код").first().waitFor();
 ok((await pg.getByText("Невірний пароль").count()) >= 1, "login history lists the failed attempt");
 
+// Request from inside the account appears in "Ваші заявки".
+await pg.locator(".ok-side .ok-navbtn", { hasText: "Головна" }).click();
+await pg.getByRole("button", { name: "Нова заявка" }).click();
+const M = pg.locator("dialog[open]");
+await M.getByLabel("Напрям").selectOption("seo");
+await M.getByLabel("Чим займається бізнес?").fill("Кав'ярня в Івано-Франківську");
+ok(await M.getByLabel("Телефон").count() === 0, "signed-in brief does not ask for contacts again");
+await M.getByRole("button", { name: "Надіслати заявку" }).click();
+await M.getByText(/Заявку №\d+ отримано/).waitFor();
+await M.getByRole("button", { name: "Готово" }).click();
+await pg.getByText("Кав'ярня в Івано-Франківську").waitFor();
+ok(true, "account request is stored and listed with status");
+
+// Anonymous request from the public pricing section.
+const anon = await b.newPage({ viewport: { width: 1280, height: 860 } });
+await anon.goto(`${BASE}/`, { waitUntil: "networkidle" });
+await anon.evaluate(() => document.querySelector("#pricing").scrollIntoView());
+await anon.getByRole("button", { name: /Розрахувати мій сайт/ }).click();
+const A = anon.locator("dialog[open]");
+await A.getByLabel("Чим займається бізнес?").fill("Магазин меду");
+await A.getByRole("button", { name: "Надіслати заявку" }).click();
+ok(await A.getByText("Вкажіть ім'я й телефон").count() >= 1, "anonymous brief requires contacts");
+await A.getByLabel("Ім'я").fill("Анонім E2E");
+await A.getByLabel("Телефон").fill("+380 93 000 11 22");
+await A.getByRole("button", { name: "Надіслати заявку" }).click();
+await A.getByText(/Заявку №\d+ отримано/).waitFor();
+ok(true, "anonymous request from the site is stored");
+await anon.close();
+
 console.log("errors:", errs.length ? errs : "none");
 if (errs.length || failed) process.exitCode = 1;
 await b.close();

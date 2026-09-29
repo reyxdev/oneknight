@@ -12,8 +12,9 @@ const mail = `${tag}@test.oneknight.local`;
 const ORIGIN = "http://localhost:3000";
 
 after(async () => {
-  await db.delete(loginEvents).where(like(loginEvents.emailAttempted, `%@test.oneknight.local`));
-  await db.delete(users).where(like(users.email, `%@test.oneknight.local`));
+  // Clean up only this file's data: test files run in parallel.
+  await db.delete(loginEvents).where(like(loginEvents.emailAttempted, `${tag}%`));
+  await db.delete(users).where(like(users.email, `${tag}%`));
   await app.close();
   await sql.end();
 });

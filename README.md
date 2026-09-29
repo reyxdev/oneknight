@@ -43,6 +43,14 @@ npm run test:app -w @oneknight/web   # real account flow in a browser
 
 In development `npm run dev:web` proxies `/api` to the API on :4000, so `/app` works there too.
 
+Make an account an administrator (sees all requests in `/app`):
+
+```bash
+npm run admin:grant -w @oneknight/api -- you@example.com
+```
+
+Telegram alerts about new requests: set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in `.env` (see `.env.example`).
+
 Schema lives in `apps/api/src/db/schema.ts`. After changing it: `npm run db:generate`, review the SQL in `apps/api/drizzle/`, then `npm run db:migrate`.
 
 ## Where things live

@@ -7,6 +7,7 @@ import { boolean, index, inet, integer, jsonb, pgEnum, pgTable, primaryKey, text
  */
 
 export const roleEnum = pgEnum("member_role", ["owner", "manager", "marketer"]);
+export const leadStatusEnum = pgEnum("lead_status", ["new", "in_progress", "won", "lost"]);
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 
@@ -99,4 +100,29 @@ export const auditLog = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("audit_org_idx").on(t.organizationId, t.createdAt)],
+);
+
+/** A project request (brief) from the public site or the account. Anonymous leads carry their own contact. */
+export const leads = pgTable(
+  "leads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    number: integer("number").generatedAlwaysAsIdentity({ startWith: 1001 }).notNull().unique(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    organizationId: uuid("organization_id").references(() => organizations.id, { onDelete: "set null" }),
+    name: text("name").notNull(),
+    phone: text("phone").notNull(),
+    email: text("email"),
+    service: text("service").notNull(),
+    siteType: text("site_type"),
+    /** Brief answers as submitted (business, audience, logo, photos, features, references, special...). */
+    brief: jsonb("brief").notNull(),
+    status: leadStatusEnum("status").notNull().default("new"),
+    source: text("source").notNull(),
+    locale: text("locale").notNull(),
+    ip: inet("ip"),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("leads_user_idx").on(t.userId, t.createdAt), index("leads_status_idx").on(t.status, t.createdAt), index("leads_ip_idx").on(t.ip, t.createdAt)],
 );

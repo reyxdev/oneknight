@@ -72,6 +72,21 @@ export const app: Dict["app"] = {
     demoText: "See the full demo with orders, analytics and modules.",
     demoCta: "Open the demo",
   },
+  leads: {
+    title: "Your requests",
+    new: "New request",
+    number: "Request no. {n}",
+    status: { new: "New", in_progress: "In progress", won: "Agreed", lost: "Closed" },
+    loadError: "Could not load requests.",
+  },
+  admin: {
+    nav: "Requests (admin)",
+    title: "All requests",
+    empty: "No requests yet.",
+    contact: "Contact",
+    source: { site: "From the site", app: "From the account" },
+    changed: "Status updated",
+  },
   security: {
     title: "Security",
     twoFa: "Two-factor sign-in",
