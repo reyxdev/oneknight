@@ -20,8 +20,6 @@ export function ServicesSection({ dict }: { dict: Dict }) {
             const tone = TONE[id];
             return (
               <Fragment key={c.id}>
-              {/* Guided-scroll stop: where this card starts to stick. */}
-              <i className="svc-mark" data-stop data-stop-sticky aria-hidden="true" />
               <article className={`svc-card ${tone === "dark" ? "scheme-dark" : ""}`} data-tone={tone} style={{ ["--n" as string]: i }} aria-labelledby={`svc-${c.id}`}>
                 <div className="svc-copy">
                   <span className="svc-num num">{String(i + 1).padStart(2, "0")}</span>

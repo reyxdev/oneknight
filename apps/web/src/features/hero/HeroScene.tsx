@@ -10,7 +10,7 @@ const PARTS = ["ONE", "KNIGHT"] as const;
  */
 export function HeroScene({ dict }: { dict: Dict }) {
   return (
-    <section id="hero" data-chapter data-scene data-stops="0,0.55,1" className="hero" aria-labelledby="hero-h1">
+    <section id="hero" data-chapter data-scene data-stops="0" className="hero" aria-labelledby="hero-h1">
       <div className="stage hero-stage">
         <div className="hero-glow" aria-hidden="true" />
         <div className="hero-dark" aria-hidden="true" />

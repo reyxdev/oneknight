@@ -21,7 +21,7 @@ function Wire({ buy }: { buy?: string }) {
 export function NotTemplate({ dict }: { dict: Dict }) {
   const t = dict.template;
   return (
-    <section id="template" data-chapter data-scene data-stops="0,0.185,0.375,0.565,0.755,0.85,0.97,1" className="tpl scheme-dark" aria-labelledby="tpl-title">
+    <section id="template" data-chapter data-scene data-stops="0.02,0.185,0.375,0.565,0.755,0.85,0.97" className="tpl scheme-dark" aria-labelledby="tpl-title">
       <div className="stage tpl-stage">
         <div className="wrap tpl-wrap">
           <h2 id="tpl-title" className="h2 tpl-title">{t.title}</h2>

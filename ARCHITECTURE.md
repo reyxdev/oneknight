@@ -316,13 +316,13 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 
 ## 16. Guided scrolling (landing)
 
-`apps/web/src/lib/motion/guided-scroll.ts`. One wheel gesture, PageDown or Space moves smoothly (eased tween, 650-1250 ms) to the next stop, so scroll-driven scenes play like animations.
+`apps/web/src/lib/motion/guided-scroll.ts`. Guidance exists only inside scroll-driven scenes; the rest of the page scrolls natively.
 
-- Stops: top of every block in `<main>` and the footer; `data-stops="..."` fractions inside sticky scenes (hero, chaos, not-a-template, case intro, ONEKNIGHT intro, process); `<i data-stop data-stop-sticky>` markers where each sticky service card lands.
-- Far stops: glide 0.8 screen per move (never skips content, keeps overlap).
-- Gesture detection: a new gesture needs a 180 ms pause that is not a decaying inertia tail, or a clear acceleration. One trackpad swipe = one move; one wheel notch = one move.
-- Never hijacked: touch scrolling, Ctrl+wheel zoom, horizontal wheel, open modal or menu, calm motion mode, anything inside an element with its own scroll (the ONEKNIGHT demo, dialogs, inputs).
-- Same-page anchor links glide too and update the URL. Pointer or touch input cancels a glide.
+- Each sticky scene lists its meaningful keyframes: `data-stops` (hero 0; chaos 0.12, 0.32, 0.52, 0.9; not-a-template 7 frames; case intro 0.6; ONEKNIGHT intro 0.1, 0.4, 0.72; process 0.08 to 1). The last keyframe is the finished state, never a transition or blank frame.
+- Inside a scene one wheel gesture, PageDown, Space or an arrow key plays to the next keyframe. The next gesture after the last keyframe glides through the transition to the next block (or to the next scene's first keyframe). Scrolling up mirrors this.
+- Entering a scene from above within 0.6 screen snaps to its first keyframe. Anchor links land on a scene's first keyframe.
+- One trackpad swipe = one move (inertia tails are ignored); one wheel notch = one move.
+- Native: all normal sections, touch, Ctrl+wheel, horizontal wheel, open modal or menu, calm motion mode, anything with its own scroll.
 
 ## 17. ONEKNIGHT account (/app), first real slice
 
