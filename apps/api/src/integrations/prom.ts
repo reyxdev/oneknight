@@ -26,7 +26,7 @@ export function promKop(v: unknown): number {
   return m ? Math.round(Number(m[0]) * 100) : 0;
 }
 
-const STATUS: Record<string, "new" | "confirmed" | "paid" | "done" | "cancelled"> = { pending: "new", received: "confirmed", paid: "paid", delivered: "done", cancelled: "cancelled" };
+const STATUS: Record<string, "new" | "confirmed" | "done" | "cancelled"> = { pending: "new", received: "confirmed", paid: "confirmed", delivered: "done", cancelled: "cancelled" };
 const METHOD: Record<string, string> = { nova_poshta: "novaposhta", ukrposhta: "ukrposhta" };
 
 /** A Prom order as stored in ONEKNIGHT. Drafts are not orders yet and are skipped (null). */
@@ -52,6 +52,7 @@ export function mapPromOrder(o: any) {
     items,
     totalKop: promKop(o.price),
     status: STATUS[o.status] ?? "new",
+    ...(o.status === "paid" ? { paymentStatus: "paid" as const } : {}),
     delivery: {
       method: (provider && METHOD[provider]) || String(o.delivery_option?.name ?? "other").slice(0, 100),
       ...(address ? { address: address.slice(0, 300) } : {}),

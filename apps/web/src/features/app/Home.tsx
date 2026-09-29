@@ -33,7 +33,7 @@ type Dash = {
   sales: { cur: Sales; prev: Sales; series: { label: string; revenueKop: number | null; orders: number }[] } | null;
   traffic: { cur: Visits; prev: Visits } | null;
   goal: { goalKop: number | null; monthKop: number; forecastKop: number | null; canEdit: boolean } | null;
-  ship: { list: { id: string; number: number; customerName: string; totalKop: number | null; status: "confirmed" | "paid"; waybill: string | null; method: string }[]; printable: number } | null;
+  ship: { list: { id: string; number: number; customerName: string; totalKop: number | null; status: "confirmed"; waybill: string | null; method: string }[]; printable: number } | null;
   todo: Todo[];
   steps: Record<Step, boolean> | null;
   reviews: { id: string; authorName: string; rating: number; text: string; status: string; createdAt: string }[] | null;

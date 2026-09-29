@@ -1,5 +1,5 @@
 import https from "node:https";
-import { and, asc, eq, gt, isNotNull, not } from "drizzle-orm";
+import { and, asc, eq, gt, isNotNull, not, sql as dsql } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { memberships, notifications, organizations, telegramLinks, users } from "../db/schema.ts";
 import { env } from "../config.ts";
@@ -155,11 +155,20 @@ export function notificationText(key: string, p: Record<string, any>, finance = 
  * Sends new notifications to linked chats. Each notification is claimed once (flag set before sending), so
  * several API processes or a restart never send twice. Only the last hour is considered.
  */
-export async function deliverTelegram(call: TgCall = tgCall) {
+export async function deliverTelegram(call: TgCall = tgCall, opts: { skipTestAccounts?: boolean } = {}) {
   const pending = await db
     .select()
     .from(notifications)
-    .where(and(eq(notifications.telegramDone, false), gt(notifications.createdAt, new Date(Date.now() - 3_600_000))))
+    .where(
+      and(
+        eq(notifications.telegramDone, false),
+        gt(notifications.createdAt, new Date(Date.now() - 3_600_000)),
+        // The running server leaves businesses of automated tests (@test.oneknight.local) to the tests themselves.
+        opts.skipTestAccounts
+          ? dsql`not exists (select 1 from ${memberships} m join ${users} u on u.id = m.user_id where m.organization_id = ${notifications.organizationId} and u.email like '%@test.oneknight.local')`
+          : undefined,
+      ),
+    )
     .orderBy(asc(notifications.createdAt))
     .limit(50);
   let sent = 0;

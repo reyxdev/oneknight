@@ -17,6 +17,7 @@ import { dashboardRoutes } from "./dashboard/routes.ts";
 import { teamRoutes } from "./team/routes.ts";
 import { resetRoutes } from "./auth/reset.ts";
 import { onboardingRoutes } from "./onboarding/routes.ts";
+import { orderSettingsRoutes } from "./shop/settings.ts";
 import { backupRoutes } from "./backups/routes.ts";
 import { telegramRoutes } from "./notify/routes.ts";
 import type { TgCall } from "./notify/bot.ts";
@@ -54,6 +55,7 @@ export async function buildApp(opts: FastifyServerOptions = {}, deps: { npCall?:
   await app.register(supportRoutes, { prefix: "/api/tickets" });
   await app.register(fileRoutes, { prefix: "/api/files" });
   await app.register(shopRoutes, { prefix: "/api/shop" });
+  await app.register(orderSettingsRoutes, { prefix: "/api/shop/settings" });
   await app.register(publicRoutes, { prefix: "/api/public" });
   await app.register(reviewRoutes, { prefix: "/api/reviews" });
   await app.register(analyticsRoutes, { prefix: "/api/analytics" });

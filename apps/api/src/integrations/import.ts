@@ -9,7 +9,8 @@ export type MarketOrder = {
   customerEmail: string | null;
   items: { productId: string; name: string; qty: number; priceKop: number }[];
   totalKop: number;
-  status: "new" | "confirmed" | "paid" | "shipped" | "done" | "cancelled";
+  status: "new" | "confirmed" | "shipped" | "done" | "cancelled" | "returned";
+  paymentStatus?: "unpaid" | "paid";
   delivery: { method: string; city?: string; branch?: string; address?: string };
   payment: string;
   comment: string | null;

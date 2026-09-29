@@ -38,6 +38,15 @@ export const fetchPdf: PrintPdf = async (url) => {
   }
 };
 
+/**
+ * Cash on delivery of an order: nothing when it is paid, otherwise the sum minus the prepayment
+ * («передоплата при накладеному»).
+ */
+export function codOf(o: { payment: string; paymentStatus: string; totalKop: number; prepaidKop: number }) {
+  const cod = o.payment === "cod" && o.paymentStatus !== "paid" && o.paymentStatus !== "refunded";
+  return { cod, codUah: (o.totalKop - (o.paymentStatus === "prepaid" ? o.prepaidKop : 0)) / 100 };
+}
+
 /** /api/integrations. `call` lets tests replace the Nova Poshta network client. */
 export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promFetch, rozetka: RozetkaFetch = rozetkaFetch, printPdf: PrintPdf = fetchPdf, up: UpFetch = upFetch): FastifyPluginAsync {
   return async (app) => {
@@ -223,7 +232,7 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
         size: { length: s.length ?? 30, width: s.width ?? 20, height: s.height ?? 10 },
         description: s.description ?? "",
         // Without `finance` the amount stays hidden (null); the waybill still gets it from the order on the server.
-        cod: o.payment === "cod" ? (acc!.finance ? o.totalKop / 100 : null) : 0,
+        cod: codOf(o).cod ? (acc!.finance ? codOf(o).codUah : null) : 0,
       };
     });
 
@@ -267,7 +276,7 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
       await db.update(integrations).set({ settings, updatedAt: new Date() }).where(where);
       const r = await createUpShipment(
         u.creds,
-        { senderUuid: snd.uuid, recipientPostcode: p.data.recipient.warehouseRef, customerName: o.customerName, customerPhone: o.customerPhone, totalUah: o.totalKop / 100, cod: o.payment === "cod", weightKg: p.data.weight, ...p.data.size, description: p.data.description },
+        { senderUuid: snd.uuid, recipientPostcode: p.data.recipient.warehouseRef, customerName: o.customerName, customerPhone: o.customerPhone, totalUah: o.totalKop / 100, ...codOf(o), weightKg: p.data.weight, ...p.data.size, description: p.data.description },
         up,
       );
       if (!r.ok) return fail(r.error);
@@ -324,7 +333,7 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
         recipient: await resolveRecipient(n.creds.apiKey, o),
         weight: s.weight ?? 1,
         description: s.description ?? "",
-        cod: o.payment === "cod" ? (acc!.finance ? o.totalKop / 100 : null) : 0,
+        cod: codOf(o).cod ? (acc!.finance ? codOf(o).codUah : null) : 0,
       };
     });
 
@@ -352,7 +361,7 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
 
       const settings: NpSettings = { ...p.data.sender, weight: p.data.weight, ...(p.data.description ? { description: p.data.description } : {}) };
       await db.update(integrations).set({ settings: { ...n.settings, ...settings }, updatedAt: new Date() }).where(and(eq(integrations.organizationId, org), eq(integrations.provider, "novaposhta")));
-      const r = await createWaybill(n.creds.apiKey, n.creds.sender, settings, { customerName: o.customerName, customerPhone: o.customerPhone, totalUah: o.totalKop / 100, cod: o.payment === "cod", recipientCityRef: p.data.recipient.cityRef, recipientWarehouseRef: p.data.recipient.warehouseRef }, call);
+      const r = await createWaybill(n.creds.apiKey, n.creds.sender, settings, { customerName: o.customerName, customerPhone: o.customerPhone, totalUah: o.totalKop / 100, ...codOf(o), recipientCityRef: p.data.recipient.cityRef, recipientWarehouseRef: p.data.recipient.warehouseRef }, call);
       if (!r.ok) {
         await db.update(integrations).set({ lastError: r.error, updatedAt: new Date() }).where(and(eq(integrations.organizationId, org), eq(integrations.provider, "novaposhta")));
         return reply.code(409).send({ error: "provider_rejected", detail: r.error });

@@ -1,8 +1,9 @@
 import { and, eq, inArray, sql as dsql } from "drizzle-orm";
 import { db } from "../db/client.ts";
-import { notifications, orderEvents, orders, products } from "../db/schema.ts";
+import { notifications, orderEvents, orderStatuses, orders, products } from "../db/schema.ts";
 
 export type OrderStatus = (typeof orders.$inferSelect)["status"];
+export type PaymentStatus = (typeof orders.$inferSelect)["paymentStatus"];
 export type NewOrder = {
   customer: { name: string; phone: string; email?: string };
   items: { productId: string; qty: number }[];
@@ -56,17 +57,34 @@ export async function placeOrder(site: { id: string; organizationId: string }, i
   });
 }
 
-/** Status change with stock bookkeeping: cancelling returns items to stock, reopening takes them again. */
-/** `from`: the change is allowed only from these statuses (a shipping-only member: confirmed / paid to shipped). */
-export async function setOrderStatus(orderId: string, orgIds: string[], status: OrderStatus, userId: string, from?: readonly OrderStatus[]) {
+export type StatusChange = { status?: OrderStatus; statusId?: string | null; reason?: string };
+const OUT: OrderStatus[] = ["cancelled", "returned"];
+
+/**
+ * Status change with stock bookkeeping: cancelling or a return puts the items back in stock, reopening takes them
+ * again. A business's own status sets its group. Cancelling needs a reason. `from`: allowed only from these groups
+ * (a shipping-only member).
+ */
+export async function setOrderStatus(orderId: string, orgIds: string[], change: StatusChange, userId: string, from?: readonly OrderStatus[]) {
   return db.transaction(async (tx) => {
     const [o] = await tx.select().from(orders).where(and(eq(orders.id, orderId), inArray(orders.organizationId, orgIds))).for("update");
     if (!o) return { ok: false as const, error: "not_found" };
-    if (o.status === status) return { ok: true as const };
-    if (from && !from.includes(o.status)) return { ok: false as const, error: "forbidden" };
-    const restock = status === "cancelled" ? 1 : o.status === "cancelled" ? -1 : 0;
+    let status = change.status ?? o.status;
+    let custom: { id: string; name: string } | null = null;
+    if (change.statusId) {
+      const [st] = await tx.select().from(orderStatuses).where(and(eq(orderStatuses.id, change.statusId), eq(orderStatuses.organizationId, o.organizationId)));
+      if (!st || (change.status && change.status !== st.group)) return { ok: false as const, error: "invalid_status" };
+      status = st.group;
+      custom = { id: st.id, name: st.name };
+    }
+    const statusId = custom?.id ?? null;
+    if (o.status === status && o.statusId === statusId) return { ok: true as const };
+    if (from && (!from.includes(o.status) || o.status === status)) return { ok: false as const, error: "forbidden" };
+    const reason = change.reason?.trim();
+    if (status === "cancelled" && o.status !== "cancelled" && !reason) return { ok: false as const, error: "reason_required" };
+    const restock = OUT.includes(status) && !OUT.includes(o.status) ? 1 : !OUT.includes(status) && OUT.includes(o.status) ? -1 : 0;
     if (restock) {
-      // Marketplace items ("prom:123") are not local products and have no stock here.
+      // Marketplace items ("prom:123") and examples are not local products and have no stock here.
       const ids = o.items.map((i) => i.productId).filter((id) => /^[0-9a-f-]{36}$/.test(id));
       const rows = ids.length ? await tx.select().from(products).where(inArray(products.id, ids)).for("update") : [];
       for (const i of o.items) {
@@ -76,8 +94,21 @@ export async function setOrderStatus(orderId: string, orgIds: string[], status: 
         await tx.update(products).set({ stock: p.stock + restock * i.qty, updatedAt: new Date() }).where(eq(products.id, p.id));
       }
     }
-    await tx.update(orders).set({ status, updatedAt: new Date() }).where(eq(orders.id, orderId));
-    await tx.insert(orderEvents).values({ orderId, status, userId });
+    const cancelReason = status === "cancelled" ? (reason ?? o.cancelReason) : null;
+    await tx.update(orders).set({ status, statusId, cancelReason, updatedAt: new Date() }).where(eq(orders.id, orderId));
+    await tx.insert(orderEvents).values({ orderId, kind: "status", status, userId, data: { ...(custom ? { name: custom.name } : {}), ...(status === "cancelled" && reason ? { reason } : {}) } });
     return { ok: true as const };
   });
+}
+
+/** Payment is separate from the status: unpaid / prepaid (with the amount) / paid / refunded. */
+export async function setPayment(orderId: string, orgId: string, paymentStatus: PaymentStatus, prepaidKop: number, userId: string) {
+  const [o] = await db.select().from(orders).where(and(eq(orders.id, orderId), eq(orders.organizationId, orgId)));
+  if (!o) return { ok: false as const, error: "not_found" };
+  if (paymentStatus === "prepaid" && (prepaidKop <= 0 || prepaidKop >= o.totalKop)) return { ok: false as const, error: "invalid_prepaid" };
+  const prepaid = paymentStatus === "prepaid" ? prepaidKop : 0;
+  if (o.paymentStatus === paymentStatus && o.prepaidKop === prepaid) return { ok: true as const };
+  await db.update(orders).set({ paymentStatus, prepaidKop: prepaid, updatedAt: new Date() }).where(eq(orders.id, orderId));
+  await db.insert(orderEvents).values({ orderId, kind: "payment", userId, data: { paymentStatus, ...(prepaid ? { prepaidKop: prepaid } : {}) } });
+  return { ok: true as const };
 }

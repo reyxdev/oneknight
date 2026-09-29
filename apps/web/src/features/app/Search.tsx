@@ -7,7 +7,7 @@ import { api, latestOnly } from "@/lib/api";
 import { StatusPill } from "@/features/oneknight/ui/kit";
 
 type Result = {
-  orders: { id: string; number: number; customerName: string; status: "new" | "confirmed" | "paid" | "shipped" | "done" | "cancelled" }[];
+  orders: { id: string; number: number; customerName: string; status: "new" | "confirmed" | "shipped" | "done" | "cancelled" | "returned" }[];
   products: { id: string; name: string; stock: number | null; active: boolean }[];
 };
 type Hit = { key: string; go: [string, string] };

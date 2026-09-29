@@ -7,14 +7,13 @@ import { formatUAH } from "@/data/pricing";
 import { Icon } from "@/components/ui/Icon";
 import { Field } from "@/components/ui/Field";
 import { Toggle } from "@/components/ui/Toggle";
-import { api, latestOnly } from "@/lib/api";
+import { api } from "@/lib/api";
 import { readImage } from "@/lib/files";
 import { playSound } from "@/lib/sound";
-import { Empty, Panel, StatusPill, useFlash, useFormat } from "@/features/oneknight/ui/kit";
+import { Empty, Panel, useFlash } from "@/features/oneknight/ui/kit";
 import { useSites, type SiteInfo } from "./SiteScreen";
-import { WaybillForm, WaybillPrint } from "./Waybill";
 import { useToast } from "./Toasts";
-import { PAGE, Table, type Col, type Sort } from "./Table";
+import { Table, useEscClose, type Col, type Sort } from "./Table";
 
 type Product = { id: string; name: string; description: string; price: number; stock: number | null; active: boolean; photo: string | null };
 type Draft = { name: string; description: string; price: string; stock: string; active: boolean; photo: { name: string; data: string } | null; photoUrl: string | null };
@@ -33,19 +32,6 @@ function useSitePicker() {
       </div>
     ) : null;
   return { sites, site, picker };
-}
-
-/** Esc closes the panel on the right (not while typing in a field or with a window open). */
-function useEscClose(close: (() => void) | null) {
-  useEffect(() => {
-    if (!close) return;
-    const on = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" || (e.target as HTMLElement).closest("input, textarea, select, dialog[open]")) return;
-      close();
-    };
-    window.addEventListener("keydown", on);
-    return () => window.removeEventListener("keydown", on);
-  }, [close]);
 }
 
 function ProductForm({ site, initial, onDone, onCancel }: { site: SiteInfo; initial: Draft & { id?: string }; onDone: () => void; onCancel: () => void }) {
@@ -172,232 +158,6 @@ export function ProductsScreen({ tab }: { tab?: string | null }) {
         )}
       </div>
       {flash}
-    </div>
-  );
-}
-
-/** `totalKop` is null without «Фінанси». */
-type OrderRow = { id: string; number: number; customerName: string; totalKop: number | null; status: Status; createdAt: string; source: string; isExample: boolean };
-type Status = "new" | "confirmed" | "paid" | "shipped" | "done" | "cancelled";
-type OrderFull = OrderRow & {
-  externalId: string | null;
-  waybillRef: string | null;
-  customerPhone: string;
-  customerEmail: string | null;
-  items: { productId: string; name: string; qty: number; priceKop: number | null }[];
-  delivery: { method: string; city?: string; branch?: string; address?: string };
-  payment: string;
-  comment: string | null;
-  warranty: { enabled: boolean; until?: string; note?: string };
-  waybill: string | null;
-  events: { status: Status; at: string }[];
-};
-const FLOW: Status[] = ["new", "confirmed", "paid", "shipped", "done"];
-
-function OrderDetail({ id, onChanged, shippingOnly, onClose }: { id: string; onChanged: () => void; shippingOnly: boolean; onClose: () => void }) {
-  const d = useDict();
-  const t = d.app.orders;
-  const lang = useLang();
-  const f = useFormat();
-  const [flash, show] = useFlash();
-  const toast = useToast();
-  const [o, setO] = useState<OrderFull | null>(null);
-  const [waybill, setWaybill] = useState("");
-  const [w, setW] = useState({ enabled: false, until: "", note: "" });
-  const load = useCallback(async () => {
-    const r = await api<OrderFull>(`/shop/orders/${id}`);
-    if (r.ok) {
-      setO(r.data);
-      setWaybill(r.data.waybill ?? "");
-      setW({ enabled: r.data.warranty.enabled, until: r.data.warranty.until ?? "", note: r.data.warranty.note ?? "" });
-    }
-  }, [id]);
-  useEffect(() => {
-    void load();
-  }, [load]);
-  if (!o) return null;
-  const money = (k: number) => formatUAH(k / 100, lang);
-  const patch = async (body: object, msg?: string) => {
-    const r = await api(`/shop/orders/${id}`, { method: "PATCH", body });
-    if (!r.ok) {
-      playSound("error");
-      show(r.error === "out_of_stock" ? t.outOfStock : d.app.auth.errors.server_error, "warn");
-    } else {
-      playSound("success");
-      if (msg) show(msg);
-    }
-    void load();
-    onChanged();
-  };
-  const next = FLOW[FLOW.indexOf(o.status) + 1];
-  // Status changes apply at once; «Скасувати» (7 s) puts the previous one back.
-  const setStatus = async (status: Status) => {
-    const prev = o.status;
-    const r = await api(`/shop/orders/${id}`, { method: "PATCH", body: { status } });
-    if (!r.ok) {
-      playSound("error");
-      show(r.error === "out_of_stock" ? t.outOfStock : d.app.auth.errors.server_error, "warn");
-    } else {
-      playSound("success");
-      toast.undo(fmt(t.statusChanged, { n: o.number, s: d.ok.orders.status[status] }), {
-        undo: async () => {
-          const back = await api(`/shop/orders/${id}`, { method: "PATCH", body: { status: prev } });
-          if (!back.ok) show(back.error === "out_of_stock" ? t.outOfStock : d.app.auth.errors.server_error, "warn");
-          void load();
-          onChanged();
-        },
-      });
-    }
-    void load();
-    onChanged();
-  };
-  return (
-    <Panel className="ok-detail" title={<>#{o.number} · {o.customerName}</>} action={<button type="button" className="btn btn-sm btn-ghost btn-icon" aria-label={d.app.toast.close} onClick={onClose}><Icon name="close" size={16} /></button>}>
-      <div className="ok-kv">
-        <div><span>{d.ok.orders.state}</span><StatusPill status={o.status} /></div>
-        <div><span>{d.ok.orders.date}</span><b>{f.dateTime(new Date(o.createdAt).getTime())}</b></div>
-        {o.source !== "site" && <div><span>{d.app.analytics.sources}</span><b>{(t.sources as Record<string, string>)[o.source] ?? o.source}{o.externalId ? ` · №${o.externalId}` : ""}</b></div>}
-        <div><span>{t.customer}</span><b><a className="ok-link app-secret" href={`tel:${o.customerPhone.replace(/[^\d+]/g, "")}`}>{o.customerPhone}</a>{o.customerEmail ? ` · ${o.customerEmail}` : ""}</b></div>
-        <div><span>{t.delivery}</span><b>{t.methods[o.delivery.method as keyof typeof t.methods] ?? o.delivery.method}{[o.delivery.city, o.delivery.branch, o.delivery.address].filter(Boolean).length ? `: ${[o.delivery.city, o.delivery.branch, o.delivery.address].filter(Boolean).join(", ")}` : ""}</b></div>
-        <div><span>{t.payment}</span><b>{t.payments[o.payment as keyof typeof t.payments] ?? o.payment}</b></div>
-        {o.comment && <div><span>{t.comment}</span><b>{o.comment}</b></div>}
-      </div>
-      <div className="ok-sub">{t.items}</div>
-      <ul className="ok-list">
-        {o.items.map((i) => (
-          <li key={i.productId}><span className="ok-grow">{i.name} × {i.qty}</span>{i.priceKop !== null && <span className="num app-secret">{money(i.priceKop * i.qty)}</span>}</li>
-        ))}
-        {o.totalKop !== null && <li><b className="ok-grow">{t.total}</b><b className="num app-secret">{money(o.totalKop)}</b></li>}
-      </ul>
-      {shippingOnly ? (
-        (o.status === "confirmed" || o.status === "paid") && <div className="ok-actions"><button type="button" className="btn btn-sm" onClick={() => setStatus("shipped")}>{t.markShipped}</button></div>
-      ) : (
-      <div className="ok-actions">
-        {next && o.status !== "cancelled" && <button type="button" className="btn btn-sm" onClick={() => setStatus(next)}>{d.ok.orders.next.replace("{s}", d.ok.orders.status[next])}</button>}
-        <label className="ok-select">
-          <span className="sr-only">{d.ok.orders.changeStatus}</span>
-          <select value={o.status} onChange={(e) => setStatus(e.target.value as Status)}>
-            {(Object.keys(d.ok.orders.status) as Status[]).map((k) => <option key={k} value={k}>{d.ok.orders.status[k]}</option>)}
-          </select>
-        </label>
-      </div>
-      )}
-      {o.isExample && <p className="ok-note">{t.exampleDetail}</p>}
-      {!o.isExample && (o.delivery.method === "novaposhta" || o.delivery.method === "ukrposhta") && o.status !== "cancelled" && (
-        o.waybillRef ? (
-          <div className="ok-actions"><b className="num">{t.waybill}: {o.waybill}</b><WaybillPrint orderId={o.id} provider={o.delivery.method} /></div>
-        ) : !o.waybill ? (
-          <WaybillForm key={o.delivery.method} provider={o.delivery.method} orderId={o.id} notify={show} onCreated={() => { void load(); onChanged(); }} />
-        ) : null
-      )}
-      <form className="grid gap-3" onSubmit={(e) => { e.preventDefault(); void patch({ waybill: waybill.trim() || null, ...(shippingOnly ? {} : { warranty: { enabled: w.enabled, ...(w.until ? { until: w.until } : {}), ...(w.note ? { note: w.note } : {}) } }) }, t.saved); }}>
-        <Field label={t.waybill}>{(p) => <input {...p} className="input" inputMode="numeric" value={waybill} onChange={(e) => setWaybill(e.target.value)} />}</Field>
-        {!shippingOnly && <Toggle checked={w.enabled} onChange={(v) => setW({ ...w, enabled: v })} label={t.warrantyOn} />}
-        {!shippingOnly && w.enabled && (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label={t.warrantyUntil}>{(p) => <input {...p} className="input" type="date" value={w.until} onChange={(e) => setW({ ...w, until: e.target.value })} />}</Field>
-            <Field label={t.warrantyNote}>{(p) => <input {...p} className="input" value={w.note} onChange={(e) => setW({ ...w, note: e.target.value })} />}</Field>
-          </div>
-        )}
-        <button className="btn btn-sm btn-secondary" type="submit" style={{ justifySelf: "start" }}>{t.save}</button>
-      </form>
-      <div className="ok-sub">{t.history}</div>
-      <ul className="ok-list">
-        {o.events.map((e, i) => <li key={i}><StatusPill status={e.status} /><span className="ok-grow" /><small className="ok-muted">{f.dateTime(new Date(e.at).getTime())}</small></li>)}
-      </ul>
-      {flash}
-    </Panel>
-  );
-}
-
-const FILTERS = ["all", "new", "nowaybill", "confirmed", "paid", "shipped", "done", "cancelled"] as const;
-/** «Комплектувальник» works only with orders waiting to be sent. */
-const SHIP_FILTERS = ["all", "nowaybill", "confirmed", "paid", "shipped"] as const;
-type Filter = (typeof FILTERS)[number];
-
-/** `tab` from the address: a filter ("new", "nowaybill", …) or "o-<id>" to open one order (links from Home). */
-export function OrdersScreen({ tab, shippingOnly = false, finance = true }: { tab?: string | null; shippingOnly?: boolean; finance?: boolean }) {
-  const d = useDict();
-  const t = d.app.orders;
-  const lang = useLang();
-  const f = useFormat();
-  const [filter, setFilter] = useState<Filter>((FILTERS as readonly string[]).includes(tab ?? "") ? (tab as Filter) : "all");
-  const [sort, setSort] = useState<Sort>({ key: "createdAt", dir: "desc" });
-  const [page, setPage] = useState(1);
-  const [rows, setRows] = useState<OrderRow[] | null>(null);
-  const [more, setMore] = useState(false);
-  const [open, setOpen] = useState<string | null>(tab?.startsWith("o-") ? tab.slice(2) : null);
-  const [next] = useState(latestOnly);
-  const load = useCallback(async () => {
-    const isLatest = next();
-    const q = new URLSearchParams({ sort: sort.key, dir: sort.dir, page: String(page), limit: String(PAGE + 1), ...(filter === "all" ? {} : { status: filter }) });
-    const r = await api<OrderRow[]>(`/shop/orders?${q}`);
-    if (r.ok && isLatest()) {
-      setRows(r.data.slice(0, PAGE));
-      setMore(r.data.length > PAGE);
-    }
-  }, [filter, sort, page, next]);
-  useEffect(() => {
-    void load();
-    const id = setInterval(load, 30_000);
-    return () => clearInterval(id);
-  }, [load]);
-  useEscClose(open ? () => setOpen(null) : null);
-  const toast = useToast();
-  // Phone: swipe a new order to the right to confirm it (with «Скасувати»).
-  const confirm = async (o: OrderRow) => {
-    const r = await api(`/shop/orders/${o.id}`, { method: "PATCH", body: { status: "confirmed" } });
-    void load();
-    if (!r.ok) return toast.show(r.error === "out_of_stock" ? t.outOfStock : d.app.auth.errors.server_error, "warn");
-    toast.undo(fmt(t.statusChanged, { n: o.number, s: d.ok.orders.status.confirmed }), {
-      undo: async () => {
-        await api(`/shop/orders/${o.id}`, { method: "PATCH", body: { status: "new" } });
-        void load();
-      },
-    });
-  };
-  const cols: Col<OrderRow>[] = [
-    { key: "number", label: t.colNumber, sort: true, render: (o) => <span className="num ok-muted">#{o.number}</span> },
-    {
-      key: "customer",
-      label: t.customer,
-      sort: true,
-      fixed: true,
-      render: (o) => (
-        <span className="app-cell-main">
-          <b>{o.customerName}{o.isExample && <span className="ok-pill app-example-pill">{t.example}</span>}</b>
-          {o.source !== "site" && <small>{(t.sources as Record<string, string>)[o.source] ?? o.source}</small>}
-        </span>
-      ),
-    },
-    { key: "createdAt", label: d.ok.orders.date, sort: true, render: (o) => <span title={f.dateTime(new Date(o.createdAt).getTime())}>{f.ago(new Date(o.createdAt).getTime())}</span> },
-    ...(finance ? [{ key: "total", label: t.total, sort: true as const, align: "end" as const, render: (o: OrderRow) => (o.totalKop === null ? null : <span className="num app-secret">{formatUAH(o.totalKop / 100, lang)}</span>) }] : []),
-    { key: "status", label: d.ok.orders.state, sort: true, render: (o) => <StatusPill status={o.status} /> },
-  ];
-  return (
-    <div className="ok-screen">
-      <div className="ok-h"><h3>{t.title}</h3></div>
-      <div className="ok-chips" role="group" aria-label={d.ok.orders.state}>
-        {(shippingOnly ? SHIP_FILTERS : FILTERS).map((x) => (
-          <button key={x} type="button" className="ok-chip" aria-pressed={filter === x} onClick={() => { setFilter(x); setPage(1); }}>{x === "all" ? t.all : x === "nowaybill" ? t.noWaybill : d.ok.orders.status[x]}</button>
-        ))}
-      </div>
-      {!shippingOnly && rows?.some((o) => o.isExample) && (
-        <p className="ok-note app-example-note">
-          {t.exampleNote}{" "}
-          <button type="button" className="ok-link" onClick={async () => { await api("/onboarding/examples", { method: "DELETE" }); setOpen(null); void load(); }}>{t.exampleRemove}</button>
-        </p>
-      )}
-      <div className="ok-split" data-open={!!open}>
-        <Panel>
-          {rows && rows.length === 0 && page === 1 ? (
-            <Empty icon="cart" text={t.empty} />
-          ) : (
-            <Table id="orders" label={t.title} rows={rows ?? []} cols={cols} active={open} onOpen={(o) => setOpen(o.id)} sort={sort} onSort={setSort} page={page} onPage={setPage} hasMore={more} onSwipeRight={shippingOnly ? undefined : (o) => { if (o.status === "new") void confirm(o); }} />
-          )}
-        </Panel>
-        {open && <OrderDetail id={open} key={open} onChanged={load} shippingOnly={shippingOnly} onClose={() => setOpen(null)} />}
-      </div>
     </div>
   );
 }

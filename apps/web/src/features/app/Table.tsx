@@ -202,3 +202,16 @@ export function Table<T extends { id: string }>({
     </div>
   );
 }
+
+/** Esc closes the panel on the right (not while typing in a field or with a window open). */
+export function useEscClose(close: (() => void) | null) {
+  useEffect(() => {
+    if (!close) return;
+    const on = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== "Escape" || (e.target as HTMLElement).closest("input, textarea, select, dialog[open]")) return;
+      close();
+    };
+    window.addEventListener("keydown", on);
+    return () => window.removeEventListener("keydown", on);
+  }, [close]);
+}

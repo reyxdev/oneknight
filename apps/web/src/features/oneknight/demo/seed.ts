@@ -45,7 +45,7 @@ export function seed(now: number, lang: "uk" | "en"): OkState {
       ord(1, 0, [0], "new", 0.4, "novaposhta"),
       ord(2, 1, [1, 3], "new", 1.5, "novaposhta"),
       ord(3, 2, [2], "confirmed", 4, "ukrposhta"),
-      ord(4, 3, [0, 4], "paid", 9, "novaposhta"),
+      ord(4, 3, [0, 4], "confirmed", 9, "novaposhta"),
       ord(5, 4, [3], "shipped", 26, "novaposhta"),
       ord(6, 5, [1], "done", 50, "pickup"),
       ord(7, 6, [2], "cancelled", 70, "novaposhta"),

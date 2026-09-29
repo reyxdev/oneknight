@@ -140,8 +140,11 @@ export type UpShipmentInput = {
   recipientPostcode: string;
   customerName: string;
   customerPhone: string;
+  /** Declared value = the order sum. */
   totalUah: number;
   cod: boolean;
+  /** Cash on delivery to collect (sum − prepayment); the declared value when omitted. */
+  codUah?: number;
   weightKg: number;
   length: number;
   width: number;
@@ -171,7 +174,7 @@ export async function createUpShipment(c: UpCreds, input: UpShipmentInput, f: Up
     parcels: [{ name: "Parcel", weight: Math.round(input.weightKg * 1000), length: input.length, width: input.width, height: input.height, declaredPrice: price }],
   };
   if (input.cod) {
-    body.postPay = price;
+    body.postPay = Math.max(1, Math.round(input.codUah ?? input.totalUah));
     body.postPayPaidByRecipient = true;
     if (c.sender.type !== "INDIVIDUAL") body.transferPostPayToBankAccount = true;
   }

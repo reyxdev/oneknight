@@ -141,8 +141,8 @@ test("«Надрукувати всі ТТН»: one merged PDF, failed orders re
     .insert(orders)
     .values([
       { ...base, status: "confirmed" as const, waybill: "20450000000001", waybillRef: "REF1" },
-      { ...base, status: "paid" as const, waybill: "20450000000002", waybillRef: "BROKEN" },
-      { ...base, status: "paid" as const, waybill: "20450000000003", waybillRef: "REF3" },
+      { ...base, status: "confirmed" as const, paymentStatus: "paid" as const, waybill: "20450000000002", waybillRef: "BROKEN" },
+      { ...base, status: "confirmed" as const, paymentStatus: "paid" as const, waybill: "20450000000003", waybillRef: "REF3" },
       { ...base, status: "shipped" as const, waybill: "20450000000004", waybillRef: "REF4" },
     ])
     .returning();

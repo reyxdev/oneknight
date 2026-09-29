@@ -96,7 +96,7 @@ export const ok = {
   orders: {
     title: "Замовлення",
     filterAll: "Усі",
-    status: { new: "Нове", confirmed: "Підтверджене", paid: "Оплачено", shipped: "Відправлено", done: "Завершено", cancelled: "Скасовано" },
+    status: { new: "Нове", confirmed: "В роботі", shipped: "Відправлено", done: "Завершено", cancelled: "Скасовано", returned: "Повернення" },
     number: "№",
     customer: "Клієнт",
     total: "Сума",

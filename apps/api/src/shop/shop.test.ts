@@ -57,7 +57,8 @@ test("products, public catalogue, orders with server prices and stock, statuses"
   assert.equal(list.length, 1);
   assert.equal((await app.inject({ url: "/api/shop/orders", headers: { cookie: b.cookie } })).json().length, 0);
   const id = list[0].id;
-  assert.equal((await app.inject({ method: "PATCH", url: `/api/shop/orders/${id}`, payload: { status: "cancelled" }, headers: H(a.cookie) })).statusCode, 200);
+  assert.equal((await app.inject({ method: "PATCH", url: `/api/shop/orders/${id}`, payload: { status: "cancelled" }, headers: H(a.cookie) })).json().error, "reason_required", "cancelling needs a reason");
+  assert.equal((await app.inject({ method: "PATCH", url: `/api/shop/orders/${id}`, payload: { status: "cancelled", reason: "out_of_stock" }, headers: H(a.cookie) })).statusCode, 200);
   const stockBack = (await app.inject({ url: `/api/shop/sites/${site!.id}/products`, headers: { cookie: a.cookie } })).json()[0].stock;
   assert.equal(stockBack, 2, "cancel returns items to stock");
   await app.inject({ method: "PATCH", url: `/api/shop/orders/${id}`, payload: { status: "confirmed", waybill: "20450000000000", warranty: { enabled: true, until: "2027-09-29", note: "12 місяців" } }, headers: H(a.cookie) });

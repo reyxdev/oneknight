@@ -288,3 +288,4 @@
   .ok-home-stats > :nth-child(n + 4) { display: none; }
   .ok-home-stats > :first-child { grid-column: 1 / -1; }
 }
+.ok-pill[data-s="returned"] { background: color-mix(in srgb, var(--bad) 10%, transparent); color: var(--bad); }

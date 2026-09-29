@@ -98,7 +98,7 @@ export const ok: Dict["ok"] = {
   orders: {
     title: "Orders",
     filterAll: "All",
-    status: { new: "New", confirmed: "Confirmed", paid: "Paid", shipped: "Shipped", done: "Completed", cancelled: "Cancelled" },
+    status: { new: "New", confirmed: "In work", shipped: "Shipped", done: "Completed", cancelled: "Cancelled", returned: "Returned" },
     number: "No.",
     customer: "Customer",
     total: "Total",

@@ -62,4 +62,4 @@ export async function orderAccess(req: FastifyRequest): Promise<{ org: string; f
 }
 
 /** Statuses a shipping-only member sees and may work with. */
-export const SHIPPING_STATUSES = ["confirmed", "paid", "shipped"] as const;
+export const SHIPPING_STATUSES = ["confirmed", "shipped"] as const;

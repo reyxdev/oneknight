@@ -67,15 +67,29 @@ await pg.locator(".app-table tbody tr", { hasText: "Олена Покупець"
 await pg.getByRole("button", { name: "Оформити ТТН" }).click();
 ok(await pg.getByText("Щоб оформлювати ТТН, підключіть модуль «Нова пошта».").waitFor({ timeout: 5000 }).then(() => true, () => false), "waybill button explains the missing module");
 ok(await pg.getByRole("link", { name: "Перейти в Модулі" }).isVisible(), "link to Modules offered");
-await pg.getByRole("button", { name: /Далі: Підтверджене/ }).click();
-await pg.locator(".ok-detail .ok-pill", { hasText: "Підтверджене" }).first().waitFor();
+const statusSelect = pg.locator(".ok-detail").getByLabel("Змінити статус");
+await statusSelect.selectOption("g:confirmed");
+await pg.locator(".ok-detail .app-order-top .ok-pill", { hasText: "В роботі" }).waitFor();
 // «Скасувати» (7 s) puts the previous status back, then the change is made again.
-await pg.locator(".app-toast", { hasText: "Підтверджене" }).getByRole("button", { name: "Скасувати" }).click();
-ok(await pg.locator(".ok-detail .ok-kv .ok-pill", { hasText: "Нове" }).waitFor({ timeout: 5000 }).then(() => true, () => false), "«Скасувати» restores the previous status");
-await pg.getByRole("button", { name: /Далі: Підтверджене/ }).click();
-await pg.locator(".ok-detail .ok-kv .ok-pill", { hasText: "Підтверджене" }).waitFor();
+await pg.locator(".app-toast", { hasText: "В роботі" }).getByRole("button", { name: "Скасувати" }).click();
+ok(await pg.locator(".ok-detail .app-order-top .ok-pill", { hasText: "Нове" }).waitFor({ timeout: 5000 }).then(() => true, () => false), "«Скасувати» restores the previous status");
+// Cancelling asks for a reason in its own window.
+await pg.locator(".ok-detail").getByRole("button", { name: "Скасувати замовлення" }).click();
+const dlg = pg.getByRole("dialog", { name: "Скасувати замовлення?" });
+ok(await dlg.getByRole("button", { name: "Скасувати замовлення" }).isDisabled(), "no cancelling without a reason");
+await dlg.getByLabel("Немає в наявності").check();
+await dlg.getByRole("button", { name: "Скасувати замовлення" }).click();
+ok(await pg.locator(".ok-detail").getByText("Причина: Немає в наявності").first().waitFor({ timeout: 5000 }).then(() => true, () => false), "the reason is shown on the order");
+await statusSelect.selectOption("g:confirmed");
+await pg.locator(".ok-detail .app-order-top .ok-pill", { hasText: "В роботі" }).waitFor();
+// Payment apart from the status: a prepayment lowers cash on delivery.
+await pg.locator(".ok-detail").getByRole("button", { name: "Передоплата" }).click();
+await pg.getByLabel("Передоплата, грн").fill("300");
+ok(await pg.getByText(/Накладений платіж буде 1\s?900/).isVisible(), "cash on delivery = sum − prepayment");
+await pg.locator(".ok-detail form", { has: pg.getByLabel("Передоплата, грн") }).getByRole("button", { name: "Зберегти" }).click();
+ok(await pg.locator(".ok-detail .app-order-top .ok-pill", { hasText: "Передоплата" }).waitFor({ timeout: 5000 }).then(() => true, () => false), "prepayment saved");
 await pg.getByLabel("Номер ТТН").fill("20450012345678");
-await pg.getByRole("button", { name: "Зберегти" }).click();
+await pg.locator(".ok-detail form", { has: pg.getByLabel("Номер ТТН") }).getByRole("button", { name: "Зберегти" }).click();
 await pg.getByText("Збережено").first().waitFor();
 ok(true, "order status and waybill updated");
 // Integrations: instructions, and a key the real Nova Poshta API rejects is not stored.

@@ -13,7 +13,10 @@ export const ledgerKindEnum = pgEnum("ledger_kind", ["topup", "charge", "refund"
 export const topupStatusEnum = pgEnum("topup_status", ["pending", "confirmed", "cancelled"]);
 export const ticketCategoryEnum = pgEnum("ticket_category", ["bug", "question", "change", "oneknight", "site", "other"]);
 export const ticketStatusEnum = pgEnum("ticket_status", ["open", "answered", "closed"]);
-export const orderStatusEnum = pgEnum("order_status", ["new", "confirmed", "paid", "shipped", "done", "cancelled"]);
+/** Status groups (the business adds its own statuses inside them): Нове · В роботі · Відправлено · Завершено · Скасовано · Повернення. */
+export const orderStatusEnum = pgEnum("order_status", ["new", "confirmed", "shipped", "done", "cancelled", "returned"]);
+/** Payment is separate from the status. */
+export const paymentStatusEnum = pgEnum("payment_status", ["unpaid", "prepaid", "paid", "refunded"]);
 export const reviewStatusEnum = pgEnum("review_status", ["pending", "published", "trash"]);
 export const moderationEnum = pgEnum("review_moderation", ["off", "manual"]);
 export const leadStatusEnum = pgEnum("lead_status", ["new", "in_progress", "won", "lost"]);
@@ -50,6 +53,10 @@ export const organizations = pgTable("organizations", {
   /** When the «Перші кроки» reward (+7 days) was granted; granted once per business. */
   firstStepsRewardAt: timestamp("first_steps_reward_at", { withTimezone: true }),
   /** Answers to the questions after sign-up (owner). Null = not answered yet: the panel asks first. */
+  /** Numbering of orders: the last number given (the first order gets 1001). */
+  orderSeq: integer("order_seq").notNull().default(1000),
+  /** «Бізнес → Замовлення»: own cancel reasons, own sources of manual orders, hours until a new order is urgent. */
+  orderSettings: jsonb("order_settings").notNull().default(sql`'{}'::jsonb`).$type<{ reasons?: string[]; sources?: string[]; urgentHours?: number }>(),
   onboarding: jsonb("onboarding").$type<{ hasSite: boolean; siteUrl?: string; sells: string[]; sellsOther?: string; delivery: string[]; channels: string[]; at: string }>(),
   createdAt: createdAt(),
 });
@@ -338,7 +345,8 @@ export const orders = pgTable(
   "orders",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    number: integer("number").generatedAlwaysAsIdentity({ startWith: 1041 }).notNull().unique(),
+    /** Own numbering in each business from 1001, set by the database trigger `orders_number` on insert. */
+    number: integer("number").notNull().default(0),
     organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
     /** Null for orders imported from a marketplace (see `source`). */
     siteId: uuid("site_id").references(() => sites.id, { onDelete: "cascade" }),
@@ -353,6 +361,13 @@ export const orders = pgTable(
     items: jsonb("items").notNull().$type<{ productId: string; name: string; qty: number; priceKop: number }[]>(),
     totalKop: integer("total_kop").notNull(),
     status: orderStatusEnum("status").notNull().default("new"),
+    /** The business's own status inside the group (`status`); null = the group's name. */
+    statusId: uuid("status_id").references(() => orderStatuses.id, { onDelete: "set null" }),
+    /** Required when the order is cancelled: a preset key (changed_mind, out_of_stock, no_answer, duplicate) or the business's text. */
+    cancelReason: text("cancel_reason"),
+    paymentStatus: paymentStatusEnum("payment_status").notNull().default("unpaid"),
+    /** Prepayment with cash on delivery: the carrier collects total − prepaid. */
+    prepaidKop: integer("prepaid_kop").notNull().default(0),
     delivery: jsonb("delivery").notNull().$type<{ method: string; city?: string; branch?: string; address?: string }>(),
     payment: text("payment").notNull(),
     comment: text("comment"),
@@ -371,7 +386,22 @@ export const orders = pgTable(
     index("orders_org_idx").on(t.organizationId, t.createdAt),
     index("orders_status_idx").on(t.organizationId, t.status),
     uniqueIndex("orders_external_uq").on(t.organizationId, t.source, t.externalId),
+    uniqueIndex("orders_org_number_uq").on(t.organizationId, t.number),
   ],
+);
+
+/** The business's own order statuses, each inside a base group; automation works by group. */
+export const orderStatuses = pgTable(
+  "order_statuses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    group: orderStatusEnum("group").notNull(),
+    sort: integer("sort").notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [index("order_statuses_org_idx").on(t.organizationId, t.sort)],
 );
 
 export const orderEvents = pgTable(
@@ -379,7 +409,11 @@ export const orderEvents = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     orderId: uuid("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
-    status: orderStatusEnum("status").notNull(),
+    /** One timeline of the order: status, payment, comment, waybill, edit, call. */
+    kind: text("kind").notNull().default("status"),
+    status: orderStatusEnum("status"),
+    /** Details of the event (the custom status name, cancel reason, comment text, what was edited…). */
+    data: jsonb("data").$type<Record<string, unknown>>(),
     userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
     createdAt: createdAt(),
   },

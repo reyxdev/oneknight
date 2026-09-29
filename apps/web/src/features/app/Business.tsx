@@ -9,9 +9,10 @@ import { Panel, useFlash } from "@/features/oneknight/ui/kit";
 import { Tabs } from "./Tabs";
 import { IntegrationsScreen } from "./Integrations";
 import { BackupsPanel } from "./Backups";
+import { BusinessOrders } from "./BusinessOrders";
 
-export type BusinessTab = "general" | "integrations" | "backups";
-export const BUSINESS_TABS: BusinessTab[] = ["general", "integrations", "backups"];
+export type BusinessTab = "general" | "orders" | "integrations" | "backups";
+export const BUSINESS_TABS: BusinessTab[] = ["general", "orders", "integrations", "backups"];
 
 function General({ me, onChange }: { me: Me; onChange: () => void }) {
   const t = useDict().app.business;
@@ -49,6 +50,7 @@ export function BusinessScreen({ me, tab, setTab, onChange }: { me: Me; tab: Bus
       <div className="ok-h"><h3>{t.title}</h3></div>
       <Tabs label={t.title} value={tab} onChange={setTab} tabs={BUSINESS_TABS.map((id) => ({ id, label: t.tabs[id] }))} />
       {tab === "general" && <General me={me} onChange={onChange} />}
+      {tab === "orders" && <BusinessOrders />}
       {tab === "integrations" && <IntegrationsScreen embedded />}
       {tab === "backups" && <BackupsPanel />}
     </div>

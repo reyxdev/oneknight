@@ -71,7 +71,7 @@ const people = [
   ["Юрій Кравець", "+380979998877", "Ужгород", "1"],
   ["Наталія Савчук", "+380955556677", "Київ", "305"],
 ] as const;
-const statuses = ["new", "new", "new", "confirmed", "confirmed", "paid", "shipped", "shipped", "done", "done", "done", "done", "cancelled"] as const;
+const statuses = ["new", "new", "new", "confirmed", "confirmed", "confirmed", "shipped", "shipped", "done", "done", "done", "done", "cancelled"] as const;
 let n = 0;
 for (let i = 0; i < 26; i++) {
   const person = people[i % people.length]!;
@@ -92,6 +92,9 @@ for (let i = 0; i < 26; i++) {
       status,
       delivery: { method: "novaposhta", city: person[2], branch: person[3] },
       payment: i % 4 === 0 ? "iban" : "cod",
+      // Every 13th order was prepaid by card; the ones done are paid.
+      paymentStatus: status === "done" || i % 13 === 5 ? "paid" : "unpaid",
+      ...(status === "cancelled" ? { cancelReason: "changed_mind" } : {}),
       comment: i % 5 === 0 ? "Подзвоніть перед відправкою" : null,
       createdAt,
       updatedAt: createdAt,

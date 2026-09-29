@@ -83,7 +83,7 @@ test("Prom: token check, module gate, import without duplicates", async () => {
   assert.equal(full.customerName, "Оксана Мельник");
   assert.equal(full.externalId, "9002");
   // Cancelling a marketplace order must not touch local stock (items are "prom:..." ids).
-  assert.equal((await app.inject({ method: "PATCH", url: `/api/shop/orders/${received.id}`, payload: { status: "cancelled" }, headers: H })).json().ok, true);
+  assert.equal((await app.inject({ method: "PATCH", url: `/api/shop/orders/${received.id}`, payload: { status: "cancelled", reason: "changed_mind" }, headers: H })).json().ok, true);
   assert.equal((await app.inject({ method: "PATCH", url: `/api/shop/orders/${received.id}`, payload: { status: "new" }, headers: H })).json().ok, true);
   const notes = (await app.inject({ url: "/api/notifications", headers: { cookie } })).json();
   assert.ok(JSON.stringify(notes).includes("newOrder"));

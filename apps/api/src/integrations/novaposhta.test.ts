@@ -71,6 +71,9 @@ test("Nova Poshta: connect with a real-shaped key check, sender address, waybill
   const draft = (await app.inject({ url: `/api/integrations/novaposhta/draft/${orderId}`, headers: { cookie } })).json();
   assert.equal(draft.sender, null);
   assert.deepEqual([draft.recipient.city.ref, draft.recipient.warehouse.ref, draft.cod, draft.weight], ["city-lviv", "wh-city-lviv-5", 1100, 1]);
+  // Prepayment 300 grn: the carrier collects the rest.
+  assert.equal((await app.inject({ method: "PATCH", url: `/api/shop/orders/${orderId}`, payload: { payment: { status: "prepaid", prepaidKop: 30000 } }, headers: H })).statusCode, 200);
+  assert.equal((await app.inject({ url: `/api/integrations/novaposhta/draft/${orderId}`, headers: { cookie } })).json().cod, 800);
 
   const cities = (await app.inject({ url: "/api/integrations/novaposhta/cities?q=Київ", headers: { cookie } })).json();
   const whs = (await app.inject({ url: `/api/integrations/novaposhta/warehouses?city=${cities[0].ref}&q=5`, headers: { cookie } })).json();
@@ -85,7 +88,8 @@ test("Nova Poshta: connect with a real-shaped key check, sender address, waybill
   assert.equal(doc.RecipientsPhone, "380671112233");
   assert.equal(doc.Weight, "1.5");
   assert.equal(doc.Description, "Хлібниця");
-  assert.deepEqual(doc.BackwardDeliveryData, [{ PayerType: "Recipient", CargoType: "Money", RedeliveryString: "1100" }], "cash on delivery");
+  assert.deepEqual(doc.BackwardDeliveryData, [{ PayerType: "Recipient", CargoType: "Money", RedeliveryString: "800" }], "cash on delivery = sum − prepayment");
+  assert.equal(doc.Cost, "1100", "declared value = the order sum");
   assert.equal(calls.find((c) => c.model === "Counterparty" && c.method === "save")!.props.LastName, "Коваль");
   assert.equal((await app.inject({ url: `/api/shop/orders/${orderId}`, headers: { cookie } })).json().waybill, "20450000000001");
   assert.equal((await app.inject({ method: "POST", url: "/api/integrations/novaposhta/waybill", payload: body, headers: H })).json().error, "already_has_waybill");

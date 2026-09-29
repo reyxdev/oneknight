@@ -11,8 +11,13 @@ export type Member = { id: ID; name: string; role: Role; permissions: Permission
 
 export type Site = { id: ID; domain: string; status: "up" | "down" | "degraded" };
 
-export type OrderStatus = "new" | "confirmed" | "paid" | "shipped" | "done" | "cancelled";
-export const orderFlow: OrderStatus[] = ["new", "confirmed", "paid", "shipped", "done"];
+/** Status groups: Нове · В роботі · Відправлено · Завершено · Скасовано · Повернення (the business adds own statuses inside). */
+export type OrderStatus = "new" | "confirmed" | "shipped" | "done" | "cancelled" | "returned";
+export const ORDER_STATUSES: OrderStatus[] = ["new", "confirmed", "shipped", "done", "cancelled", "returned"];
+export const orderFlow: OrderStatus[] = ["new", "confirmed", "shipped", "done"];
+export type PaymentStatus = "unpaid" | "prepaid" | "paid" | "refunded";
+/** Preset cancel reasons (the business can add its own text). */
+export const CANCEL_REASONS = ["changed_mind", "out_of_stock", "no_answer", "duplicate"] as const;
 export type Order = {
   id: ID;
   siteId: ID;

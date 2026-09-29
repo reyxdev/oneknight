@@ -59,8 +59,11 @@ const today = () => new Date().toLocaleDateString("uk-UA", { timeZone: "Europe/K
 export type WaybillInput = {
   customerName: string;
   customerPhone: string;
+  /** Declared value = the order sum. */
   totalUah: number;
   cod: boolean;
+  /** Cash on delivery to collect (sum − prepayment); the declared value when omitted. */
+  codUah?: number;
   recipientCityRef: string;
   recipientWarehouseRef: string;
 };
@@ -94,7 +97,7 @@ export async function createWaybill(key: string, sender: NpSender, settings: NpS
     ContactRecipient: contact,
     RecipientsPhone: npPhone(input.customerPhone),
   };
-  if (input.cod) props.BackwardDeliveryData = [{ PayerType: "Recipient", CargoType: "Money", RedeliveryString: String(Math.round(input.totalUah)) }];
+  if (input.cod) props.BackwardDeliveryData = [{ PayerType: "Recipient", CargoType: "Money", RedeliveryString: String(Math.round(input.codUah ?? input.totalUah)) }];
   const doc = await call(key, "InternetDocument", "save", props);
   const d = doc.success ? doc.data[0] : null;
   if (!d?.IntDocNumber) return { ok: false, error: doc.errors[0] ?? "waybill_failed" };

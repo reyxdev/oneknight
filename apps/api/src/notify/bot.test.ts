@@ -32,6 +32,11 @@ async function account(n: string) {
   return { H: { cookie: `ok_session=${reg.cookies.find((c) => c.name === "ok_session")!.value}`, origin: ORIGIN }, org: reg.json().organizations[0].id as string, id: reg.json().id as string };
 }
 
+// Other test files create notifications at the same time; one run takes 50, so a few runs empty the queue.
+const drain = async () => {
+  for (let i = 0; i < 6; i++) await deliverTelegram(fake);
+};
+
 test("Telegram: link with a one-time /start token, receive allowed notifications, unlink", async () => {
   const owner = await account("owner");
   const staff = await account("staff");
@@ -59,24 +64,24 @@ test("Telegram: link with a one-time /start token, receive allowed notifications
     { organizationId: owner.org, kind: "order", key: "newOrder", params: { n: 1042, total: 2200 } },
     { organizationId: owner.org, kind: "review", key: "newReview", params: { name: "Оксана", rating: 5 } },
   ]);
-  await deliverTelegram(fake);
+  await drain();
   const toOwner = sent.filter((m) => m.chat_id === "111").map((m) => m.text);
   const toStaff = sent.filter((m) => m.chat_id === "333").map((m) => m.text);
   assert.equal(toOwner.length, 2);
   assert.match(toOwner[0]!, /Нове замовлення №1042 на 2\s200 грн/);
   assert.deepEqual(toStaff.map((t) => t.split("\n")[1]), ["⭐ Новий відгук від Оксана (5★)"], "no orders without the permission");
-  await deliverTelegram(fake);
+  await drain();
   assert.equal(sent.length, 3, "each notification is sent once");
 
   // Opt-out of a kind, blocked bot, /stop.
   await app.inject({ method: "PATCH", url: "/api/telegram", payload: { kinds: ["order"] }, headers: owner.H });
   sent.length = 0;
   await db.insert(notifications).values({ organizationId: owner.org, kind: "review", key: "newReview", params: { name: "Іван", rating: 4 } });
-  await deliverTelegram(fake);
+  await drain();
   assert.equal(sent.filter((m) => m.chat_id === "111").length, 0, "kind switched off");
   await db.update(telegramLinks).set({ chatId: "999" }).where(eq(telegramLinks.userId, staff.id));
   await db.insert(notifications).values({ organizationId: owner.org, kind: "review", key: "newReview", params: { name: "Іван", rating: 4 } });
-  await deliverTelegram(fake);
+  await drain();
   assert.equal((await app.inject({ url: "/api/telegram", headers: { cookie: staff.H.cookie } })).json().linked, false, "blocked bot unlinks");
   await start(111, "/stop");
   assert.equal((await app.inject({ url: "/api/telegram", headers: { cookie: owner.H.cookie } })).json().linked, false);

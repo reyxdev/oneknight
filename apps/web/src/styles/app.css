@@ -233,3 +233,23 @@ dialog.modal:has(.app-dialog) { max-width: min(520px, calc(100vw - 1.5rem)); }
 }
 [data-private="true"] .app-secret { filter: blur(7px); user-select: none; }
 .app-secret-btn[aria-pressed="true"] { color: var(--ok-accent); }
+
+/* Order card: status, sum and payment on top; one history line; payment pills. */
+.app-order-top { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+.app-order-top > b { font-size: 1.25rem; }
+.ok-pill[data-pay="paid"] { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+.ok-pill[data-pay="prepaid"] { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+.ok-pill[data-pay="refunded"] { background: color-mix(in srgb, var(--bad) 12%, transparent); color: var(--bad); }
+.app-timeline { display: grid; gap: 0.5rem; margin: 0; padding: 0 0 0 0.9rem; list-style: none; border-left: 2px solid var(--line); }
+.app-timeline > li { display: grid; gap: 0.15rem; }
+.app-timeline-what { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; font-size: 0.875rem; }
+.app-timeline small { font-size: 0.75rem; }
+.app-radio { display: flex; align-items: center; gap: 0.55rem; cursor: pointer; }
+.app-filter-select select { height: 2.1rem; }
+.app-status-groups { display: grid; gap: 0.6rem; margin: 0.5rem 0 1rem; padding: 0; list-style: none; }
+.app-status-groups > li { display: grid; grid-template-columns: 8rem 1fr; align-items: start; gap: 0.75rem; }
+.app-status-groups ul { display: grid; gap: 0.35rem; margin: 0; padding: 0; list-style: none; }
+.app-status-groups ul li { display: flex; align-items: center; gap: 0.35rem; }
+.input-sm { height: 2.1rem; padding: 0 0.6rem; font-size: 0.875rem; max-width: 18rem; }
+.app-word { display: inline-flex; align-items: center; gap: 0.35rem; }
+.app-word button { display: grid; place-items: center; cursor: pointer; opacity: 0.7; }

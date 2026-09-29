@@ -138,7 +138,23 @@ ok(await seen(win, 20000), "«Нове замовлення» window pops up");
 ok(await win.getByText("Нова Покупчиня").isVisible(), "the window shows the customer");
 ok(/^\(\d+\) /.test(await pg.title()), `the browser tab counts waiting orders (${await pg.title()})`);
 await win.getByRole("button", { name: "Підтвердити" }).click();
-ok(await seen(pg.locator(".app-toast", { hasText: "Підтверджене" })), "confirmed from the window, with «Скасувати»");
+ok(await seen(pg.locator(".app-toast", { hasText: "В роботі" })), "confirmed from the window, with «Скасувати»");
+
+// «Бізнес → Замовлення»: an own status inside a group appears in the order card.
+await pg.locator(".ok-side").getByRole("button", { name: "Бізнес", exact: true }).click();
+await pg.getByRole("tab", { name: "Замовлення" }).click();
+await pg.getByLabel("Назва статусу", { exact: true }).fill("Чекає оплати");
+await pg.getByLabel("Група").selectOption("confirmed");
+await pg.getByRole("button", { name: "Додати статус" }).click();
+await pg.locator(".app-status-groups input[value='Чекає оплати']").waitFor();
+await pg.locator(".ok-side").getByRole("button", { name: "Замовлення", exact: true }).click();
+await pg.locator(".app-table tbody tr").first().click();
+const sel = pg.locator(".ok-detail").getByLabel("Змінити статус");
+await sel.waitFor();
+ok((await sel.locator("option").allInnerTexts()).includes("Чекає оплати"), "own status in the order card");
+await sel.selectOption({ label: "Чекає оплати" });
+ok(await seen(pg.locator(".ok-detail .app-order-top .ok-pill", { hasText: "Чекає оплати" })), "the order gets the own status");
+await pg.locator(".ok-side").getByRole("button", { name: "Головна", exact: true }).click();
 
 // «Приховати суми й телефони»: blurred, remembered; text size from «Мій профіль».
 await pg.getByRole("button", { name: "Приховати суми й телефони" }).click();
@@ -169,7 +185,7 @@ await pg.locator(".app-table tbody tr").first().evaluate((tr) => {
   ev("pointermove", r.left + 140);
   ev("pointerup", r.left + 140);
 });
-ok(await seen(pg.locator(".app-toast", { hasText: "Підтверджене" })), `swipe right confirms a new order (${swipedName})`);
+ok(await seen(pg.locator(".app-toast", { hasText: "В роботі" })), `swipe right confirms a new order (${swipedName})`);
 await pg.locator(".app-fab").click();
 ok(await seen(pg.getByLabel("Назва")), "the round «+» opens a new product");
 await pg.locator(".ok-bottom").getByRole("button", { name: "Головна" }).click();

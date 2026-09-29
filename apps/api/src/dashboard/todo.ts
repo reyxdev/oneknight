@@ -3,6 +3,7 @@ import { db } from "../db/client.ts";
 import { insightDismissals, monitorChecks, orders, products, reviews, sites, subscriptions, tickets } from "../db/schema.ts";
 import type { Permission } from "../auth/access.ts";
 import { hasModule } from "../billing/service.ts";
+import { orderSettingsOf } from "../shop/settings.ts";
 
 /**
  * «Що треба зробити»: things that need a person, each counted from real data and leading to the filtered list.
@@ -12,13 +13,12 @@ export type Todo = { id: string; key: string; tone: "bad" | "warn"; params: Reco
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
-/** A new order becomes urgent when nobody confirmed it within this time. */
-export const URGENT_AFTER = 2 * HOUR;
+
 export const CARRIERS = ["novaposhta", "ukrposhta"];
 export const LOW_STOCK = 2;
 
-/** Confirmed or paid orders going by a carrier that still have no waybill. */
-export const needsWaybill = () => and(inArray(orders.status, ["confirmed", "paid"]), isNull(orders.waybill), inArray(dsql`${orders.delivery}->>'method'`, CARRIERS));
+/** Orders in work going by a carrier that still have no waybill. */
+export const needsWaybill = () => and(eq(orders.status, "confirmed"), isNull(orders.waybill), inArray(dsql`${orders.delivery}->>'method'`, CARRIERS));
 
 export async function todoFor(orgId: string, perms: Permission[], now = new Date()): Promise<Todo[]> {
   const out: Todo[] = [];
@@ -30,10 +30,12 @@ export async function todoFor(orgId: string, perms: Permission[], now = new Date
     if (sub?.status === "grace" || sub?.status === "suspended") out.push({ id: `billing:${sub.status}`, tone: "bad", key: sub.status === "grace" ? "billingGrace" : "billingSuspended", params: {}, screen: "billing" });
   }
   if (can("orders")) {
+    // A new order becomes urgent when nobody took it within the business's hours («Бізнес → Замовлення»).
+    const urgentAfter = (await orderSettingsOf(orgId)).urgentHours * HOUR;
     const [o] = await db
       .select({
         n: dsql<number>`count(*) filter (where ${orders.status} = 'new')`.mapWith(Number),
-        urgent: dsql<number>`count(*) filter (where ${orders.status} = 'new' and ${orders.createdAt} <= ${new Date(now.getTime() - URGENT_AFTER).toISOString()}::timestamptz)`.mapWith(Number),
+        urgent: dsql<number>`count(*) filter (where ${orders.status} = 'new' and ${orders.createdAt} <= ${new Date(now.getTime() - urgentAfter).toISOString()}::timestamptz)`.mapWith(Number),
       })
       .from(orders)
       .where(and(eq(orders.organizationId, orgId), eq(orders.isExample, false)));
@@ -78,12 +80,12 @@ export async function todoFor(orgId: string, perms: Permission[], now = new Date
   return out.filter((i) => !hide.has(i.id));
 }
 
-/** Orders to send: confirmed or paid, not shipped yet. Oldest first, so nothing waits forever. */
+/** Orders to send: in work, not shipped yet. Oldest first, so nothing waits forever. */
 export async function toShip(orgId: string) {
   return db
     .select({ id: orders.id, number: orders.number, customerName: orders.customerName, totalKop: orders.totalKop, status: orders.status, waybill: orders.waybill, method: dsql<string>`${orders.delivery}->>'method'`, createdAt: orders.createdAt })
     .from(orders)
-    .where(and(eq(orders.organizationId, orgId), eq(orders.isExample, false), inArray(orders.status, ["confirmed", "paid"])))
+    .where(and(eq(orders.organizationId, orgId), eq(orders.isExample, false), eq(orders.status, "confirmed")))
     .orderBy(orders.createdAt)
     .limit(50);
 }

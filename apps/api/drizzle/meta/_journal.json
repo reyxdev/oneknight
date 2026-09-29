@@ -169,6 +169,13 @@
       "when": 1790717621377,
       "tag": "0023_onboarding",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790721083884,
+      "tag": "0024_order_statuses",
+      "breakpoints": true
     }
   ]
 }

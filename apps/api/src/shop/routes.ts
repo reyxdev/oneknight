@@ -2,12 +2,12 @@ import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { and, asc, count, desc, eq, gt, ilike, inArray, lte, or, sql as dsql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client.ts";
-import { orderEvents, orders, products, sites } from "../db/schema.ts";
+import { orderEvents, orders, products, sites, users } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
 import { SHIPPING_STATUSES, orderAccess, orgScope, type Permission } from "../auth/access.ts";
 import { audit } from "../audit.ts";
 import { Upload, saveImage } from "../files/store.ts";
-import { setOrderStatus } from "./service.ts";
+import { setOrderStatus, setPayment } from "./service.ts";
 import { needsWaybill } from "../dashboard/todo.ts";
 
 const uuid = z.string().uuid();
@@ -20,11 +20,23 @@ const ProductIn = z.object({
   sort: z.number().int().optional(),
   photo: Upload.optional(),
 });
+const GROUPS = ["new", "confirmed", "shipped", "done", "cancelled", "returned"] as const;
 const OrderPatch = z.object({
-  status: z.enum(["new", "confirmed", "paid", "shipped", "done", "cancelled"]).optional(),
+  status: z.enum(GROUPS).optional(),
+  /** The business's own status (its group follows). */
+  statusId: z.string().uuid().nullable().optional(),
+  /** Required when cancelling. */
+  reason: z.string().trim().max(200).optional(),
+  payment: z.object({ status: z.enum(["unpaid", "prepaid", "paid", "refunded"]), prepaidKop: z.number().int().min(0).max(1_000_000_000).default(0) }).optional(),
   waybill: z.string().trim().max(60).nullable().optional(),
   warranty: z.object({ enabled: z.boolean(), until: z.string().max(40).optional(), note: z.string().max(500).optional() }).optional(),
 });
+
+/** «+38067 *** ** 67»: enough to recognise, not enough to copy the base. */
+export function maskPhone(p: string) {
+  const d = p.replace(/\D/g, "");
+  return d.length < 7 ? "***" : `+${d.slice(0, 5)} *** ** ${d.slice(-2)}`;
+}
 
 const view = (p: typeof products.$inferSelect) => ({ ...p, price: p.priceKop / 100, photo: p.photoFileId ? `/api/files/${p.photoFileId}` : null });
 
@@ -113,13 +125,14 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
    * Orders list: filter, sort by column (newest first by default) and pages (`limit` up to 200, `page` from 1).
    * The panel asks for 51 to know whether there is a next page of 50. Sorting by sum needs `finance`.
    */
-  app.get<{ Querystring: { status?: string; sort?: string; dir?: string; page?: string; limit?: string } }>("/orders", async (req) => {
+  app.get<{ Querystring: { status?: string; payment?: string; sort?: string; dir?: string; page?: string; limit?: string } }>("/orders", async (req) => {
     const acc = await orderAccess(req);
     if (!acc) return [];
     const orgs = [acc.org];
-    const st = z.enum(["new", "confirmed", "paid", "shipped", "done", "cancelled"]).safeParse(req.query.status);
+    const st = z.enum(GROUPS).safeParse(req.query.status);
     // "nowaybill": confirmed or paid, going by a carrier, no waybill yet («Що треба зробити» on Home).
     const filter = req.query.status === "nowaybill" ? needsWaybill() : st.success ? eq(orders.status, st.data) : undefined;
+    const pay = z.enum(["unpaid", "prepaid", "paid", "refunded"]).safeParse(req.query.payment);
     // Names in Ukrainian alphabetical order (А, Б, … Є, … І, Ї …), not by code points.
     const cols = { createdAt: orders.createdAt, number: orders.number, customer: dsql`${orders.customerName} collate "uk-UA-x-icu"`, status: orders.status, ...(acc.finance ? { total: orders.totalKop } : {}) };
     const col = cols[req.query.sort as keyof typeof cols] ?? orders.createdAt;
@@ -129,13 +142,27 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
     // Pages are 50 long; one more row than a page only tells the panel that a next page exists.
     const offset = (page - 1) * Math.min(limit, 50);
     return db
-      .select({ id: orders.id, number: orders.number, customerName: orders.customerName, totalKop: orders.totalKop, status: orders.status, createdAt: orders.createdAt, siteId: orders.siteId, source: orders.source, isExample: orders.isExample })
+      .select({
+        id: orders.id,
+        number: orders.number,
+        customerName: orders.customerName,
+        customerPhone: orders.customerPhone,
+        totalKop: orders.totalKop,
+        status: orders.status,
+        statusId: orders.statusId,
+        paymentStatus: orders.paymentStatus,
+        waybill: orders.waybill,
+        createdAt: orders.createdAt,
+        siteId: orders.siteId,
+        source: orders.source,
+        isExample: orders.isExample,
+      })
       .from(orders)
-      .where(and(inArray(orders.organizationId, orgs), filter, acc.full ? undefined : inArray(orders.status, [...SHIPPING_STATUSES])))
+      .where(and(inArray(orders.organizationId, orgs), filter, pay.success && acc.finance ? eq(orders.paymentStatus, pay.data) : undefined, acc.full ? undefined : inArray(orders.status, [...SHIPPING_STATUSES])))
       .orderBy(order, desc(orders.number))
       .limit(limit)
       .offset(offset)
-      .then((rows) => (acc.finance ? rows : rows.map((r) => ({ ...r, totalKop: null }))));
+      .then((rows) => rows.map((r) => ({ ...r, customerPhone: acc.full ? r.customerPhone : maskPhone(r.customerPhone), ...(acc.finance ? {} : { totalKop: null, paymentStatus: null }) })));
   });
 
   /**
@@ -204,10 +231,18 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
     if (!uuid.safeParse(req.params.id).success || !acc) return reply.code(404).send({ error: "not_found" });
     const [o] = await db.select().from(orders).where(and(eq(orders.id, req.params.id), eq(orders.organizationId, acc.org), acc.full ? undefined : inArray(orders.status, [...SHIPPING_STATUSES])));
     if (!o) return reply.code(404).send({ error: "not_found" });
-    const events = await db.select({ status: orderEvents.status, at: orderEvents.createdAt }).from(orderEvents).where(eq(orderEvents.orderId, o.id)).orderBy(asc(orderEvents.createdAt));
-    const { ip: _ip, ...rest } = o;
-    // Without `finance`: no sums at all (total and item prices).
-    if (!acc.finance) return { ...rest, totalKop: null, items: rest.items.map((i) => ({ ...i, priceKop: null })), events, finance: false };
+    // One timeline: statuses, payment, comments, waybills, edits, calls — with who did it.
+    const events = await db
+      .select({ kind: orderEvents.kind, status: orderEvents.status, data: orderEvents.data, at: orderEvents.createdAt, by: users.name })
+      .from(orderEvents)
+      .leftJoin(users, eq(users.id, orderEvents.userId))
+      .where(eq(orderEvents.orderId, o.id))
+      .orderBy(asc(orderEvents.createdAt));
+    const { ip: _ip, ...all } = o;
+    // «Комплектувальник» sees the phone partly (the carrier has it on the waybill anyway).
+    const rest = acc.full ? all : { ...all, customerPhone: maskPhone(all.customerPhone), customerEmail: null };
+    // Without `finance`: no sums at all (total, item prices, prepayment).
+    if (!acc.finance) return { ...rest, totalKop: null, prepaidKop: null, paymentStatus: null, items: rest.items.map((i) => ({ ...i, priceKop: null })), events, finance: false };
     return { ...rest, events, finance: true };
   });
 
@@ -216,16 +251,21 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
     const acc = await orderAccess(req);
     if (!p.success || !uuid.safeParse(req.params.id).success || !acc) return reply.code(400).send({ error: "invalid_input" });
     const orgs = [acc.org];
-    // Shipping only: mark confirmed / paid orders as sent (and take it back: «Скасувати»), enter the waybill; nothing else.
-    if (!acc.full && ((p.data.status && !(SHIPPING_STATUSES as readonly string[]).includes(p.data.status)) || p.data.warranty)) return reply.code(403).send({ error: "forbidden" });
+    // Shipping only: mark orders in work as sent (and take it back: «Скасувати»), enter the waybill; nothing else.
+    if (!acc.full && ((p.data.status && !(SHIPPING_STATUSES as readonly string[]).includes(p.data.status)) || p.data.statusId || p.data.warranty || p.data.payment)) return reply.code(403).send({ error: "forbidden" });
     if (!acc.full) {
       const [o] = await db.select({ status: orders.status }).from(orders).where(and(eq(orders.id, req.params.id), eq(orders.organizationId, acc.org)));
       if (!o || !(SHIPPING_STATUSES as readonly string[]).includes(o.status)) return reply.code(404).send({ error: "not_found" });
     }
-    if (p.data.status) {
-      const from = acc.full ? undefined : p.data.status === "shipped" ? (["confirmed", "paid"] as const) : (["shipped"] as const);
-      const r = await setOrderStatus(req.params.id, orgs, p.data.status, req.auth!.user.id, from);
-      if (!r.ok) return reply.code(r.error === "not_found" ? 404 : r.error === "forbidden" ? 403 : 409).send({ error: r.error });
+    if (p.data.status || p.data.statusId !== undefined) {
+      const from = acc.full ? undefined : p.data.status === "shipped" ? (["confirmed"] as const) : (["shipped"] as const);
+      const r = await setOrderStatus(req.params.id, orgs, { status: p.data.status, statusId: p.data.statusId, reason: p.data.reason }, req.auth!.user.id, from);
+      if (!r.ok) return reply.code(r.error === "not_found" ? 404 : r.error === "forbidden" ? 403 : r.error === "reason_required" || r.error === "invalid_status" ? 400 : 409).send({ error: r.error });
+    }
+    if (p.data.payment) {
+      if (!acc.finance) return reply.code(403).send({ error: "forbidden" });
+      const r = await setPayment(req.params.id, acc.org, p.data.payment.status, p.data.payment.prepaidKop, req.auth!.user.id);
+      if (!r.ok) return reply.code(r.error === "not_found" ? 404 : 400).send({ error: r.error });
     }
     if (p.data.waybill !== undefined || p.data.warranty) {
       await db

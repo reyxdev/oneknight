@@ -10,7 +10,7 @@ import { Empty, Panel, StatusPill, useFlash, useFormat } from "../ui/kit";
 import { orderFlow, type OrderStatus } from "@oneknight/domain";
 import type { ScreenId } from "../ui/Shell";
 
-const FILTERS: (OrderStatus | "all")[] = ["all", "new", "confirmed", "paid", "shipped", "done", "cancelled"];
+const FILTERS: (OrderStatus | "all")[] = ["all", "new", "confirmed", "shipped", "done", "cancelled"];
 
 export function Orders({ go }: { go: (s: ScreenId) => void }) {
   const t = useDict().ok.orders;
