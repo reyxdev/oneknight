@@ -599,6 +599,17 @@ export const app = {
     order: "Замовити",
     from: "від {price}",
   },
+  telegram: {
+    title: "Сповіщення в Telegram",
+    lead: "Нові замовлення, відгуки, проблеми з сайтом і оплатою приходитимуть у ваш Telegram. Ви отримуєте лише те, до чого маєте доступ у бізнесі.",
+    notConfigured: "Бот ONEKNIGHT ще не налаштований на сервері.",
+    connect: "Підключити Telegram",
+    waiting: "Відкрийте Telegram і натисніть «Start» у чаті з ботом. Посилання діє 15 хвилин.",
+    linked: "Підключено: {who}",
+    disconnect: "Відключити",
+    kindsTitle: "Що надсилати",
+    kinds: { order: "Замовлення", review: "Відгуки", site: "Робота сайту", billing: "Оплата", ticket: "Відповіді підтримки", team: "Команда" },
+  },
   account: {
     title: "Профіль",
     name: "Ім'я",

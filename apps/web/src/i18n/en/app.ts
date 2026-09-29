@@ -601,6 +601,17 @@ export const app: Dict["app"] = {
     order: "Order",
     from: "from {price}",
   },
+  telegram: {
+    title: "Telegram notifications",
+    lead: "New orders, reviews, website and payment problems arrive in your Telegram. You only get what you have access to in the business.",
+    notConfigured: "The ONEKNIGHT bot is not configured on the server yet.",
+    connect: "Connect Telegram",
+    waiting: "Open Telegram and press \"Start\" in the chat with the bot. The link is valid for 15 minutes.",
+    linked: "Connected: {who}",
+    disconnect: "Disconnect",
+    kindsTitle: "What to send",
+    kinds: { order: "Orders", review: "Reviews", site: "Website status", billing: "Payments", ticket: "Support replies", team: "Team" },
+  },
   account: {
     title: "Profile",
     name: "Name",

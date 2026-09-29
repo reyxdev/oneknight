@@ -30,3 +30,4 @@ Owner input needed before launch. The UI shows an honest placeholder for each.
 - [ ] Prom: connect a real API token in «Інтеграції» and check one import; then decide on pushing status changes back (`orders/set_status`)
 - [ ] Investigate an intermittent React #418 (hydration) on /app in production builds: seen only after signing up through the form and reloading several times, then opening /app/. No functional impact (the account section is kept in the URL hash and React recovers), not reproducible in dev
 - [ ] Contests / public promotions: decide the rules (who takes part, prizes as keys or promo codes); the key and promo code system already covers the rewards
+- [ ] Telegram: link your own account once (Профіль → Telegram) to receive client-style notifications; in production consider a webhook instead of long polling

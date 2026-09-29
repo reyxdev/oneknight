@@ -7,6 +7,7 @@ import { api, type Me } from "@/lib/api";
 import { playSound } from "@/lib/sound";
 import { Panel, useFlash } from "@/features/oneknight/ui/kit";
 import { BackupsPanel } from "./Backups";
+import { TelegramPanel } from "./TelegramPanel";
 
 export function ProfileScreen({ me, onChange }: { me: Me; onChange: () => void }) {
   const d = useDict();
@@ -69,6 +70,7 @@ export function ProfileScreen({ me, onChange }: { me: Me; onChange: () => void }
           <button className="btn btn-sm btn-secondary" type="submit" disabled={!pw.current || !pw.next} style={{ justifySelf: "start" }}>{t.changePassword}</button>
         </form>
       </Panel>
+      <TelegramPanel />
       {owner && <BackupsPanel />}
       {flash}
     </div>

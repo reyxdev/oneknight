@@ -63,6 +63,14 @@ ok(await seen(pg.getByText(/Вручну · \d+ KB · товарів 0 · зам
 const [dl] = await Promise.all([pg.waitForEvent("download"), pg.getByRole("link", { name: "Завантажити" }).first().click()]);
 ok(/^oneknight-backup-\d{4}-\d\d-\d\d\.json\.gz$/.test(dl.suggestedFilename()), `backup downloads (${dl.suggestedFilename()})`);
 
+// Telegram notifications: the real bot is configured; a one-time link is issued (not opened here).
+ok(await seen(pg.getByRole("button", { name: "Підключити Telegram" })), "Telegram connect offered");
+const tgLink = await pg.evaluate(() => fetch("/api/telegram/link", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then((r) => r.json()));
+ok(/^https:\/\/t\.me\/\w+\?start=[\w-]{20,}$/.test(tgLink.url ?? ""), "Telegram link points to the bot with a one-time token");
+const kinds = pg.getByRole("group", { name: "Що надсилати" });
+await kinds.getByRole("button", { name: "Відгуки" }).click();
+ok(await seen(kinds.locator('[aria-pressed="false"]', { hasText: "Відгуки" })), "notification kinds can be switched off");
+
 // Profile: edit own data and the business name, change the password.
 await pg.getByLabel("Назва бізнесу").fill("Майстерня Олени");
 await pg.getByRole("button", { name: "Зберегти", exact: true }).click();

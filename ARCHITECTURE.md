@@ -446,3 +446,9 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 ## 34. Services inside ONEKNIGHT
 
 - «Послуги» lists the same five directions as the public site (websites with the real "from" price, automation, analytics, advertising, SEO/GEO/AI). «Замовити» opens the site's brief with the service preselected; signed in, contacts come from the account and the request appears in «Ваші заявки» (listed on the same screen).
+
+## 35. Telegram notifications for clients
+
+- Same bot as the owner alerts (@oneknight_bot, `TELEGRAM_BOT_TOKEN`). «Профіль → Сповіщення в Telegram → Підключити Telegram» issues a one-time token (SHA-256 stored, 15 minutes) and opens `t.me/<bot>?start=<token>`; the bot links that private chat to the account (`telegram_links`, one chat per account). `/stop` in the chat or «Відключити» unlinks.
+- Delivery: every notification row starts with `telegram_done = false`; a worker every 15 s claims rows from the last hour (flag set before sending, so nothing is sent twice even with several processes) and sends them to the linked members of that business who chose that kind and have the matching permission (orders, reviews, billing, support, team; site status goes to everyone who opted in). Blocked bot / deleted chat unlinks automatically. Rows that existed before this feature were marked done by the migration.
+- Updates are read with long polling (`getUpdates` on its own socket so other Bot API calls are not queued behind it). With a public HTTPS domain this can switch to a webhook.

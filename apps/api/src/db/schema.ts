@@ -189,9 +189,11 @@ export const notifications = pgTable(
     key: text("key").notNull(),
     params: jsonb("params").notNull().default(sql`'{}'::jsonb`),
     readAt: timestamp("read_at", { withTimezone: true }),
+    /** Handed to the Telegram delivery worker (sent to linked chats, or nobody to send to). */
+    telegramDone: boolean("telegram_done").notNull().default(false),
     createdAt: createdAt(),
   },
-  (t) => [index("notifications_org_idx").on(t.organizationId, t.createdAt)],
+  (t) => [index("notifications_org_idx").on(t.organizationId, t.createdAt), index("notifications_tg_idx").on(t.createdAt).where(sql`not telegram_done`)],
 );
 
 /** ONEKNIGHT subscription of an organization (one per organization). */
@@ -566,3 +568,18 @@ export const backups = pgTable(
   },
   (t) => [index("backups_org_idx").on(t.organizationId, t.createdAt)],
 );
+
+/**
+ * A person's Telegram chat for notifications, linked through the bot with a one-time /start token.
+ * `kinds` = which notification kinds they want (order, review, site, billing, ticket, team).
+ */
+export const telegramLinks = pgTable("telegram_links", {
+  userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  chatId: text("chat_id").unique(),
+  username: text("username"),
+  linkTokenHash: text("link_token_hash").unique(),
+  linkExpiresAt: timestamp("link_expires_at", { withTimezone: true }),
+  kinds: text("kinds").array().notNull().default(sql`'{order,review,site,billing,ticket,team}'::text[]`),
+  linkedAt: timestamp("linked_at", { withTimezone: true }),
+  createdAt: createdAt(),
+});

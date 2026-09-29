@@ -6,6 +6,7 @@ import { runBilling } from "./billing/service.ts";
 import { sweepOrphans } from "./files/store.ts";
 import { syncAllProm } from "./integrations/prom.ts";
 import { runBackups, sweepBackupFiles } from "./backups/service.ts";
+import { deliverTelegram, startBotPolling } from "./notify/bot.ts";
 import { purgeTrash } from "./reviews/routes.ts";
 import { purgeAnalytics } from "./analytics/routes.ts";
 
@@ -14,6 +15,8 @@ const stopMonitor = startMonitor(app.log, env.MONITOR_INTERVAL_MIN);
 // Billing: renewals, grace periods and suspensions, hourly (idempotent, row-locked).
 const billingTimer = setInterval(() => void runBilling().catch((e) => app.log.error(e)), 3600_000);
 void runBilling().catch((e) => app.log.error(e));
+const stopBot = startBotPolling(app.log);
+const tgTimer = setInterval(() => void deliverTelegram().catch((e) => app.log.error(e)), 15_000);
 const backupTimer = setInterval(() => void runBackups(app.log).catch((e) => app.log.error(e)), 3600_000);
 const promTimer = setInterval(() => void syncAllProm(app.log).catch((e) => app.log.error(e)), 10 * 60_000);
 const sweepTimer = setInterval(() => {
@@ -30,6 +33,8 @@ const shutdown = async () => {
   clearInterval(sweepTimer);
   clearInterval(promTimer);
   clearInterval(backupTimer);
+  clearInterval(tgTimer);
+  stopBot();
   await app.close();
   await sql.end({ timeout: 5 });
   process.exit(0);
