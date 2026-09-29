@@ -15,10 +15,13 @@ import { Bell } from "./Bell";
 import { BillingScreen, ModulesScreen } from "./Billing";
 import { TopupsAdmin } from "./TopupsAdmin";
 import { SupportScreen } from "./Support";
+import { OrdersScreen, ProductsScreen } from "./Shop";
 
-type Screen = "home" | "site" | "modules" | "billing" | "support" | "security" | "account" | "admin" | "clients" | "topups" | "tickets";
+type Screen = "home" | "orders" | "products" | "site" | "modules" | "billing" | "support" | "security" | "account" | "admin" | "clients" | "topups" | "tickets";
 const NAV: { id: Screen; icon: IconName }[] = [
   { id: "home", icon: "home" },
+  { id: "orders", icon: "cart" },
+  { id: "products", icon: "box" },
   { id: "site", icon: "globe" },
   { id: "modules", icon: "puzzle" },
   { id: "billing", icon: "card" },
@@ -39,7 +42,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
     : [];
   const nav = [...NAV, ...adminNav];
   const label = (id: Screen) =>
-    ({ admin: t.admin.nav, clients: t.clients.nav, topups: t.topupsAdmin.nav, site: t.site.title, modules: t.modulesApp.nav, billing: t.billing.nav, support: t.support.nav, tickets: t.supportAdmin.nav } as Partial<Record<Screen, string>>)[id] ?? t.nav[id as "home" | "security" | "account"];
+    ({ admin: t.admin.nav, clients: t.clients.nav, topups: t.topupsAdmin.nav, site: t.site.title, modules: t.modulesApp.nav, billing: t.billing.nav, support: t.support.nav, orders: t.orders.nav, products: t.products.nav, tickets: t.supportAdmin.nav } as Partial<Record<Screen, string>>)[id] ?? t.nav[id as "home" | "security" | "account"];
   const { sites } = useSites();
 
   return (
@@ -126,6 +129,8 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             {screen === "modules" && <ModulesScreen />}
             {screen === "topups" && me.isAdmin && <TopupsAdmin />}
             {screen === "support" && <SupportScreen />}
+            {screen === "orders" && <OrdersScreen />}
+            {screen === "products" && <ProductsScreen />}
             {screen === "tickets" && me.isAdmin && <SupportScreen admin />}
             {screen === "account" && (
               <div className="ok-screen">

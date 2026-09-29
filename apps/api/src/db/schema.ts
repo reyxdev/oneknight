@@ -13,6 +13,7 @@ export const ledgerKindEnum = pgEnum("ledger_kind", ["topup", "charge", "refund"
 export const topupStatusEnum = pgEnum("topup_status", ["pending", "confirmed", "cancelled"]);
 export const ticketCategoryEnum = pgEnum("ticket_category", ["bug", "question", "change", "oneknight", "site", "other"]);
 export const ticketStatusEnum = pgEnum("ticket_status", ["open", "answered", "closed"]);
+export const orderStatusEnum = pgEnum("order_status", ["new", "confirmed", "paid", "shipped", "done", "cancelled"]);
 export const leadStatusEnum = pgEnum("lead_status", ["new", "in_progress", "won", "lost"]);
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
@@ -142,6 +143,8 @@ export const sites = pgTable(
     domain: text("domain").notNull(),
     name: text("name").notNull(),
     status: siteStatusEnum("status").notNull().default("live"),
+    /** Key the client's website uses for the public API (products, orders, reviews, analytics). Not a secret for reading. */
+    publicKey: text("public_key").notNull().unique().default(sql`'sk_' || replace(gen_random_uuid()::text, '-', '')`),
     /** Result of the last check, cached for quick lists and for detecting up/down transitions. */
     lastUp: boolean("last_up"),
     lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
@@ -288,4 +291,63 @@ export const ticketMessages = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("ticket_messages_ticket_idx").on(t.ticketId, t.createdAt)],
+);
+
+export const products = pgTable(
+  "products",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    siteId: uuid("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    priceKop: integer("price_kop").notNull(),
+    /** Null = not tracked (made to order). */
+    stock: integer("stock"),
+    photoFileId: uuid("photo_file_id").references(() => files.id, { onDelete: "set null" }),
+    active: boolean("active").notNull().default(true),
+    sort: integer("sort").notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("products_site_idx").on(t.siteId, t.sort)],
+);
+
+export const orders = pgTable(
+  "orders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    number: integer("number").generatedAlwaysAsIdentity({ startWith: 1041 }).notNull().unique(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    siteId: uuid("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+    customerName: text("customer_name").notNull(),
+    customerPhone: text("customer_phone").notNull(),
+    customerEmail: text("customer_email"),
+    /** Snapshot at the moment of ordering: prices are taken from the database, never from the request. */
+    items: jsonb("items").notNull().$type<{ productId: string; name: string; qty: number; priceKop: number }[]>(),
+    totalKop: integer("total_kop").notNull(),
+    status: orderStatusEnum("status").notNull().default("new"),
+    delivery: jsonb("delivery").notNull().$type<{ method: string; city?: string; branch?: string; address?: string }>(),
+    payment: text("payment").notNull(),
+    comment: text("comment"),
+    /** Warranty is stored as data only: the seller sets the terms. */
+    warranty: jsonb("warranty").notNull().default(sql`'{"enabled":false}'::jsonb`).$type<{ enabled: boolean; until?: string; note?: string }>(),
+    waybill: text("waybill"),
+    ip: inet("ip"),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("orders_org_idx").on(t.organizationId, t.createdAt), index("orders_status_idx").on(t.organizationId, t.status)],
+);
+
+export const orderEvents = pgTable(
+  "order_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orderId: uuid("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+    status: orderStatusEnum("status").notNull(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("order_events_order_idx").on(t.orderId, t.createdAt)],
 );

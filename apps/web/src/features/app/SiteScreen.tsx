@@ -6,9 +6,11 @@ import { fmt } from "@/i18n";
 import { Icon } from "@/components/ui/Icon";
 import { api } from "@/lib/api";
 import { AreaChart, Panel, Stat, useFormat } from "@/features/oneknight/ui/kit";
+import { SiteApiPanel } from "./Shop";
 
 export type SiteInfo = {
   id: string;
+  publicKey?: string;
   domain: string;
   name: string;
   status: "building" | "live" | "paused";
@@ -42,7 +44,7 @@ export function siteState(s: SiteInfo): { tone: "ok" | "bad" | "warn" | undefine
   return s.last.up ? { tone: "ok", key: "up" } : { tone: "bad", key: "down" };
 }
 
-function SiteCard({ s }: { s: SiteInfo }) {
+function SiteCard({ s, onReload }: { s: SiteInfo; onReload: () => void }) {
   const t = useDict().app.site;
   const f = useFormat();
   const [series, setSeries] = useState<number[] | null>(null);
@@ -69,6 +71,7 @@ function SiteCard({ s }: { s: SiteInfo }) {
         {series && series.length > 1 ? <AreaChart a={series} labelA={t.chart} /> : <p className="ok-muted">{t.noData}</p>}
       </Panel>
       <p className="ok-muted">{t.how}</p>
+      {s.publicKey && <SiteApiPanel site={s} onRotated={onReload} />}
     </div>
   );
 }
@@ -97,7 +100,7 @@ export function SiteScreen() {
           ))}
         </div>
       )}
-      <SiteCard s={cur} key={cur.id} />
+      <SiteCard s={cur} key={cur.id} onReload={load} />
     </>
   );
 }

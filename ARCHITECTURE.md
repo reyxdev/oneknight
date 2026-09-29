@@ -362,3 +362,10 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 - `files` table + disk storage in `UPLOAD_DIR` (random names). Uploads are JSON base64 (keeps the JSON-only CSRF guard), max 4 MB, accepted only as real PNG/JPEG/WebP by magic bytes. `GET /api/files/:id` serves public files to anyone and private files only to members of the owning organization or admins. A daily sweep removes files no row points to.
 - Tickets (numbered from 201): category, status open / answered / closed, message thread with optional screenshot. Client: `/api/tickets`; admin: `/api/admin/tickets` (reply sets "answered" and notifies the client; a client message reopens). New tickets and client messages go to the owner's Telegram.
 - Test accounts (`@test.oneknight.local`) and `NODE_ENV=test` never send Telegram messages.
+
+## 22. Shop: products, orders, public site API
+
+- `sites.public_key` (`sk_` + 32 hex, rotatable) identifies a client website for `/api/public/*` (see `docs/public-api.md`). CORS allows only the site's own domain; the cookie CSRF guard does not apply there (no cookies).
+- `products` per site (price in kopecks, stock or null = made to order, public photo, active, sort). `orders` store an items snapshot with prices from the database, delivery, payment, comment, warranty as data only, waybill; `order_events` keep the status history.
+- Placing an order locks product rows, checks and reserves stock, creates the order and an in-account notification. Cancelling returns stock; reopening a cancelled order takes it again (or fails if stock is gone).
+- Account: «Замовлення» (filters, detail, next status, any status, waybill, warranty, history), «Товари» (photo, price, stock, visibility), site key with an example on «Сайт».

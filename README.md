@@ -42,6 +42,12 @@ npm run test:app -w @oneknight/web   # real account flow in a browser
 node apps/web/tests/site-e2e.mjs      # admin adds a site, client sees monitoring (probes example.com)
 node apps/web/tests/billing-e2e.mjs   # trial, IBAN top-up, admin confirmation (API started with test PAYMENT_* values)
 node apps/web/tests/support-e2e.mjs   # support request with screenshot, admin reply
+node apps/web/tests/shop-e2e.mjs      # products, public API order, statuses
+```
+
+Public API for client websites: [docs/public-api.md](docs/public-api.md).
+
+```bash
 ```
 
 In development `npm run dev:web` proxies `/api` to the API on :4000, so `/app` works there too.
