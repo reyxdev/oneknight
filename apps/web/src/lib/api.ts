@@ -1,5 +1,7 @@
 "use client";
 
+export const SESSION_EXPIRED = "ok:session-expired";
+
 /** Same-origin JSON client for /api. Never throws: returns a typed result the UI can render. */
 export type ApiResult<T> = { ok: true; status: number; data: T } | { ok: false; status: number; error: string; body?: unknown };
 
@@ -14,6 +16,8 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
       keepalive: init.keepalive,
     });
     const data = res.status === 204 ? null : await res.json().catch(() => null);
+    // The session ended while working (expired, signed out elsewhere): the panel asks to sign in again in place.
+    if (res.status === 401 && !path.startsWith("/auth/") && typeof window !== "undefined") window.dispatchEvent(new Event(SESSION_EXPIRED));
     if (res.ok) return { ok: true, status: res.status, data: data as T };
     return { ok: false, status: res.status, error: (data as { error?: string } | null)?.error ?? (res.status === 502 ? "network" : "server_error"), body: data };
   } catch {

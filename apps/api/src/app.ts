@@ -45,7 +45,7 @@ export async function buildApp(opts: FastifyServerOptions = {}, deps: { npCall?:
   });
   await app.register(healthRoutes, { prefix: "/api" });
   await app.register(authRoutes, { prefix: "/api/auth" });
-  await app.register(resetRoutes, { prefix: "/api/auth/reset" });
+  await app.register(resetRoutes(deps.tgCall), { prefix: "/api/auth/reset" });
   await app.register(leadRoutes, { prefix: "/api/leads" });
   await app.register(adminRoutes, { prefix: "/api/admin" });
   await app.register(siteRoutes, { prefix: "/api" });

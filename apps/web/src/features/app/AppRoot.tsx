@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useDict } from "@/i18n/provider";
 import { fmt } from "@/i18n";
 import { KnightMark } from "@/components/global/Logo";
-import { api, type Me } from "@/lib/api";
+import { SESSION_EXPIRED, api, type Me } from "@/lib/api";
 import { AuthScreen, MfaScreen, ResetScreen } from "./AuthScreen";
 import { AppPanel } from "./Panel";
 
@@ -26,6 +26,18 @@ export function AppRoot() {
   useEffect(() => {
     void check();
   }, [check]);
+  // Session over mid-work: sign in again; the address (screen and tab) stays, so the person returns to the same place.
+  const [expired, setExpired] = useState(false);
+  useEffect(() => {
+    const on = () =>
+      setSt((cur) => {
+        if (cur.s !== "ready") return cur;
+        setExpired(true);
+        return { s: "anon" };
+      });
+    window.addEventListener(SESSION_EXPIRED, on);
+    return () => window.removeEventListener(SESSION_EXPIRED, on);
+  }, []);
 
   /** Re-reads the account in place (e.g. after turning 2FA on) without leaving the current screen. */
   // Team invitation: kept until the visitor is signed in, then accepted once.
@@ -69,6 +81,7 @@ export function AppRoot() {
 
   const logout = async () => {
     await api("/auth/logout", { method: "POST", body: {} });
+    setExpired(false);
     // The next person to sign in starts on the home screen.
     history.replaceState(null, "", location.pathname);
     setSt({ s: "anon" });
@@ -106,7 +119,7 @@ export function AppRoot() {
   if (st.s === "anon") {
     const initial = typeof window !== "undefined" && new URLSearchParams(location.search).get("start") === "register" ? "register" : "login";
     const invited = typeof window !== "undefined" && !!sessionStorage.getItem("ok_invite");
-    return <AuthScreen initial={initial} note={authNote ?? (invited ? t.team.inviteLogin : undefined)} onDone={(me) => setSt({ s: "ready", me })} onMfa={() => setSt({ s: "mfa" })} />;
+    return <AuthScreen initial={expired ? "login" : initial} note={expired ? t.auth.expired : authNote ?? (invited ? t.team.inviteLogin : undefined)} onDone={(me) => { setExpired(false); setSt({ s: "ready", me }); }} onMfa={() => setSt({ s: "mfa" })} />;
   }
   return (
     <>
