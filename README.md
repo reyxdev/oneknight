@@ -47,9 +47,6 @@ node apps/web/tests/shop-e2e.mjs      # products, public API order, statuses
 
 Public API for client websites: [docs/public-api.md](docs/public-api.md).
 
-```bash
-```
-
 In development `npm run dev:web` proxies `/api` to the API on :4000, so `/app` works there too.
 
 Make an account an administrator (sees all requests in `/app`):
@@ -67,7 +64,7 @@ Schema lives in `apps/api/src/db/schema.ts`. After changing it: `npm run db:gene
 | What | Where |
 | --- | --- |
 | Design tokens (colours, radii, motion) | `apps/web/src/styles/tokens.css` |
-| All prices | `apps/web/src/data/pricing.ts` |
+| All prices, module catalogue | `packages/domain/src/pricing.ts`, `packages/domain/src/modules.ts` |
 | Contacts | `apps/web/src/data/contacts.ts` |
 | Copy, Ukrainian (source of truth) / English | `apps/web/src/i18n/` |
 | Karpatu.shop facts, owner testimonial slot | `apps/web/src/content/karpatu.ts` |
