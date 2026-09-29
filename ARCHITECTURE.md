@@ -406,10 +406,10 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 ## 28. Integrations: Nova Poshta
 
 - Table `integrations` (PK organization + provider): credentials AES-256-GCM encrypted with `TOTP_ENC_KEY`, per-provider `settings`, `status`, `lastError`. Keys are never returned by the API.
-- «Інтеграції» screen (permission "modules"): 5-step instructions, `POST /api/integrations/novaposhta/connect` verifies the key against the real Nova Poshta API v2 (sender counterparty + contact person) before storing it; sender city/branch picked from the live NP directory (`/cities`, `/warehouses`), default weight and cargo description.
-- «Створити ТТН» in an order (permission "orders", module `novaposhta` active): the customer's city and branch number are matched exactly from the order text; if that is not unique the API answers 409 `recipient_address_ambiguous` with candidates and the UI shows a picker. Recipient is created as a private person, cash on delivery = order total when payment is `cod`. The waybill number is saved on the order.
-- The NP client takes an injectable `call`, so API tests run on recorded-shape responses without network.
-- Other providers (Ukrposhta, Prom, OLX, Rozetka, Google, Meta, Telegram) are listed as "У розробці" until built.
+- Split by where the work happens: «Модулі» = buy the module and read what it does; «Інтеграції» = only the API key (5-step instructions, verified against the real Nova Poshta API v2 before storing); the waybill itself is made in the order.
+- Order with Nova Poshta delivery: «Оформити ТТН» loads `GET /api/integrations/novaposhta/draft/:orderId` (module/key state, last sender city+branch, customer city+branch matched exactly from the order text or candidates, default weight/description, cash on delivery = order total when payment is `cod`). The form (sender, recipient, weight, cargo) posts `POST /novaposhta/waybill`; the sender address, weight and description become the next defaults. Recipient is created as a private person; the number and the document ref are saved on the order.
+- Printing: «Роздрукувати ТТН» (A4 `printDocument`) and «Наклейка 100×100» (`printMarking100x100`) call `GET /novaposhta/print/:orderId`, which downloads the PDF from my.novaposhta.ua on the server (URL format as in the NP SDKs), so the key never reaches the browser.
+- The NP client and the PDF fetcher are injectable, so API tests run on recorded-shape responses without network.
 
 ## 29. Integrations: Prom.ua orders import
 

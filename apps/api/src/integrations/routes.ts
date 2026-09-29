@@ -23,8 +23,20 @@ async function getIntegration(orgId: string, provider: string) {
   return row ?? null;
 }
 
+/** PDF from my.novaposhta.ua; a redirect (to the login page) or any non-PDF answer means it failed. */
+export type PrintPdf = (url: string) => Promise<Buffer | null>;
+export const fetchPdf: PrintPdf = async (url) => {
+  try {
+    const res = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(20_000) });
+    if (res.status !== 200 || !String(res.headers.get("content-type")).includes("pdf")) return null;
+    return Buffer.from(await res.arrayBuffer());
+  } catch {
+    return null;
+  }
+};
+
 /** /api/integrations. `call` lets tests replace the Nova Poshta network client. */
-export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promFetch, rozetka: RozetkaFetch = rozetkaFetch): FastifyPluginAsync {
+export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promFetch, rozetka: RozetkaFetch = rozetkaFetch, printPdf: PrintPdf = fetchPdf): FastifyPluginAsync {
   return async (app) => {
     app.addHook("preHandler", requireAuth);
 
@@ -130,49 +142,90 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
       return findWarehouses(n.creds.apiKey, req.query.city, String(req.query.q ?? "").slice(0, 50), call);
     });
 
-    app.patch("/novaposhta/settings", async (req, reply) => {
-      const [org] = await orgScope(req, "modules");
-      const p = z
-        .object({ cityRef: z.string().max(60), cityName: z.string().max(120), warehouseRef: z.string().max(60), warehouseName: z.string().max(300), weight: z.number().min(0.1).max(1000).optional(), description: z.string().max(100).optional() })
-        .safeParse(req.body);
-      if (!org || !p.success) return reply.code(400).send({ error: "invalid_input" });
-      const [row] = await db.update(integrations).set({ settings: p.data, updatedAt: new Date() }).where(and(eq(integrations.organizationId, org), eq(integrations.provider, "novaposhta"))).returning({ settings: integrations.settings });
-      return row ?? reply.code(409).send({ error: "not_connected" });
+    /** Resolves the customer's city and branch from the order text; exact match only, otherwise candidates. */
+    async function resolveRecipient(key: string, o: typeof orders.$inferSelect) {
+      const cities = o.delivery.city ? await findCities(key, o.delivery.city, call) : [];
+      const exact = cities.filter((c) => c.name.toLowerCase() === String(o.delivery.city).trim().toLowerCase());
+      const city = exact.length === 1 ? exact[0]! : cities.length === 1 ? cities[0]! : null;
+      const branch = String(o.delivery.branch ?? "").replace(/\D/g, "");
+      const warehouses = city ? await findWarehouses(key, city.ref, branch, call) : [];
+      const warehouse = warehouses.find((w) => w.number === branch) ?? null;
+      return { city, warehouse, cities, warehouses };
+    }
+
+    async function orderOf(org: string, id: string) {
+      const [o] = await db.select().from(orders).where(and(eq(orders.id, id), inArray(orders.organizationId, [org])));
+      return o ?? null;
+    }
+
+    /** Everything the "Оформити ТТН" form needs, prefilled: last sender address, recipient from the order, parcel. */
+    app.get<{ Params: { orderId: string } }>("/novaposhta/draft/:orderId", async (req, reply) => {
+      const [org] = await orgScope(req, "orders");
+      if (!org || !z.string().uuid().safeParse(req.params.orderId).success) return reply.code(404).send({ error: "not_found" });
+      const moduleActive = await hasModule(org, "novaposhta");
+      const n = await np(org);
+      if (!moduleActive || !n) return { moduleActive, connected: !!n };
+      const o = await orderOf(org, req.params.orderId);
+      if (!o) return reply.code(404).send({ error: "not_found" });
+      const s = n.settings;
+      return {
+        moduleActive,
+        connected: true,
+        sender: s.cityRef && s.warehouseRef ? { city: { ref: s.cityRef, name: s.cityName ?? "", area: "" }, warehouse: { ref: s.warehouseRef, name: s.warehouseName ?? "", number: "" } } : null,
+        recipient: await resolveRecipient(n.creds.apiKey, o),
+        weight: s.weight ?? 1,
+        description: s.description ?? "",
+        cod: o.payment === "cod" ? o.totalKop / 100 : 0,
+      };
     });
 
-    /** Creates a waybill for an order. Without explicit refs the recipient's city/branch are resolved from the order text. */
+    const Place = z.object({ cityRef: z.string().min(1).max(60), cityName: z.string().max(120), warehouseRef: z.string().min(1).max(60), warehouseName: z.string().max(300) });
+    const Waybill = z.object({
+      orderId: z.string().uuid(),
+      sender: Place,
+      recipient: z.object({ cityRef: z.string().min(1).max(60), warehouseRef: z.string().min(1).max(60) }),
+      weight: z.number().min(0.1).max(1000),
+      description: z.string().trim().max(100).optional(),
+    });
+
+    /** Creates the waybill from the form. The sender address, weight and description become the next defaults. */
     app.post("/novaposhta/waybill", { config: { rateLimit: { max: 30, timeWindow: "10 minutes" } } }, async (req, reply) => {
       const [org] = await orgScope(req, "orders");
-      const p = z.object({ orderId: z.string().uuid(), cityRef: z.string().max(60).optional(), warehouseRef: z.string().max(60).optional() }).safeParse(req.body);
+      const p = Waybill.safeParse(req.body);
       if (!org || !p.success) return reply.code(400).send({ error: "invalid_input" });
       if (!(await hasModule(org, "novaposhta"))) return reply.code(403).send({ error: "module_not_active" });
       const n = await np(org);
       if (!n) return reply.code(409).send({ error: "not_connected" });
-      const [o] = await db.select().from(orders).where(and(eq(orders.id, p.data.orderId), inArray(orders.organizationId, [org])));
+      const o = await orderOf(org, p.data.orderId);
       if (!o) return reply.code(404).send({ error: "not_found" });
       if (o.waybill) return reply.code(409).send({ error: "already_has_waybill" });
 
-      let cityRef = p.data.cityRef;
-      let warehouseRef = p.data.warehouseRef;
-      if (!cityRef || !warehouseRef) {
-        const cities = o.delivery.city ? await findCities(n.creds.apiKey, o.delivery.city, call) : [];
-        const exact = cities.filter((c) => c.name.toLowerCase() === String(o.delivery.city).trim().toLowerCase());
-        const city = exact.length === 1 ? exact[0] : cities.length === 1 ? cities[0] : null;
-        const branch = String(o.delivery.branch ?? "").replace(/\D/g, "");
-        const whs = city ? await findWarehouses(n.creds.apiKey, city.ref, branch, call) : [];
-        const wh = whs.find((w) => w.number === branch) ?? null;
-        if (!city || !wh) return reply.code(409).send({ error: "recipient_address_ambiguous", cities, warehouses: whs });
-        cityRef = city.ref;
-        warehouseRef = wh.ref;
-      }
-      const r = await createWaybill(n.creds.apiKey, n.creds.sender, n.settings, { customerName: o.customerName, customerPhone: o.customerPhone, totalUah: o.totalKop / 100, cod: o.payment === "cod", recipientCityRef: cityRef, recipientWarehouseRef: warehouseRef }, call);
+      const settings: NpSettings = { ...p.data.sender, weight: p.data.weight, ...(p.data.description ? { description: p.data.description } : {}) };
+      await db.update(integrations).set({ settings: { ...n.settings, ...settings }, updatedAt: new Date() }).where(and(eq(integrations.organizationId, org), eq(integrations.provider, "novaposhta")));
+      const r = await createWaybill(n.creds.apiKey, n.creds.sender, settings, { customerName: o.customerName, customerPhone: o.customerPhone, totalUah: o.totalKop / 100, cod: o.payment === "cod", recipientCityRef: p.data.recipient.cityRef, recipientWarehouseRef: p.data.recipient.warehouseRef }, call);
       if (!r.ok) {
         await db.update(integrations).set({ lastError: r.error, updatedAt: new Date() }).where(and(eq(integrations.organizationId, org), eq(integrations.provider, "novaposhta")));
         return reply.code(409).send({ error: "provider_rejected", detail: r.error });
       }
-      await db.update(orders).set({ waybill: r.number, updatedAt: new Date() }).where(eq(orders.id, o.id));
+      await db.update(orders).set({ waybill: r.number, waybillRef: r.ref, updatedAt: new Date() }).where(eq(orders.id, o.id));
       await audit(req, "order.waybill", req.auth!.user.id, { order: o.id, waybill: r.number }, org);
       return { number: r.number, cost: r.cost };
+    });
+
+    /**
+     * Printable PDF of the waybill (A4 document) or the 100x100 label, fetched from my.novaposhta.ua on the
+     * server so the API key never reaches the browser.
+     */
+    app.get<{ Params: { orderId: string }; Querystring: { kind?: string } }>("/novaposhta/print/:orderId", async (req, reply) => {
+      const [org] = await orgScope(req, "orders");
+      if (!org || !z.string().uuid().safeParse(req.params.orderId).success) return reply.code(404).send({ error: "not_found" });
+      const n = await np(org);
+      const o = await orderOf(org, req.params.orderId);
+      if (!n || !o?.waybill) return reply.code(404).send({ error: "not_found" });
+      const kind = req.query.kind === "marking" ? "printMarking100x100" : "printDocument";
+      const pdf = await printPdf(`https://my.novaposhta.ua/orders/${kind}/orders[]/${encodeURIComponent(o.waybillRef ?? o.waybill)}/type/pdf/apiKey/${n.creds.apiKey}`);
+      if (!pdf) return reply.code(409).send({ error: "print_failed" });
+      return reply.header("content-type", "application/pdf").header("content-disposition", `inline; filename="ttn-${o.waybill}.pdf"`).header("cache-control", "private, no-store").send(pdf);
     });
   };
 }

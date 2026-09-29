@@ -63,8 +63,9 @@ ok(res.status === 201 && order.total === 2200, `order total comes from the serve
 
 await nav("Замовлення");
 await pg.locator(".ok-row", { hasText: "Олена Покупець" }).click();
-await pg.getByRole("button", { name: "Створити ТТН" }).click();
-ok(await pg.getByText("Підключіть модуль «Нова пошта»").waitFor({ timeout: 5000 }).then(() => true, () => false), "waybill button explains the missing module");
+await pg.getByRole("button", { name: "Оформити ТТН" }).click();
+ok(await pg.getByText("Щоб оформлювати ТТН, підключіть модуль «Нова пошта».").waitFor({ timeout: 5000 }).then(() => true, () => false), "waybill button explains the missing module");
+ok(await pg.getByRole("link", { name: "Перейти в Модулі" }).isVisible(), "link to Modules offered");
 await pg.getByRole("button", { name: /Далі: Підтверджене/ }).click();
 await pg.locator(".ok-detail .ok-pill", { hasText: "Підтверджене" }).first().waitFor();
 await pg.getByLabel("Номер ТТН").fill("20450012345678");

@@ -8,9 +8,8 @@ import { api, latestOnly } from "@/lib/api";
 import { playSound } from "@/lib/sound";
 import { Panel, useFlash, useFormat } from "@/features/oneknight/ui/kit";
 
-type Item = { provider: string; available: boolean; status: string; settings: NpSettings & PromSettings; lastError: string | null; connectedAt: string | null };
+type Item = { provider: string; available: boolean; status: string; settings: PromSettings; lastError: string | null; connectedAt: string | null };
 type PromSettings = { lastSyncAt?: string };
-type NpSettings = { cityRef?: string; cityName?: string; warehouseRef?: string; warehouseName?: string; weight?: number; description?: string };
 export type NpCity = { ref: string; name: string; area: string };
 export type NpWarehouse = { ref: string; name: string; number: string };
 export type NpPick = { city: NpCity | null; warehouse: NpWarehouse | null };
@@ -67,6 +66,7 @@ export function NpPicker({ labels, value, onChange, initialCities = [], initialW
   );
 }
 
+/** Only the key lives here; sender address, weight and printing are in the order («Оформити ТТН»). */
 function NovaPoshta({ item, reload }: { item: Item; reload: () => void }) {
   const d = useDict();
   const t = d.app.integrations;
@@ -74,13 +74,6 @@ function NovaPoshta({ item, reload }: { item: Item; reload: () => void }) {
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
-  const s = item.settings;
-  const [pick, setPick] = useState<NpPick>({
-    city: s.cityRef ? { ref: s.cityRef, name: s.cityName ?? "", area: "" } : null,
-    warehouse: s.warehouseRef ? { ref: s.warehouseRef, name: s.warehouseName ?? "", number: "" } : null,
-  });
-  const [weight, setWeight] = useState(String(s.weight ?? 1));
-  const [desc, setDesc] = useState(s.description ?? "");
   const connected = item.status === "connected";
 
   const connect = async (e: FormEvent) => {
@@ -95,15 +88,6 @@ function NovaPoshta({ item, reload }: { item: Item; reload: () => void }) {
     }
     playSound("success");
     setKey("");
-    reload();
-  };
-  const save = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!pick.city || !pick.warehouse) return show(t.needSettings, "warn");
-    const r = await api("/integrations/novaposhta/settings", { method: "PATCH", body: { cityRef: pick.city.ref, cityName: pick.city.name, warehouseRef: pick.warehouse.ref, warehouseName: pick.warehouse.name, weight: Number(weight.replace(",", ".")) || 1, ...(desc.trim() ? { description: desc.trim() } : {}) } });
-    if (!r.ok) return playSound("error");
-    playSound("success");
-    show(t.saved);
     reload();
   };
   const disconnect = async () => {
@@ -122,16 +106,10 @@ function NovaPoshta({ item, reload }: { item: Item; reload: () => void }) {
           <button className="btn btn-sm" type="submit" disabled={busy || key.trim().length < 32} style={{ justifySelf: "start" }}>{busy ? t.checking : t.connect}</button>
         </form>
       ) : (
-        <form className="grid gap-3" onSubmit={save}>
-          {!s.warehouseRef && <p className="ok-note">{t.needSettings}</p>}
-          <NpPicker labels={{ city: t.senderCity, branch: t.senderBranch }} value={pick} onChange={setPick} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label={t.weight}>{(p) => <input {...p} className="input" inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} />}</Field>
-            <Field label={t.description}>{(p) => <input {...p} className="input" maxLength={100} value={desc} onChange={(e) => setDesc(e.target.value)} />}</Field>
-          </div>
+        <div className="grid gap-3">
+          <p className="ok-note">{t.npReady}</p>
           {item.lastError && <p className="ok-note">{t.lastError}: {item.lastError}</p>}
           <div className="ok-actions">
-            <button className="btn btn-sm" type="submit">{t.saveSettings}</button>
             {confirm ? (
               <>
                 <span className="ok-muted">{t.confirmDisconnect}</span>
@@ -141,7 +119,7 @@ function NovaPoshta({ item, reload }: { item: Item; reload: () => void }) {
               <button type="button" className="btn btn-sm btn-secondary" onClick={() => setConfirm(true)}>{t.disconnect}</button>
             )}
           </div>
-        </form>
+        </div>
       )}
       {flash}
     </Panel>

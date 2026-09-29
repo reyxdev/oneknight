@@ -11,7 +11,7 @@ import { readImage } from "@/lib/files";
 import { playSound } from "@/lib/sound";
 import { Empty, Panel, StatusPill, useFlash, useFormat } from "@/features/oneknight/ui/kit";
 import { useSites, type SiteInfo } from "./SiteScreen";
-import { NpPicker, type NpCity, type NpPick, type NpWarehouse } from "./Integrations";
+import { WaybillForm, WaybillPrint } from "./Waybill";
 
 type Product = { id: string; name: string; description: string; price: number; stock: number | null; active: boolean; photo: string | null };
 type Draft = { name: string; description: string; price: string; stock: string; active: boolean; photo: { name: string; data: string } | null; photoUrl: string | null };
@@ -149,6 +149,7 @@ type OrderRow = { id: string; number: number; customerName: string; totalKop: nu
 type Status = "new" | "confirmed" | "paid" | "shipped" | "done" | "cancelled";
 type OrderFull = OrderRow & {
   externalId: string | null;
+  waybillRef: string | null;
   customerPhone: string;
   customerEmail: string | null;
   items: { productId: string; name: string; qty: number; priceKop: number }[];
@@ -170,9 +171,6 @@ function OrderDetail({ id, onChanged }: { id: string; onChanged: () => void }) {
   const [o, setO] = useState<OrderFull | null>(null);
   const [waybill, setWaybill] = useState("");
   const [w, setW] = useState({ enabled: false, until: "", note: "" });
-  const [busy, setBusy] = useState(false);
-  const [ambiguous, setAmbiguous] = useState<{ cities: NpCity[]; warehouses: NpWarehouse[] } | null>(null);
-  const [pick, setPick] = useState<NpPick>({ city: null, warehouse: null });
   const load = useCallback(async () => {
     const r = await api<OrderFull>(`/shop/orders/${id}`);
     if (r.ok) {
@@ -199,24 +197,6 @@ function OrderDetail({ id, onChanged }: { id: string; onChanged: () => void }) {
     onChanged();
   };
   const next = FLOW[FLOW.indexOf(o.status) + 1];
-  const makeWaybill = async (refs?: { cityRef: string; warehouseRef: string }) => {
-    setBusy(true);
-    const r = await api<{ number: string }>("/integrations/novaposhta/waybill", { method: "POST", body: { orderId: id, ...refs } });
-    setBusy(false);
-    if (r.ok) {
-      playSound("success");
-      setAmbiguous(null);
-      show(t.waybillCreated.replace("{n}", r.data.number));
-    } else if (r.error === "recipient_address_ambiguous") {
-      setAmbiguous(r.body as { cities: NpCity[]; warehouses: NpWarehouse[] });
-    } else {
-      playSound("error");
-      const detail = (r.body as { detail?: string } | undefined)?.detail;
-      show(`${(t.waybillErrors as Record<string, string>)[r.error] ?? d.app.auth.errors.server_error}${detail ? `: ${detail}` : ""}`, "warn");
-    }
-    void load();
-    onChanged();
-  };
   return (
     <Panel className="ok-detail" title={<>#{o.number} · {o.customerName}</>}>
       <div className="ok-kv">
@@ -244,18 +224,12 @@ function OrderDetail({ id, onChanged }: { id: string; onChanged: () => void }) {
           </select>
         </label>
       </div>
-      {!o.waybill && o.delivery.method === "novaposhta" && o.status !== "cancelled" && (
-        <div className="grid gap-3">
-          {ambiguous && (
-            <>
-              <p className="ok-note">{t.pickRecipient}</p>
-              <NpPicker labels={{ city: t.recipientCity, branch: t.recipientBranch }} value={pick} onChange={setPick} initialCities={ambiguous.cities} initialWarehouses={ambiguous.warehouses} />
-            </>
-          )}
-          <button type="button" className="btn btn-sm" style={{ justifySelf: "start" }} disabled={busy || (!!ambiguous && !pick.warehouse)} onClick={() => makeWaybill(ambiguous && pick.city && pick.warehouse ? { cityRef: pick.city.ref, warehouseRef: pick.warehouse.ref } : undefined)}>
-            {busy ? t.creatingWaybill : t.createWaybill}
-          </button>
-        </div>
+      {o.delivery.method === "novaposhta" && o.status !== "cancelled" && (
+        o.waybillRef ? (
+          <div className="ok-actions"><b className="num">{t.waybill}: {o.waybill}</b><WaybillPrint orderId={o.id} /></div>
+        ) : !o.waybill ? (
+          <WaybillForm orderId={o.id} notify={show} onCreated={() => { void load(); onChanged(); }} />
+        ) : null
       )}
       <form className="grid gap-3" onSubmit={(e) => { e.preventDefault(); void patch({ waybill: waybill.trim() || null, warranty: { enabled: w.enabled, ...(w.until ? { until: w.until } : {}), ...(w.note ? { note: w.note } : {}) } }, t.saved); }}>
         <Field label={t.waybill}>{(p) => <input {...p} className="input" inputMode="numeric" value={waybill} onChange={(e) => setWaybill(e.target.value)} />}</Field>

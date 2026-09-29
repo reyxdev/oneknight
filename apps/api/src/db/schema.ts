@@ -354,6 +354,8 @@ export const orders = pgTable(
     /** Warranty is stored as data only: the seller sets the terms. */
     warranty: jsonb("warranty").notNull().default(sql`'{"enabled":false}'::jsonb`).$type<{ enabled: boolean; until?: string; note?: string }>(),
     waybill: text("waybill"),
+    /** Nova Poshta document ref when the waybill was created from ONEKNIGHT (used for printing). */
+    waybillRef: text("waybill_ref"),
     ip: inet("ip"),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

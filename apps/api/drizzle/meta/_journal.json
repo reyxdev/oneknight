@@ -134,6 +134,13 @@
       "when": 1790663306797,
       "tag": "0018_telegram_links",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790669258976,
+      "tag": "0019_waybill_ref",
+      "breakpoints": true
     }
   ]
 }

@@ -141,7 +141,7 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
     if (p.data.waybill !== undefined || p.data.warranty) {
       await db
         .update(orders)
-        .set({ ...(p.data.waybill !== undefined ? { waybill: p.data.waybill } : {}), ...(p.data.warranty ? { warranty: p.data.warranty } : {}), updatedAt: new Date() })
+        .set({ ...(p.data.waybill !== undefined ? { waybill: p.data.waybill, waybillRef: null } : {}), ...(p.data.warranty ? { warranty: p.data.warranty } : {}), updatedAt: new Date() })
         .where(and(eq(orders.id, req.params.id), inArray(orders.organizationId, orgs)));
     }
     return { ok: true };

@@ -24,7 +24,8 @@ const fake: NpCall = async (apiKey, model, method, props) => {
   return { success: false, data: [], errors: ["unexpected"] };
 };
 
-const app = await buildApp({ logger: false }, { npCall: fake });
+const printed: string[] = [];
+const app = await buildApp({ logger: false }, { npCall: fake, printPdf: async (url) => (printed.push(url), Buffer.from("%PDF-1.4 test")) });
 const ORIGIN = "http://localhost:3000";
 const tag = `np${Date.now()}`;
 after(async () => {
@@ -56,30 +57,45 @@ test("Nova Poshta: connect with a real-shaped key check, sender address, waybill
   assert.equal(list.find((x: { provider: string }) => x.provider === "novaposhta").status, "connected");
   assert.ok(!JSON.stringify(list).includes(KEY), "key never returned");
 
-  const cities = (await app.inject({ url: "/api/integrations/novaposhta/cities?q=Київ", headers: { cookie } })).json();
-  const whs = (await app.inject({ url: `/api/integrations/novaposhta/warehouses?city=${cities[0].ref}&q=5`, headers: { cookie } })).json();
-  await app.inject({ method: "PATCH", url: "/api/integrations/novaposhta/settings", payload: { cityRef: cities[0].ref, cityName: cities[0].name, warehouseRef: whs[0].ref, warehouseName: whs[0].name, weight: 1.5 }, headers: H });
-
   // An order from the website with a text address
   const [site] = await db.insert(sites).values({ organizationId: org, domain: `${tag}.shop.com.ua`, name: "S" }).returning();
   const prod = (await app.inject({ method: "POST", url: `/api/shop/sites/${site!.id}/products`, payload: { name: "Хлібниця", price: 1100 }, headers: H })).json();
   await app.inject({ method: "POST", url: "/api/public/orders", payload: { customer: { name: "Олена Коваль", phone: "067 111 22 33" }, items: [{ productId: prod.id, qty: 1 }], delivery: { method: "novaposhta", city: "Львів", branch: "№ 5" }, payment: "cod" }, headers: { "x-site-key": site!.publicKey } });
   const orderId = (await app.inject({ url: "/api/shop/orders", headers: { cookie } })).json()[0].id;
 
-  assert.equal((await app.inject({ method: "POST", url: "/api/integrations/novaposhta/waybill", payload: { orderId }, headers: H })).json().error, "module_not_active");
+  assert.deepEqual((await app.inject({ url: `/api/integrations/novaposhta/draft/${orderId}`, headers: { cookie } })).json(), { moduleActive: false, connected: true });
   await startTrial(org);
   await installModule(org, "novaposhta");
+
+  // The form is prefilled: recipient matched exactly (branch 5, not 50), cash on delivery = order total, no sender yet.
+  const draft = (await app.inject({ url: `/api/integrations/novaposhta/draft/${orderId}`, headers: { cookie } })).json();
+  assert.equal(draft.sender, null);
+  assert.deepEqual([draft.recipient.city.ref, draft.recipient.warehouse.ref, draft.cod, draft.weight], ["city-lviv", "wh-city-lviv-5", 1100, 1]);
+
+  const cities = (await app.inject({ url: "/api/integrations/novaposhta/cities?q=Київ", headers: { cookie } })).json();
+  const whs = (await app.inject({ url: `/api/integrations/novaposhta/warehouses?city=${cities[0].ref}&q=5`, headers: { cookie } })).json();
+  const body = { orderId, sender: { cityRef: cities[0].ref, cityName: cities[0].name, warehouseRef: whs[0].ref, warehouseName: whs[0].name }, recipient: { cityRef: draft.recipient.city.ref, warehouseRef: draft.recipient.warehouse.ref }, weight: 1.5, description: "Хлібниця" };
   calls.length = 0;
-  const w = await app.inject({ method: "POST", url: "/api/integrations/novaposhta/waybill", payload: { orderId }, headers: H });
+  const w = await app.inject({ method: "POST", url: "/api/integrations/novaposhta/waybill", payload: body, headers: H });
   assert.equal(w.json().number, "20450000000001");
   const doc = calls.find((c) => c.method === "save" && c.model === "InternetDocument")!.props;
   assert.equal(doc.CityRecipient, "city-lviv");
-  assert.equal(doc.RecipientAddress, "wh-city-lviv-5", "branch №5 resolved exactly, not №50");
+  assert.equal(doc.RecipientAddress, "wh-city-lviv-5");
+  assert.equal(doc.SenderAddress, "wh-city-kyiv-5");
   assert.equal(doc.RecipientsPhone, "380671112233");
   assert.equal(doc.Weight, "1.5");
+  assert.equal(doc.Description, "Хлібниця");
   assert.deepEqual(doc.BackwardDeliveryData, [{ PayerType: "Recipient", CargoType: "Money", RedeliveryString: "1100" }], "cash on delivery");
   assert.equal(calls.find((c) => c.model === "Counterparty" && c.method === "save")!.props.LastName, "Коваль");
   assert.equal((await app.inject({ url: `/api/shop/orders/${orderId}`, headers: { cookie } })).json().waybill, "20450000000001");
-  assert.equal((await app.inject({ method: "POST", url: "/api/integrations/novaposhta/waybill", payload: { orderId }, headers: H })).json().error, "already_has_waybill");
+  assert.equal((await app.inject({ method: "POST", url: "/api/integrations/novaposhta/waybill", payload: body, headers: H })).json().error, "already_has_waybill");
+  // The sender address is remembered for the next order.
+  assert.equal((await app.inject({ url: `/api/integrations/novaposhta/draft/${orderId}`, headers: { cookie } })).json().sender.warehouse.ref, "wh-city-kyiv-5");
+
+  // Printing goes through the API, the key stays on the server.
+  const pdf = await app.inject({ url: `/api/integrations/novaposhta/print/${orderId}?kind=marking`, headers: { cookie } });
+  assert.equal(pdf.headers["content-type"], "application/pdf");
+  assert.equal(printed.at(-1), `https://my.novaposhta.ua/orders/printMarking100x100/orders[]/doc-ref/type/pdf/apiKey/${KEY}`);
+  assert.ok(!pdf.body.includes(KEY));
   await db.delete(sites).where(eq(sites.id, site!.id));
 });
