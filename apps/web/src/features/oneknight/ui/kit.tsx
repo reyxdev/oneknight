@@ -73,19 +73,19 @@ export function Empty({ icon, text, action }: { icon: IconName; text: string; ac
 }
 
 /** Two-series area/line chart. Plain SVG, scales to its container. */
-export function AreaChart({ a, b, labelA, labelB, height = 180 }: { a: number[]; b: number[]; labelA: string; labelB: string; height?: number }) {
+export function AreaChart({ a, b, labelA, labelB, height = 180 }: { a: number[]; b?: number[]; labelA: string; labelB?: string; height?: number }) {
   const id = useId().replace(/:/g, "");
   const W = 600;
   const H = height;
   const pad = 6;
   const maxA = Math.max(...a) * 1.1;
-  const maxB = Math.max(...b) * 1.6;
+  const maxB = b ? Math.max(...b) * 1.6 : 1;
   const x = (i: number, n: number) => pad + (i / Math.max(1, n - 1)) * (W - pad * 2);
   const path = (arr: number[], max: number) => arr.map((v, i) => `${i ? "L" : "M"}${x(i, arr.length).toFixed(1)},${(H - pad - (v / max) * (H - pad * 2)).toFixed(1)}`).join("");
   const la = path(a, maxA);
   return (
     <figure className="ok-chart" key={a.length}>
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={`${labelA}, ${labelB}`}>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={labelB ? `${labelA}, ${labelB}` : labelA}>
         <defs>
           <linearGradient id={`g${id}`} x1="0" x2="0" y1="0" y2="1">
             <stop offset="0" stopColor="var(--ok-accent)" stopOpacity="0.28" />
@@ -97,11 +97,11 @@ export function AreaChart({ a, b, labelA, labelB, height = 180 }: { a: number[];
         ))}
         <path d={`${la}L${x(a.length - 1, a.length)},${H}L${x(0, a.length)},${H}Z`} fill={`url(#g${id})`} className="ok-chart-area" />
         <path d={la} fill="none" stroke="var(--ok-accent)" strokeWidth="2.5" vectorEffect="non-scaling-stroke" className="ok-chart-line" pathLength={1} />
-        <path d={path(b, maxB)} fill="none" stroke="var(--fg)" strokeOpacity="0.55" strokeWidth="1.8" strokeDasharray="4 4" vectorEffect="non-scaling-stroke" />
+        {b && <path d={path(b, maxB)} fill="none" stroke="var(--fg)" strokeOpacity="0.55" strokeWidth="1.8" strokeDasharray="4 4" vectorEffect="non-scaling-stroke" />}
       </svg>
       <figcaption className="ok-legend">
         <span><i style={{ background: "var(--ok-accent)" }} />{labelA}</span>
-        <span><i style={{ background: "var(--fg)", opacity: 0.55 }} />{labelB}</span>
+        {labelB && <span><i style={{ background: "var(--fg)", opacity: 0.55 }} />{labelB}</span>}
       </figcaption>
     </figure>
   );

@@ -1,6 +1,7 @@
 // Real account flow through the browser: npm run build, API running, npm run serve. BASE defaults to :8080.
 import { chromium } from "playwright-core";
 import { generate } from "otplib";
+import { execSync } from "node:child_process";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
 const b = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox"] });
@@ -92,6 +93,8 @@ await A.getByText(/Заявку №\d+ отримано/).waitFor();
 ok(true, "anonymous request from the site is stored");
 await anon.close();
 
+// Remove this run's test data from the local database.
+execSync(`docker exec oneknight-db psql -U oneknight -d oneknight -qc "delete from leads where email='${email}' or name='Анонім E2E'; delete from organizations where id in (select organization_id from memberships m join users u on u.id=m.user_id where u.email='${email}'); delete from users where email='${email}'; delete from login_events where email_attempted='${email}';"`);
 console.log("errors:", errs.length ? errs : "none");
 if (errs.length || failed) process.exitCode = 1;
 await b.close();

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, inet, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, inet, integer, jsonb, pgEnum, pgTable, primaryKey, smallint, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 /*
  * First slice of the ONEKNIGHT schema: accounts, organizations, sessions, login history, audit log.
@@ -7,6 +7,7 @@ import { boolean, index, inet, integer, jsonb, pgEnum, pgTable, primaryKey, text
  */
 
 export const roleEnum = pgEnum("member_role", ["owner", "manager", "marketer"]);
+export const siteStatusEnum = pgEnum("site_status", ["building", "live", "paused"]);
 export const leadStatusEnum = pgEnum("lead_status", ["new", "in_progress", "won", "lost"]);
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
@@ -125,4 +126,52 @@ export const leads = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("leads_user_idx").on(t.userId, t.createdAt), index("leads_status_idx").on(t.status, t.createdAt), index("leads_ip_idx").on(t.ip, t.createdAt)],
+);
+
+/** A client's website. Belongs to an organization; one organization can have several sites. */
+export const sites = pgTable(
+  "sites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    domain: text("domain").notNull(),
+    name: text("name").notNull(),
+    status: siteStatusEnum("status").notNull().default("live"),
+    /** Result of the last check, cached for quick lists and for detecting up/down transitions. */
+    lastUp: boolean("last_up"),
+    lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("sites_domain_uq").on(t.domain), index("sites_org_idx").on(t.organizationId)],
+);
+
+/** One monitoring probe: HTTPS availability, response time, TLS certificate expiry. */
+export const monitorChecks = pgTable(
+  "monitor_checks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    siteId: uuid("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+    checkedAt: timestamp("checked_at", { withTimezone: true }).notNull().defaultNow(),
+    up: boolean("up").notNull(),
+    statusCode: smallint("status_code"),
+    responseMs: integer("response_ms"),
+    sslValidTo: timestamp("ssl_valid_to", { withTimezone: true }),
+    error: text("error"),
+  },
+  (t) => [index("monitor_site_time_idx").on(t.siteId, t.checkedAt)],
+);
+
+/** In-account notifications. Keyed messages (rendered in the user's language), with parameters. */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    key: text("key").notNull(),
+    params: jsonb("params").notNull().default(sql`'{}'::jsonb`),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("notifications_org_idx").on(t.organizationId, t.createdAt)],
 );

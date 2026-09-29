@@ -2,6 +2,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { eq, like } from "drizzle-orm";
 import { buildApp } from "../app.ts";
+import { cleanupTestUsers } from "../test-utils.ts";
 import { db, sql } from "../db/client.ts";
 import { leads, loginEvents, users } from "../db/schema.ts";
 
@@ -13,8 +14,7 @@ const brief = { service: "website", siteType: "shop", business: "Сувенір�
 
 after(async () => {
   await db.delete(leads).where(like(leads.name, "LeadTest%"));
-  await db.delete(loginEvents).where(eq(loginEvents.emailAttempted, mail));
-  await db.delete(users).where(eq(users.email, mail));
+  await cleanupTestUsers(mail);
   await app.close();
   await sql.end();
 });

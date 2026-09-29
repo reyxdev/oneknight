@@ -338,3 +338,12 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 - The modal sends the brief to ONEKNIGHT; if the server is unreachable it offers the messenger hand-off, so a request is never lost.
 - Telegram alert to the owner when `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are set; silently off otherwise.
 - Admin role: `users.is_admin`, granted with `npm run admin:grant -w @oneknight/api -- email`.
+
+## 19. Client sites, monitoring, notifications
+
+- Tables `sites` (per organization, unique domain, status building / live / paused), `monitor_checks`, `notifications`.
+- Monitor (in-process, every `MONITOR_INTERVAL_MIN`, default 5): HTTPS GET of the home page (up = 2xx/3xx within 10 s), response time, TLS certificate expiry. Checks older than 90 days are deleted. Only public hostnames are accepted (no IPs, no local names), so the monitor cannot be pointed at private networks.
+- Up/down transitions and SSL expiring within 14 days create in-account notifications and, when configured, a Telegram line to the owner.
+- Account: "Сайт" screen (status, 30-day availability, 24-hour average response, SSL days, response chart, what is checked), home summary, notification bell (polls every 30 s).
+- Admin: "Клієнти й сайти": organizations with owner contacts, add site, check now, pause/resume, delete.
+- Not claimed anywhere: backups (need access to the hosting), API and error monitoring. They arrive when sites run on ONEKNIGHT hosting.

@@ -23,13 +23,13 @@ await pg.getByRole("radio", { name: /Корпоративний сайт/ }).cli
 await pg.getByRole("button", { name: /Розрахувати мій сайт/ }).click();
 await pg.waitForTimeout(300);
 const B = pg.locator("dialog[open]");
-await B.getByRole("button", { name: "Далі" }).click();
+await B.getByRole("button", { name: "Надіслати заявку" }).click();
 ok(await B.getByText("Опишіть коротко").count() === 1, "brief validation");
 await B.getByLabel("Чим займається бізнес?").fill("Робимо сувеніри з дерева");
-await B.getByRole("button", { name: "Далі" }).click();
+await B.getByRole("button", { name: "Або надіслати бриф у месенджер" }).click();
 await pg.waitForTimeout(300);
 const tg = await B.getByRole("link", { name: "Відкрити Telegram" }).getAttribute("href");
-ok(tg?.startsWith("https://t.me/poulpefounder?text=") && decodeURIComponent(tg).includes("сувеніри"), "telegram handoff link prefilled");
+ok(tg?.startsWith("https://t.me/poulpefounder?text=") && decodeURIComponent(tg).includes("сувеніри"), "messenger hand-off link prefilled");
 await B.getByRole("button", { name: "Назад" }).click();
 ok((await pg.locator("dialog[open]").getByLabel("Який сайт потрібен?").inputValue()) === "corporate", "calculator preselects site type");
 await pg.keyboard.press("Escape");

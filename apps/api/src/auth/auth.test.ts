@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { generate } from "otplib";
 import { like } from "drizzle-orm";
 import { buildApp } from "../app.ts";
+import { cleanupTestUsers } from "../test-utils.ts";
 import { db, sql } from "../db/client.ts";
 import { loginEvents, users } from "../db/schema.ts";
 
@@ -13,8 +14,7 @@ const ORIGIN = "http://localhost:3000";
 
 after(async () => {
   // Clean up only this file's data: test files run in parallel.
-  await db.delete(loginEvents).where(like(loginEvents.emailAttempted, `${tag}%`));
-  await db.delete(users).where(like(users.email, `${tag}%`));
+  await cleanupTestUsers(tag);
   await app.close();
   await sql.end();
 });

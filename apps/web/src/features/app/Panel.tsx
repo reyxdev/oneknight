@@ -9,10 +9,14 @@ import type { Me } from "@/lib/api";
 import { Panel } from "@/features/oneknight/ui/kit";
 import { Security } from "./Security";
 import { AdminLeads, MyLeads } from "./Leads";
+import { SiteScreen, siteState, useSites } from "./SiteScreen";
+import { Clients } from "./Clients";
+import { Bell } from "./Bell";
 
-type Screen = "home" | "security" | "account" | "admin";
+type Screen = "home" | "site" | "security" | "account" | "admin" | "clients";
 const NAV: { id: Screen; icon: IconName }[] = [
   { id: "home", icon: "home" },
+  { id: "site", icon: "globe" },
   { id: "security", icon: "shield" },
   { id: "account", icon: "person" },
 ];
@@ -24,8 +28,9 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
   const lang = useLang();
   const [screen, setScreen] = useState<Screen>("home");
   const org = me.organizations[0];
-  const nav = me.isAdmin ? [...NAV, { id: "admin" as const, icon: "table" as IconName }] : NAV;
-  const label = (id: Screen) => (id === "admin" ? t.admin.nav : t.nav[id]);
+  const nav = me.isAdmin ? [...NAV, { id: "admin" as const, icon: "table" as IconName }, { id: "clients" as const, icon: "layers" as IconName }] : NAV;
+  const label = (id: Screen) => (id === "admin" ? t.admin.nav : id === "clients" ? t.clients.nav : id === "site" ? t.site.title : t.nav[id]);
+  const { sites } = useSites();
 
   return (
     <div className="app-shell">
@@ -49,6 +54,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             <b className="app-org">{org?.name ?? me.name}</b>
             <span className="ok-grow" />
             <span className="app-user"><Icon name="person" size={16} />{me.email}</span>
+            <Bell />
           </header>
           <div className="ok-content" key={screen}>
             {screen === "home" && (
@@ -58,7 +64,24 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
                   <p>{t.home.lead}</p>
                 </div>
                 <div className="ok-grid-2">
-                  <Panel title={t.home.siteTitle}><p className="ok-muted">{t.home.siteEmpty}</p></Panel>
+                  <Panel title={t.home.siteTitle} action={sites?.length ? <button type="button" className="ok-link" onClick={() => setScreen("site")}>{sites[0]!.domain}</button> : undefined}>
+                    {sites?.length ? (
+                      <ul className="ok-list">
+                        {sites.map((s) => {
+                          const st = siteState(s);
+                          return (
+                            <li key={s.id}>
+                              <i className="ok-state" data-s={st.tone === "ok" ? "ok" : st.tone === "bad" ? "bad" : "warn"} aria-hidden="true" />
+                              <span className="ok-grow"><b>{s.domain}</b></span>
+                              <span className="ok-muted">{t.site[st.key]}</span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : (
+                      <p className="ok-muted">{t.home.siteEmpty}</p>
+                    )}
+                  </Panel>
                   <MyLeads />
                 </div>
                 <div className="ok-grid-2">
@@ -81,6 +104,8 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             )}
             {screen === "security" && <Security me={me} onChange={onChange} />}
             {screen === "admin" && me.isAdmin && <AdminLeads />}
+            {screen === "clients" && me.isAdmin && <Clients />}
+            {screen === "site" && <SiteScreen />}
             {screen === "account" && (
               <div className="ok-screen">
                 <div className="ok-h"><h3>{t.account.title}</h3></div>

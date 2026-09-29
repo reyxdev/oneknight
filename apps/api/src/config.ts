@@ -11,6 +11,8 @@ const Env = z.object({
   /** Optional. When both are set, new leads are announced in this Telegram chat. */
   TELEGRAM_BOT_TOKEN: z.string().optional().transform((v) => v || undefined),
   TELEGRAM_CHAT_ID: z.string().optional().transform((v) => v || undefined),
+  /** Minutes between monitoring rounds. 0 disables the in-process monitor. */
+  MONITOR_INTERVAL_MIN: z.coerce.number().int().min(0).default(5),
   COOKIE_SECURE: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
 });
 
