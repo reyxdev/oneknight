@@ -5,7 +5,7 @@ import { useDict } from "@/i18n/provider";
 import { fmt } from "@/i18n";
 import { Icon } from "@/components/ui/Icon";
 import { Segmented } from "@/components/ui/Toggle";
-import { api } from "@/lib/api";
+import { api, latestOnly } from "@/lib/api";
 import { Empty, Panel, useFormat } from "@/features/oneknight/ui/kit";
 import { useBilling } from "./Billing";
 import { useSites } from "./SiteScreen";
@@ -80,10 +80,12 @@ export function ReviewsScreen({ goModules }: { goModules: () => void }) {
   const [rows, setRows] = useState<Review[] | null>(null);
   const [creative, setCreative] = useState<string | null>(null);
   const active = !!billing?.modules.some((m) => m.id === "reviews");
+  const [next] = useState(latestOnly);
   const load = useCallback(async () => {
+    const isLatest = next();
     const r = await api<Review[]>(`/reviews?status=${tab}`);
-    if (r.ok) setRows(r.data);
-  }, [tab]);
+    if (r.ok && isLatest()) setRows(r.data);
+  }, [tab, next]);
   useEffect(() => {
     void load();
   }, [load]);

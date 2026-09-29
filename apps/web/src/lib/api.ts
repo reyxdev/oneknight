@@ -31,3 +31,12 @@ export type Me = {
 
 /** Non-secret hint cookie set by the API next to the HttpOnly session. Lets static pages show "Відкрити ONEKNIGHT". */
 export const hasAuthHint = () => typeof document !== "undefined" && /(?:^|;\s*)ok_auth=1/.test(document.cookie);
+
+/** Guards list loaders against out-of-order responses: only the latest request may update the state. */
+export function latestOnly() {
+  let seq = 0;
+  return () => {
+    const my = ++seq;
+    return () => my === seq;
+  };
+}

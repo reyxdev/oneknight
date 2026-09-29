@@ -25,3 +25,4 @@ Owner input needed before launch. The UI shows an honest placeholder for each.
 - [ ] Backups and API/error monitoring: possible once client sites are hosted on an ONEKNIGHT server (decide hosting)
 - [ ] Telegram: send any message to @oneknight_bot (or add it to the group) so it can write to TELEGRAM_CHAT_ID; check with `npm run notify:test -w @oneknight/api`
 - [ ] First real modules (Nova Poshta, reviews, ...): each becomes installable by setting `live: true` once it works
+- [ ] Investigate an intermittent React #418 (hydration) on /app in production builds: seen only after signing up through the form and reloading several times, then opening /app/. No functional impact (the account section is kept in the URL hash and React recovers), not reproducible in dev

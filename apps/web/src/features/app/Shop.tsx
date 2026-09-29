@@ -6,7 +6,7 @@ import { formatUAH } from "@/data/pricing";
 import { Icon } from "@/components/ui/Icon";
 import { Field } from "@/components/ui/Field";
 import { Toggle } from "@/components/ui/Toggle";
-import { api } from "@/lib/api";
+import { api, latestOnly } from "@/lib/api";
 import { readImage } from "@/lib/files";
 import { playSound } from "@/lib/sound";
 import { Empty, Panel, StatusPill, useFlash, useFormat } from "@/features/oneknight/ui/kit";
@@ -248,10 +248,12 @@ export function OrdersScreen() {
   const [filter, setFilter] = useState<Status | "all">("all");
   const [rows, setRows] = useState<OrderRow[] | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const [next] = useState(latestOnly);
   const load = useCallback(async () => {
+    const isLatest = next();
     const r = await api<OrderRow[]>(`/shop/orders${filter === "all" ? "" : `?status=${filter}`}`);
-    if (r.ok) setRows(r.data);
-  }, [filter]);
+    if (r.ok && isLatest()) setRows(r.data);
+  }, [filter, next]);
   useEffect(() => {
     void load();
     const id = setInterval(load, 30_000);

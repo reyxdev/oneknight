@@ -383,3 +383,10 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 - Channel mapping (`channelOf`): utm_source aliases and referrer hosts to Instagram, Facebook, Google, Telegram, TikTok, YouTube, Viber, email, other search, direct, or `other:<host>`.
 - Tracking script `apps/web/public/ok.js` (about 2.5 KB) served from oneknight.pro. Orders from the public API carry `analytics` and become "order" events with revenue.
 - Account «Аналітика»: visitors, requests, sales, revenue, conversion, chart, sources in plain language with correct Ukrainian plurals, raw UTM toggle, install instructions.
+
+## 25. Account home: real dashboard and insights
+
+- `GET /api/dashboard`: orders today (Kyiv date), waiting new orders, 30-day sales, latest orders, 30-day visitors and daily series (with the analytics module), sites with monitoring, and insights.
+- Insights (`insightsFor`) are rules over the organization's own data only: site down, SSL expiring, billing grace/suspension, new orders waiting over a day, low / no stock, pending reviews, week-over-week conversion change (only with at least 50 visits in both weeks), a channel growing 30%+ (at least 10 visits before). With no data there are no insights. "Зроблено" hides an insight for 7 days (`insight_dismissals`).
+- The current account section is kept in the URL hash (`/app/#orders`): refresh, back/forward and direct links work; logout clears it.
+- Lists guard against out-of-order responses (`latestOnly`).

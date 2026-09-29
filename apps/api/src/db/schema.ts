@@ -405,3 +405,14 @@ export const analyticsEvents = pgTable(
   },
   (t) => [index("analytics_site_time_idx").on(t.siteId, t.createdAt), index("analytics_site_session_idx").on(t.siteId, t.session)],
 );
+
+/** Insights the owner marked as handled; they stay hidden until `until`. */
+export const insightDismissals = pgTable(
+  "insight_dismissals",
+  {
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    insightId: text("insight_id").notNull(),
+    until: timestamp("until", { withTimezone: true }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.organizationId, t.insightId] })],
+);
