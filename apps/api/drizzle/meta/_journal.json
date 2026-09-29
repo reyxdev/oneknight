@@ -141,6 +141,13 @@
       "when": 1790669258976,
       "tag": "0019_waybill_ref",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790702236033,
+      "tag": "0020_home",
+      "breakpoints": true
     }
   ]
 }

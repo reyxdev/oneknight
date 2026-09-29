@@ -38,6 +38,8 @@ async function siteByKey(req: FastifyRequest, reply: FastifyReply) {
     reply.header("access-control-allow-origin", origin).header("vary", "origin");
   }
   req.site = site;
+  // Proof that ok.js is installed («Перші кроки»); written at most once an hour.
+  if (!site.okSeenAt || Date.now() - site.okSeenAt.getTime() > 3_600_000) await db.update(sites).set({ okSeenAt: new Date() }).where(eq(sites.id, site.id));
 }
 
 const Order = z.object({

@@ -76,14 +76,15 @@ function ProductForm({ site, initial, onDone, onCancel }: { site: SiteInfo; init
   );
 }
 
-export function ProductsScreen() {
+/** `tab` "new" opens the new-product form (Home quick action). */
+export function ProductsScreen({ tab }: { tab?: string | null }) {
   const d = useDict();
   const t = d.app.products;
   const lang = useLang();
   const [flash, show] = useFlash();
   const { sites, site, picker } = useSitePicker();
   const [list, setList] = useState<Product[] | null>(null);
-  const [editing, setEditing] = useState<string | "new" | null>(null);
+  const [editing, setEditing] = useState<string | "new" | null>(tab === "new" ? "new" : null);
   const [confirm, setConfirm] = useState<string | null>(null);
   const load = useCallback(async () => {
     if (!site) return;
@@ -251,14 +252,18 @@ function OrderDetail({ id, onChanged }: { id: string; onChanged: () => void }) {
   );
 }
 
-export function OrdersScreen() {
+const FILTERS = ["all", "new", "nowaybill", "confirmed", "paid", "shipped", "done", "cancelled"] as const;
+type Filter = (typeof FILTERS)[number];
+
+/** `tab` from the address: a filter ("new", "nowaybill", …) or "o-<id>" to open one order (links from Home). */
+export function OrdersScreen({ tab }: { tab?: string | null }) {
   const d = useDict();
   const t = d.app.orders;
   const lang = useLang();
   const f = useFormat();
-  const [filter, setFilter] = useState<Status | "all">("all");
+  const [filter, setFilter] = useState<Filter>((FILTERS as readonly string[]).includes(tab ?? "") ? (tab as Filter) : "all");
   const [rows, setRows] = useState<OrderRow[] | null>(null);
-  const [open, setOpen] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(tab?.startsWith("o-") ? tab.slice(2) : null);
   const [next] = useState(latestOnly);
   const load = useCallback(async () => {
     const isLatest = next();
@@ -274,8 +279,8 @@ export function OrdersScreen() {
     <div className="ok-screen">
       <div className="ok-h"><h3>{t.title}</h3></div>
       <div className="ok-chips" role="group" aria-label={d.ok.orders.state}>
-        {(["all", "new", "confirmed", "paid", "shipped", "done", "cancelled"] as const).map((x) => (
-          <button key={x} type="button" className="ok-chip" aria-pressed={filter === x} onClick={() => setFilter(x)}>{x === "all" ? t.all : d.ok.orders.status[x]}</button>
+        {FILTERS.map((x) => (
+          <button key={x} type="button" className="ok-chip" aria-pressed={filter === x} onClick={() => setFilter(x)}>{x === "all" ? t.all : x === "nowaybill" ? t.noWaybill : d.ok.orders.status[x]}</button>
         ))}
       </div>
       <div className="ok-split" data-open={!!open}>

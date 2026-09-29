@@ -1,6 +1,6 @@
-import { and, count, eq, gt, lte, sql as dsql } from "drizzle-orm";
+import { and, eq, gt, lte, sql as dsql } from "drizzle-orm";
 import { db } from "../db/client.ts";
-import { analyticsEvents, insightDismissals, monitorChecks, orders, products, reviews, sites, subscriptions } from "../db/schema.ts";
+import { analyticsEvents, insightDismissals } from "../db/schema.ts";
 
 export type Insight = { id: string; tone: "bad" | "warn" | "good"; key: string; params: Record<string, string | number>; action?: string };
 
@@ -28,33 +28,12 @@ async function channelWindow(orgId: string, from: Date, to: Date) {
 }
 
 /**
- * Problems and recommendations computed only from the organization's own data.
- * Each insight: what happened (key), why (copy), what to do (copy). Nothing is shown without data behind it.
+ * «Підказки»: recommendations computed only from the organization's own analytics.
+ * Each one: what happened (key), why (copy), what to do (copy). Nothing is shown without enough data behind it.
+ * Things that need doing (orders, stock, site problems) are in todo.ts.
  */
 export async function insightsFor(orgId: string, now = new Date()): Promise<Insight[]> {
   const out: Insight[] = [];
-  const siteList = await db.select().from(sites).where(eq(sites.organizationId, orgId));
-
-  for (const s of siteList) {
-    if (s.status === "live" && s.lastUp === false) out.push({ id: `down:${s.id}`, tone: "bad", key: "siteDown", params: { domain: s.domain }, action: "site" });
-    const [last] = await db.select({ ssl: monitorChecks.sslValidTo }).from(monitorChecks).where(eq(monitorChecks.siteId, s.id)).orderBy(dsql`${monitorChecks.checkedAt} desc`).limit(1);
-    if (last?.ssl) {
-      const days = Math.floor((last.ssl.getTime() - now.getTime()) / DAY);
-      if (days <= 14) out.push({ id: `ssl:${s.id}`, tone: days <= 3 ? "bad" : "warn", key: "sslExpiring", params: { domain: s.domain, days }, action: "site" });
-    }
-  }
-
-  const [sub] = await db.select().from(subscriptions).where(eq(subscriptions.organizationId, orgId));
-  if (sub?.status === "grace" || sub?.status === "suspended") out.push({ id: `billing:${sub.status}`, tone: "bad", key: sub.status === "grace" ? "billingGrace" : "billingSuspended", params: {}, action: "billing" });
-
-  const [waiting] = await db.select({ n: count() }).from(orders).where(and(eq(orders.organizationId, orgId), eq(orders.status, "new"), lte(orders.createdAt, new Date(now.getTime() - DAY))));
-  if (waiting && waiting.n > 0) out.push({ id: "orders:waiting", tone: "warn", key: "ordersWaiting", params: { n: waiting.n }, action: "orders" });
-
-  const low = await db.select({ name: products.name, stock: products.stock }).from(products).where(and(eq(products.organizationId, orgId), eq(products.active, true), lte(products.stock, 2)));
-  for (const p of low.slice(0, 3)) out.push({ id: `stock:${p.name}`, tone: p.stock === 0 ? "bad" : "warn", key: p.stock === 0 ? "outOfStock" : "lowStock", params: { name: p.name, n: p.stock ?? 0 }, action: "products" });
-
-  const [pend] = await db.select({ n: count() }).from(reviews).where(and(eq(reviews.organizationId, orgId), eq(reviews.status, "pending")));
-  if (pend && pend.n > 0) out.push({ id: "reviews:pending", tone: "warn", key: "reviewsPending", params: { n: pend.n }, action: "reviews" });
 
   // Week over week, only with enough traffic to mean something.
   const w1 = await convWindow(orgId, new Date(now.getTime() - 7 * DAY), now);
@@ -79,6 +58,7 @@ export async function insightsFor(orgId: string, now = new Date()): Promise<Insi
   return out.filter((i) => !hide.has(i.id));
 }
 
+/** Hides an insight or a «Що треба зробити» item (for a day: «Нагадати завтра»). */
 export async function dismissInsight(orgId: string, insightId: string, days = 7) {
   await db
     .insert(insightDismissals)

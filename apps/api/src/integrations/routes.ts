@@ -10,6 +10,8 @@ import { decrypt, encrypt } from "../security/crypto.ts";
 import { audit } from "../audit.ts";
 import { promFetch, syncProm, verifyPromToken, type PromFetch } from "./prom.ts";
 import { createUpShipment, ensureSender, upCities, upFetch, upOfficeByPostcode, upOffices, upSticker, verifyUp, type UpCreds, type UpFetch, type UpSettings } from "./ukrposhta.ts";
+import { PDFDocument } from "pdf-lib";
+import { CARRIERS, toShip } from "../dashboard/todo.ts";
 import { forgetRozetkaToken, rozetkaFetch, rozetkaLogin, syncRozetka, type RozetkaFetch } from "./rozetka.ts";
 import { createWaybill, findCities, findWarehouses, verifyKey, type NpCall, type NpSender, type NpSettings, npCall } from "./novaposhta.ts";
 
@@ -367,6 +369,46 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
       const pdf = await printPdf(`https://my.novaposhta.ua/orders/${kind}/orders[]/${encodeURIComponent(o.waybillRef ?? o.waybill)}/type/pdf/apiKey/${n.creds.apiKey}`);
       if (!pdf) return reply.code(409).send({ error: "print_failed" });
       return reply.header("content-type", "application/pdf").header("content-disposition", `inline; filename="ttn-${o.waybill}.pdf"`).header("cache-control", "private, no-store").send(pdf);
+    });
+
+    /**
+     * «Надрукувати всі ТТН»: every order waiting to be sent (confirmed or paid) that has a waybill, Nova Poshta
+     * and Ukrposhta together, merged into one PDF. Orders whose document could not be fetched are listed in a header.
+     */
+    app.get<{ Querystring: { kind?: string } }>("/print-ready", { config: { rateLimit: { max: 20, timeWindow: "10 minutes" } } }, async (req, reply) => {
+      const [org] = await orgScope(req, "orders");
+      if (!org) return reply.code(404).send({ error: "not_found" });
+      const marking = req.query.kind === "marking";
+      const list = (await toShip(org)).filter((o) => o.waybill && CARRIERS.includes(o.method));
+      if (!list.length) return reply.code(404).send({ error: "nothing_to_print" });
+      const n = await np(org);
+      const u = await upOf(org);
+      const out = await PDFDocument.create();
+      const failed: number[] = [];
+      for (const o of list) {
+        const [full] = await db.select({ waybill: orders.waybill, waybillRef: orders.waybillRef }).from(orders).where(eq(orders.id, o.id));
+        const ref = full?.waybillRef ?? full?.waybill ?? "";
+        const pdf =
+          o.method === "novaposhta" && n
+            ? await printPdf(`https://my.novaposhta.ua/orders/${marking ? "printMarking100x100" : "printDocument"}/orders[]/${encodeURIComponent(ref)}/type/pdf/apiKey/${n.creds.apiKey}`)
+            : o.method === "ukrposhta" && u
+              ? await upSticker(u.creds, ref, !marking, up)
+              : null;
+        try {
+          if (!pdf) throw new Error("no pdf");
+          const doc = await PDFDocument.load(pdf);
+          for (const page of await out.copyPages(doc, doc.getPageIndices())) out.addPage(page);
+        } catch {
+          failed.push(o.number);
+        }
+      }
+      if (!out.getPageCount()) return reply.code(409).send({ error: "print_failed" });
+      return reply
+        .header("content-type", "application/pdf")
+        .header("content-disposition", `inline; filename="ttn-${new Date().toISOString().slice(0, 10)}.pdf"`)
+        .header("cache-control", "private, no-store")
+        .header("x-failed-orders", failed.join(","))
+        .send(Buffer.from(await out.save()));
     });
   };
 }

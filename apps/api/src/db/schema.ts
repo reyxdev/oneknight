@@ -45,6 +45,10 @@ export const users = pgTable(
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
+  /** Monthly revenue goal shown on Home, in kopecks. Null = not set. */
+  goalKop: integer("goal_kop"),
+  /** When the «Перші кроки» reward (+7 days) was granted; granted once per business. */
+  firstStepsRewardAt: timestamp("first_steps_reward_at", { withTimezone: true }),
   createdAt: createdAt(),
 });
 
@@ -158,6 +162,8 @@ export const sites = pgTable(
     /** Result of the last check, cached for quick lists and for detecting up/down transitions. */
     lastUp: boolean("last_up"),
     lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
+    /** Last time anything with the site's public key (ok.js) called the public API: proves it is installed. */
+    okSeenAt: timestamp("ok_seen_at", { withTimezone: true }),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("sites_domain_uq").on(t.domain), index("sites_org_idx").on(t.organizationId)],

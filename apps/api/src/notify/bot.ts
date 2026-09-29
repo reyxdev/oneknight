@@ -143,6 +143,7 @@ export function notificationText(key: string, p: Record<string, any>): string | 
     case "memberJoined": return `👤 ${p.name} приєднався до команди`;
     case "keyRedeemed": return "🔑 Ключ доступу активовано";
     case "trialStarted": return "🎉 ONEKNIGHT відкрито безкоштовно на 3 місяці";
+    case "firstStepsReward": return "🎁 Перші кроки пройдено: +7 днів ONEKNIGHT безкоштовно";
     default: return null;
   }
 }

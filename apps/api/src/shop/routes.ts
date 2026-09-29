@@ -8,6 +8,7 @@ import { orgScope, type Permission } from "../auth/access.ts";
 import { audit } from "../audit.ts";
 import { Upload, saveImage } from "../files/store.ts";
 import { setOrderStatus } from "./service.ts";
+import { needsWaybill } from "../dashboard/todo.ts";
 
 const uuid = z.string().uuid();
 const ProductIn = z.object({
@@ -112,10 +113,12 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
     const orgs = await orgScope(req, "orders");
     if (!orgs.length) return [];
     const st = z.enum(["new", "confirmed", "paid", "shipped", "done", "cancelled"]).safeParse(req.query.status);
+    // "nowaybill": confirmed or paid, going by a carrier, no waybill yet («Що треба зробити» on Home).
+    const filter = req.query.status === "nowaybill" ? needsWaybill() : st.success ? eq(orders.status, st.data) : undefined;
     return db
       .select({ id: orders.id, number: orders.number, customerName: orders.customerName, totalKop: orders.totalKop, status: orders.status, createdAt: orders.createdAt, siteId: orders.siteId, source: orders.source })
       .from(orders)
-      .where(and(inArray(orders.organizationId, orgs), st.success ? eq(orders.status, st.data) : undefined))
+      .where(and(inArray(orders.organizationId, orgs), filter))
       .orderBy(desc(orders.createdAt))
       .limit(200);
   });

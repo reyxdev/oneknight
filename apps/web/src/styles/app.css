@@ -82,3 +82,41 @@
   .app-mode { padding-inline: 0.6rem; }
   .app-more { position: fixed; inset: auto 0 calc(3.9rem + env(safe-area-inset-bottom)) 0; z-index: 30; display: grid; gap: 0.5rem; max-height: 70dvh; overflow-y: auto; padding: 0.75rem; background: var(--bg); border-top: 1px solid var(--line); box-shadow: 0 -12px 32px rgb(0 0 0 / 0.18); }
 }
+
+/* Home: head with quick actions, deltas, progress bars, first steps, to-do, goal. */
+.ok-home-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
+.ok-delta { font-size: 0.8125rem; color: var(--fg-muted); }
+.ok-delta[data-good="true"] { color: var(--ok); }
+.ok-delta[data-good="false"] { color: var(--bad); }
+.ok-bar { height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; margin: 0.5rem 0; }
+.ok-bar > i { display: block; height: 100%; border-radius: inherit; background: var(--ok-accent); transition: width var(--dur-med, 0.4s) ease; }
+.ok-bar[data-full="true"] > i { background: var(--ok); }
+.ok-steps-list { display: grid; gap: 0 1.5rem; margin: 0.25rem 0 0.75rem; padding: 0; list-style: none; }
+@media (min-width: 1000px) { .ok-steps-list { grid-template-columns: 1fr 1fr; grid-auto-flow: column; grid-template-rows: repeat(3, auto); } .ok-steps-list > li:last-child { border-bottom: 1px solid var(--line); } .ok-steps-list > li:nth-child(3n) { border-bottom: 0; } }
+.ok-steps-list > li { display: flex; align-items: center; gap: 0.75rem; padding: 0.45rem 0.25rem; border-bottom: 1px solid var(--line); }
+.ok-steps-list .btn { flex: none; }
+.ok-steps-list > li:last-child { border-bottom: 0; }
+.ok-steps-list .ok-grow { display: grid; }
+.ok-steps-list small { color: var(--fg-muted); }
+.ok-steps-list > li[data-done="true"] b { color: var(--fg-muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+.ok-step-mark { display: grid; place-items: center; flex: none; width: 1.6rem; height: 1.6rem; border-radius: 50%; border: 1px solid var(--line-strong); font-size: 0.8125rem; font-weight: 700; }
+.ok-steps-list > li[data-done="true"] .ok-step-mark { border-color: var(--ok); background: var(--ok); color: var(--bg); }
+.ok-todos { display: grid; gap: 0.4rem; margin: 0 0 0.5rem; padding: 0; list-style: none; }
+.ok-todos > li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem; padding: 0.55rem 0.75rem; border-radius: 12px; border: 1px solid var(--line); }
+.ok-todos > li[data-tone="bad"] { border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+.ok-todos > li[data-tone="warn"] { border-color: color-mix(in srgb, var(--warn) 40%, var(--line)); }
+.ok-todos-main { display: flex; flex: 1 1 14rem; align-items: center; gap: 0.55rem; text-align: left; font-weight: 600; cursor: pointer; }
+.ok-todos > li[data-tone="bad"] .ok-todos-main svg { color: var(--bad); }
+.ok-todos > li[data-tone="warn"] .ok-todos-main svg { color: var(--warn); }
+.ok-todos-main:hover span { text-decoration: underline; text-underline-offset: 3px; }
+.ok-todos .ok-link { font-size: 0.8125rem; color: var(--fg-muted); }
+.ok-goal-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem; margin: 0; }
+.ok-goal-line b { font-size: 1.35rem; }
+.ok-goal-form { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+.ok-goal-form .input { flex: 1 1 10rem; max-width: 14rem; }
+.ok-goal-win { display: flex; align-items: center; gap: 0.35rem; margin: 0.25rem 0 0; color: var(--ok); font-weight: 600; }
+.ok-axis { display: flex; justify-content: space-between; margin: 0.25rem 0 0; font-size: 0.75rem; }
+.ok-home-reviews .ok-grow { display: grid; }
+.ok-ship .ok-grow b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The panel shows every number on a phone too (the public demo hides some). */
+.app-shell .ok-home-stats > :nth-child(n + 4) { display: grid; }
