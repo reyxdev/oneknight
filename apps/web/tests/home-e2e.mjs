@@ -156,6 +156,27 @@ await sel.selectOption({ label: "Чекає оплати" });
 ok(await seen(pg.locator(".ok-detail .app-order-top .ok-pill", { hasText: "Чекає оплати" })), "the order gets the own status");
 await pg.locator(".ok-side").getByRole("button", { name: "Головна", exact: true }).click();
 
+// Documents: without requisites the owner is asked to fill them; then a delivery note with the sum in words.
+await pg.locator(".ok-side").getByRole("button", { name: "Замовлення", exact: true }).click();
+await pg.locator(".app-table tbody tr").first().click();
+await pg.locator(".ok-detail").getByRole("button", { name: "Видаткова накладна" }).click();
+ok(await seen(pg.getByRole("dialog", { name: "Потрібні реквізити бізнесу" })), "no requisites: asked to fill them");
+await pg.getByRole("link", { name: "Заповнити реквізити" }).click();
+await pg.getByLabel("Назва (як у документах)").fill("ФОП Коваль Олена Петрівна");
+await pg.getByLabel("РНОКПП (10 цифр)").fill("3123456789");
+await pg.getByLabel("IBAN").fill("UA21 3223 1300 0002 6007 2335 6600 1");
+const [reqRes] = await Promise.all([pg.waitForResponse((r) => r.url().includes("/api/business/requisites") && r.request().method() === "PUT"), pg.getByRole("button", { name: "Зберегти" }).click()]);
+ok(reqRes.status() === 200, "IBAN typed with spaces is accepted");
+ok(await seen(pg.locator(".app-toast", { hasText: "Реквізити збережено" })), "requisites saved");
+await pg.locator(".ok-side").getByRole("button", { name: "Замовлення", exact: true }).click();
+await pg.locator(".app-table tbody tr").first().click();
+const [docPage] = await Promise.all([pg.waitForEvent("popup"), pg.locator(".ok-detail").getByRole("button", { name: "Видаткова накладна" }).click()]);
+await docPage.waitForLoadState();
+const docText = await docPage.locator("body").innerText();
+ok(/Видаткова накладна № \d+/.test(docText) && docText.includes("ФОП Коваль Олена Петрівна") && /гривень|гривні|гривня/.test(docText) && docText.includes("Без ПДВ"), "delivery note with requisites and the sum in words");
+if (SHOTS) await docPage.screenshot({ path: `${SHOTS}/delivery-note.png`, fullPage: true });
+await docPage.close();
+
 // Manual order: catalogue item + a free one, source; then comment, «Не додзвонились», edit, duplicate merge.
 await pg.locator(".ok-side").getByRole("button", { name: "Замовлення", exact: true }).click();
 const newOrder = async (name, phone) => {

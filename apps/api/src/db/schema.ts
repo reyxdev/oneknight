@@ -57,6 +57,25 @@ export const organizations = pgTable("organizations", {
   orderSeq: integer("order_seq").notNull().default(1000),
   /** «Бізнес → Замовлення»: own cancel reasons, own sources of manual orders, hours until a new order is urgent. */
   orderSettings: jsonb("order_settings").notNull().default(sql`'{}'::jsonb`).$type<{ reasons?: string[]; sources?: string[]; urgentHours?: number }>(),
+  /**
+   * «Бізнес → Реквізити й документи»: the business's own details for its customers' documents (invoice, delivery
+   * note, warranty card). Never ONEKNIGHT's data. Changed only by the owner.
+   */
+  requisites: jsonb("requisites").$type<{
+    kind: "fop" | "tov" | "person";
+    name: string;
+    code?: string;
+    iban?: string;
+    bank?: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+    vat: boolean;
+    vatNumber?: string;
+    signer?: string;
+    signatureFileId?: string | null;
+    stampFileId?: string | null;
+  }>(),
   onboarding: jsonb("onboarding").$type<{ hasSite: boolean; siteUrl?: string; sells: string[]; sellsOther?: string; delivery: string[]; channels: string[]; at: string }>(),
   createdAt: createdAt(),
 });

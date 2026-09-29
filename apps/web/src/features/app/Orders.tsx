@@ -15,6 +15,8 @@ import { WaybillForm, WaybillPrint } from "./Waybill";
 import { useToast } from "./Toasts";
 import { PAGE, Table, useEscClose, type Col, type Sort } from "./Table";
 import { OrderForm, emptyOrder, type OrderDraft } from "./OrderForm";
+import { printDocument, renderDocument, type DocKind } from "./documents";
+import { useRequisites } from "./Requisites";
 
 export type Group = "new" | "confirmed" | "shipped" | "done" | "cancelled" | "returned";
 export const GROUPS: Group[] = ["new", "confirmed", "shipped", "done", "cancelled", "returned"];
@@ -182,6 +184,8 @@ function OrderDetail({ id, onChanged, shippingOnly, settings, meName, onClose }:
   const [askPrepaid, setAskPrepaid] = useState(false);
   const [editing, setEditing] = useState(false);
   const [comment, setComment] = useState("");
+  const { data: req } = useRequisites();
+  const [noReq, setNoReq] = useState(false);
   const load = useCallback(async () => {
     const r = await api<OrderFull>(`/shop/orders/${id}`);
     if (r.ok) {
@@ -242,6 +246,11 @@ function OrderDetail({ id, onChanged, shippingOnly, settings, meName, onClose }:
     void changeStatus(to);
   };
   const current = o.statusId ? `s:${o.statusId}` : `g:${o.status}`;
+  // Documents with the business's requisites; without them the owner is sent to fill them in.
+  const doc = (kind: DocKind) => {
+    if (!req?.requisites) return setNoReq(true);
+    printDocument(renderDocument(kind, { ...o, items: o.items.map((i) => ({ ...i, priceKop: i.priceKop ?? 0 })), totalKop: o.totalKop ?? 0 }, req.requisites));
+  };
   const editable = !shippingOnly && !o.isExample && (o.status === "new" || o.status === "confirmed");
   const post = async (path: string, body?: object, msg?: string) => {
     const r = await api(`/shop/orders/${id}/${path}`, { method: "POST", body: body ?? {} });
@@ -361,6 +370,23 @@ function OrderDetail({ id, onChanged, shippingOnly, settings, meName, onClose }:
           <WaybillForm key={o.delivery.method} provider={o.delivery.method} orderId={o.id} notify={show} onCreated={refresh} />
         ) : null
       )}
+      {!o.isExample && (
+        <>
+          <div className="ok-sub">{t.docs}</div>
+          <div className="ok-actions">
+            {o.totalKop !== null && <button type="button" className="btn btn-sm btn-secondary" onClick={() => doc("delivery-note")}><Icon name="doc" size={14} />{t.docNote}</button>}
+            {o.totalKop !== null && <button type="button" className="btn btn-sm btn-secondary" onClick={() => doc("invoice")}><Icon name="doc" size={14} />{t.docInvoice}</button>}
+            {o.warranty.enabled && <button type="button" className="btn btn-sm btn-secondary" onClick={() => doc("warranty")}><Icon name="shield" size={14} />{t.docWarranty}</button>}
+          </div>
+        </>
+      )}
+      <Modal open={noReq} onClose={() => setNoReq(false)} labelledBy="ok-no-req">
+        <div className="app-dialog grid gap-3">
+          <h2 id="ok-no-req" className="app-neworders-title">{t.noReqTitle}</h2>
+          <p className="ok-muted">{req?.canEdit ? t.noReqOwner : t.noReqTeam}</p>
+          {req?.canEdit && <a className="btn btn-sm" style={{ justifySelf: "start" }} href="#business/requisites" onClick={() => setNoReq(false)}>{t.noReqGo}</a>}
+        </div>
+      </Modal>
       <form className="grid gap-3" onSubmit={(e) => { e.preventDefault(); void patch({ waybill: waybill.trim() || null, ...(shippingOnly ? {} : { warranty: { enabled: w.enabled, ...(w.until ? { until: w.until } : {}), ...(w.note ? { note: w.note } : {}) } }) }, t.saved); }}>
         <Field label={t.waybill}>{(p) => <input {...p} className="input" inputMode="numeric" value={waybill} onChange={(e) => setWaybill(e.target.value)} />}</Field>
         {!shippingOnly && <Toggle checked={w.enabled} onChange={(v) => setW({ ...w, enabled: v })} label={t.warrantyOn} />}
