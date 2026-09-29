@@ -37,3 +37,4 @@ Owner input needed before launch. The UI shows an honest placeholder for each.
 - [ ] Build: «Почати підписку» in Оплата for clients without a website order (balance → 149 UAH now, active, no free months)
 - [ ] Build: admin marks «Підтримка за договором» on a business; the cabinet shows it (no purchase in the cabinet)
 - [ ] Owner: buy an OVHcloud VPS (VPS-1 is enough to start) when we launch; then point oneknight.pro to it
+- [ ] Owner: register a ФОП (after the passport arrives) before taking money from clients; then put the ФОП details into the offer, terms and PAYMENT_* requisites
