@@ -75,10 +75,15 @@ ok(true, "order status and waybill updated");
 await nav("Інтеграції");
 ok(await pg.getByText("Створити ключ").isVisible(), "Nova Poshta key instructions shown");
 ok(await pg.getByText("OLX").isVisible() && (await pg.getByText("У розробці").count()) > 1, "other integrations honestly marked in development");
-await pg.getByLabel("API-ключ Нової пошти").fill("f".repeat(32));
-await pg.getByRole("button", { name: "Перевірити й підключити" }).click();
+const npCard = pg.locator(".okp", { hasText: "API-ключ Нової пошти" });
+await npCard.getByLabel("API-ключ Нової пошти").fill("f".repeat(32));
+await npCard.getByRole("button", { name: "Перевірити й підключити" }).click();
 ok(await pg.getByText("Нова пошта відхилила ключ").waitFor({ timeout: 15000 }).then(() => true, () => false), "invalid key rejected by Nova Poshta");
-ok(await pg.getByText("Не підключено").isVisible(), "still not connected");
+ok(await pg.locator(".okp", { hasText: "Нова пошта" }).getByText("Не підключено").isVisible(), "still not connected");
+const promCard = pg.locator(".okp", { hasText: "API-токен Prom" });
+await promCard.getByLabel("API-токен Prom").fill("0".repeat(40));
+await promCard.getByRole("button", { name: "Перевірити й підключити" }).click();
+ok(await promCard.getByText("Prom відхилив токен: unauthorized").waitFor({ timeout: 20000 }).then(() => true, () => false), "invalid Prom token rejected by the real Prom API");
 await nav("Товари");
 ok(await pg.getByText("Залишок: 1").waitFor({ timeout: 5000 }).then(() => true, () => false), "stock decreased by the order");
 

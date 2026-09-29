@@ -6,9 +6,10 @@ import { Icon } from "@/components/ui/Icon";
 import { Field } from "@/components/ui/Field";
 import { api, latestOnly } from "@/lib/api";
 import { playSound } from "@/lib/sound";
-import { Panel, useFlash } from "@/features/oneknight/ui/kit";
+import { Panel, useFlash, useFormat } from "@/features/oneknight/ui/kit";
 
-type Item = { provider: string; available: boolean; status: string; settings: NpSettings; lastError: string | null; connectedAt: string | null };
+type Item = { provider: string; available: boolean; status: string; settings: NpSettings & PromSettings; lastError: string | null; connectedAt: string | null };
+type PromSettings = { lastSyncAt?: string };
 type NpSettings = { cityRef?: string; cityName?: string; warehouseRef?: string; warehouseName?: string; weight?: number; description?: string };
 export type NpCity = { ref: string; name: string; area: string };
 export type NpWarehouse = { ref: string; name: string; number: string };
@@ -147,6 +148,81 @@ function NovaPoshta({ item, reload }: { item: Item; reload: () => void }) {
   );
 }
 
+function Prom({ item, reload }: { item: Item; reload: () => void }) {
+  const d = useDict();
+  const t = d.app.integrations;
+  const f = useFormat();
+  const [flash, show] = useFlash();
+  const [token, setToken] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const connected = item.status !== "not_connected";
+  const errText = (map: Record<string, string>, r: { error: string; body?: unknown }) => {
+    const detail = (r.body as { detail?: string } | undefined)?.detail;
+    return `${map[r.error] ?? d.app.auth.errors.server_error}${detail && detail !== r.error ? `: ${detail}` : ""}`;
+  };
+  const connect = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    const r = await api("/integrations/prom/connect", { method: "POST", body: { token: token.trim() } });
+    setBusy(false);
+    if (!r.ok) {
+      playSound("error");
+      return show(errText(t.promErrors, r), "warn");
+    }
+    playSound("success");
+    setToken("");
+    reload();
+  };
+  const sync = async () => {
+    setBusy(true);
+    const r = await api<{ imported: number }>("/integrations/prom/sync", { method: "POST" });
+    setBusy(false);
+    if (!r.ok) {
+      playSound("error");
+      show(errText(t.syncErrors, r), "warn");
+    } else {
+      playSound("success");
+      show(t.imported.replace("{n}", String(r.data.imported)));
+    }
+    reload();
+  };
+  const disconnect = async () => {
+    await api("/integrations/prom", { method: "DELETE" });
+    setConfirm(false);
+    reload();
+  };
+  return (
+    <Panel title={t.names.prom} action={<span className="ok-muted">{connected ? t.connected : t.notConnected}</span>}>
+      <p className="ok-muted">{t.promAbout}</p>
+      {!connected ? (
+        <form className="grid gap-3" onSubmit={connect}>
+          <ol className="ok-steps">{t.promSteps.map((x) => <li key={x}>{x}</li>)}</ol>
+          <Field label={t.promToken}>{(p) => <input {...p} className="input" autoComplete="off" spellCheck={false} maxLength={128} value={token} onChange={(e) => setToken(e.target.value)} />}</Field>
+          <button className="btn btn-sm" type="submit" disabled={busy || token.trim().length < 20} style={{ justifySelf: "start" }}>{busy ? t.checking : t.connect}</button>
+        </form>
+      ) : (
+        <div className="grid gap-3">
+          <p className="ok-muted">{t.lastSync}: {item.settings.lastSyncAt ? f.dateTime(new Date(item.settings.lastSyncAt).getTime()) : t.never}</p>
+          {item.lastError && <p className="ok-note">{t.lastError}: {item.lastError}</p>}
+          <div className="ok-actions">
+            <button type="button" className="btn btn-sm" disabled={busy} onClick={sync}>{busy ? t.syncing : t.syncNow}</button>
+            {confirm ? (
+              <>
+                <span className="ok-muted">{t.confirmDisconnect}</span>
+                <button type="button" className="btn btn-sm btn-secondary" onClick={disconnect}>{t.disconnect}</button>
+              </>
+            ) : (
+              <button type="button" className="btn btn-sm btn-secondary" onClick={() => setConfirm(true)}>{t.disconnect}</button>
+            )}
+          </div>
+        </div>
+      )}
+      {flash}
+    </Panel>
+  );
+}
+
 export function IntegrationsScreen() {
   const t = useDict().app.integrations;
   const [items, setItems] = useState<Item[] | null>(null);
@@ -159,11 +235,13 @@ export function IntegrationsScreen() {
   }, [load]);
   if (!items) return null;
   const np = items.find((i) => i.provider === "novaposhta");
+  const prom = items.find((i) => i.provider === "prom");
   return (
     <div className="ok-screen">
       <div className="ok-h"><h3>{t.title}</h3></div>
       <p className="ok-muted">{t.lead}</p>
       {np && <NovaPoshta item={np} key={np.status} reload={load} />}
+      {prom && <Prom item={prom} key={prom.status} reload={load} />}
       <Panel title={t.soon}>
         <ul className="ok-list">
           {items.filter((i) => !i.available).map((i) => (

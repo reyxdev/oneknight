@@ -410,3 +410,10 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 - «Створити ТТН» in an order (permission "orders", module `novaposhta` active): the customer's city and branch number are matched exactly from the order text; if that is not unique the API answers 409 `recipient_address_ambiguous` with candidates and the UI shows a picker. Recipient is created as a private person, cash on delivery = order total when payment is `cod`. The waybill number is saved on the order.
 - The NP client takes an injectable `call`, so API tests run on recorded-shape responses without network.
 - Other providers (Ukrposhta, Prom, OLX, Rozetka, Google, Meta, Telegram) are listed as "У розробці" until built.
+
+## 29. Integrations: Prom.ua orders import
+
+- Based on the official spec (public-api.docs.prom.ua, `documentation/index.yaml`): `Authorization: Bearer <token>`, `GET /api/v1/orders/list` with `date_from`, `limit`, `last_id`.
+- `POST /api/integrations/prom/connect` verifies the token with a real `orders/list?limit=1` call, then stores it encrypted. `POST /api/integrations/prom/sync` (permission "orders", module `prom`) and a 10-minute scheduler pull new orders: first sync 30 days back, later ones overlap one day; `orders (organization_id, source, external_id)` is unique, so nothing is imported twice.
+- `orders.site_id` is nullable, `orders.source` = "site" | "prom". Prom statuses map pending/received/paid/delivered/cancelled to new/confirmed/paid/done/cancelled; drafts are skipped. Items keep ids `prom:<id>` and never touch local stock. Nova Poshta addresses ("Львів, №5 ...") are split into city + branch so «Створити ТТН» works for Prom orders too.
+- One way only: changes made in ONEKNIGHT are not pushed back to Prom (that needs `orders/set_status`, planned).

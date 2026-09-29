@@ -8,11 +8,12 @@ import { orgScope } from "../auth/access.ts";
 import { hasModule } from "../billing/service.ts";
 import { decrypt, encrypt } from "../security/crypto.ts";
 import { audit } from "../audit.ts";
+import { promFetch, syncProm, verifyPromToken, type PromFetch } from "./prom.ts";
 import { createWaybill, findCities, findWarehouses, verifyKey, type NpCall, type NpSender, type NpSettings, npCall } from "./novaposhta.ts";
 
 export const PROVIDERS = ["novaposhta", "ukrposhta", "prom", "olx", "rozetka", "google", "meta", "telegram"] as const;
 /** Providers that can actually be connected today. The rest are shown honestly as "in development". */
-export const LIVE_PROVIDERS = new Set<string>(["novaposhta"]);
+export const LIVE_PROVIDERS = new Set<string>(["novaposhta", "prom"]);
 
 type NpCreds = { apiKey: string; sender: NpSender };
 
@@ -22,7 +23,7 @@ async function getIntegration(orgId: string, provider: string) {
 }
 
 /** /api/integrations. `call` lets tests replace the Nova Poshta network client. */
-export function integrationRoutes(call: NpCall = npCall): FastifyPluginAsync {
+export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promFetch): FastifyPluginAsync {
   return async (app) => {
     app.addHook("preHandler", requireAuth);
 
@@ -57,6 +58,30 @@ export function integrationRoutes(call: NpCall = npCall): FastifyPluginAsync {
       await db.delete(integrations).where(and(eq(integrations.organizationId, org), eq(integrations.provider, req.params.provider)));
       await audit(req, "integration.disconnect", req.auth!.user.id, { provider: req.params.provider }, org);
       return { ok: true };
+    });
+
+    app.post("/prom/connect", { config: { rateLimit: { max: 10, timeWindow: "10 minutes" } } }, async (req, reply) => {
+      const [org] = await orgScope(req, "modules");
+      if (!org) return reply.code(403).send({ error: "forbidden" });
+      const p = z.object({ token: z.string().trim().regex(/^[0-9a-zA-Z_-]{20,128}$/) }).safeParse(req.body);
+      if (!p.success) return reply.code(400).send({ error: "invalid_key_format" });
+      const v = await verifyPromToken(p.data.token, prom);
+      if (!v.ok) return reply.code(400).send({ error: "provider_rejected", detail: v.error });
+      const enc = encrypt(JSON.stringify({ token: p.data.token }));
+      await db
+        .insert(integrations)
+        .values({ organizationId: org, provider: "prom", credentialsEnc: enc, status: "connected" })
+        .onConflictDoUpdate({ target: [integrations.organizationId, integrations.provider], set: { credentialsEnc: enc, status: "connected", lastError: null, updatedAt: new Date() } });
+      await audit(req, "integration.connect", req.auth!.user.id, { provider: "prom" }, org);
+      return { ok: true };
+    });
+
+    app.post("/prom/sync", { config: { rateLimit: { max: 10, timeWindow: "10 minutes" } } }, async (req, reply) => {
+      const [org] = await orgScope(req, "orders");
+      if (!org) return reply.code(403).send({ error: "forbidden" });
+      const r = await syncProm(org, prom);
+      if (!r.ok) return reply.code(r.error === "module_not_active" ? 403 : 409).send({ error: r.error === "not_connected" || r.error === "module_not_active" ? r.error : "provider_rejected", detail: r.error });
+      return r;
     });
 
     async function np(orgId: string) {

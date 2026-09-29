@@ -62,7 +62,8 @@ export async function setOrderStatus(orderId: string, orgIds: string[], status: 
     if (o.status === status) return { ok: true as const };
     const restock = status === "cancelled" ? 1 : o.status === "cancelled" ? -1 : 0;
     if (restock) {
-      const ids = o.items.map((i) => i.productId);
+      // Marketplace items ("prom:123") are not local products and have no stock here.
+      const ids = o.items.map((i) => i.productId).filter((id) => /^[0-9a-f-]{36}$/.test(id));
       const rows = ids.length ? await tx.select().from(products).where(inArray(products.id, ids)).for("update") : [];
       for (const i of o.items) {
         const p = rows.find((r) => r.id === i.productId);

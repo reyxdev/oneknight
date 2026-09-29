@@ -113,7 +113,7 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
     if (!orgs.length) return [];
     const st = z.enum(["new", "confirmed", "paid", "shipped", "done", "cancelled"]).safeParse(req.query.status);
     return db
-      .select({ id: orders.id, number: orders.number, customerName: orders.customerName, totalKop: orders.totalKop, status: orders.status, createdAt: orders.createdAt, siteId: orders.siteId })
+      .select({ id: orders.id, number: orders.number, customerName: orders.customerName, totalKop: orders.totalKop, status: orders.status, createdAt: orders.createdAt, siteId: orders.siteId, source: orders.source })
       .from(orders)
       .where(and(inArray(orders.organizationId, orgs), st.success ? eq(orders.status, st.data) : undefined))
       .orderBy(desc(orders.createdAt))

@@ -145,9 +145,10 @@ export function ProductsScreen() {
   );
 }
 
-type OrderRow = { id: string; number: number; customerName: string; totalKop: number; status: Status; createdAt: string };
+type OrderRow = { id: string; number: number; customerName: string; totalKop: number; status: Status; createdAt: string; source: string };
 type Status = "new" | "confirmed" | "paid" | "shipped" | "done" | "cancelled";
 type OrderFull = OrderRow & {
+  externalId: string | null;
   customerPhone: string;
   customerEmail: string | null;
   items: { productId: string; name: string; qty: number; priceKop: number }[];
@@ -221,6 +222,7 @@ function OrderDetail({ id, onChanged }: { id: string; onChanged: () => void }) {
       <div className="ok-kv">
         <div><span>{d.ok.orders.state}</span><StatusPill status={o.status} /></div>
         <div><span>{d.ok.orders.date}</span><b>{f.dateTime(new Date(o.createdAt).getTime())}</b></div>
+        {o.source !== "site" && <div><span>{d.app.analytics.sources}</span><b>{(t.sources as Record<string, string>)[o.source] ?? o.source}{o.externalId ? ` · №${o.externalId}` : ""}</b></div>}
         <div><span>{t.customer}</span><b><a className="ok-link" href={`tel:${o.customerPhone.replace(/[^\d+]/g, "")}`}>{o.customerPhone}</a>{o.customerEmail ? ` · ${o.customerEmail}` : ""}</b></div>
         <div><span>{t.delivery}</span><b>{t.methods[o.delivery.method as keyof typeof t.methods] ?? o.delivery.method}{[o.delivery.city, o.delivery.branch, o.delivery.address].filter(Boolean).length ? `: ${[o.delivery.city, o.delivery.branch, o.delivery.address].filter(Boolean).join(", ")}` : ""}</b></div>
         <div><span>{t.payment}</span><b>{t.payments[o.payment as keyof typeof t.payments] ?? o.payment}</b></div>
@@ -312,7 +314,7 @@ export function OrdersScreen() {
                 <li key={o.id}>
                   <button type="button" className="ok-row" aria-current={open === o.id} onClick={() => setOpen(o.id)}>
                     <span className="num ok-muted">#{o.number}</span>
-                    <span className="ok-grow"><b>{o.customerName}</b><small>{f.ago(new Date(o.createdAt).getTime())}</small></span>
+                    <span className="ok-grow"><b>{o.customerName}</b><small>{f.ago(new Date(o.createdAt).getTime())}{o.source !== "site" ? ` · ${(t.sources as Record<string, string>)[o.source] ?? o.source}` : ""}</small></span>
                     <span className="num">{formatUAH(o.totalKop / 100, lang)}</span>
                     <StatusPill status={o.status} />
                   </button>

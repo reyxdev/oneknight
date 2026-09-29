@@ -24,6 +24,7 @@ Owner input needed before launch. The UI shows an honest placeholder for each.
 - [ ] Register your own account in /app and run `npm run admin:grant -w @oneknight/api -- your@email` to see all requests
 - [ ] Backups and API/error monitoring: possible once client sites are hosted on an ONEKNIGHT server (decide hosting)
 - [ ] Telegram: send any message to @oneknight_bot (or add it to the group) so it can write to TELEGRAM_CHAT_ID; check with `npm run notify:test -w @oneknight/api`
-- [x] Live modules: reviews, analytics, Nova Poshta. Others become installable by setting `live: true` once they work
+- [x] Live modules: reviews, analytics, Nova Poshta, Prom (orders import). Others become installable by setting `live: true` once they work
 - [ ] Nova Poshta: connect your real API key in «Інтеграції» and create one test waybill (tests use recorded-shape responses; a real key was not available)
+- [ ] Prom: connect a real API token in «Інтеграції» and check one import; then decide on pushing status changes back (`orders/set_status`)
 - [ ] Investigate an intermittent React #418 (hydration) on /app in production builds: seen only after signing up through the form and reloading several times, then opening /app/. No functional impact (the account section is kept in the URL hash and React recovers), not reproducible in dev

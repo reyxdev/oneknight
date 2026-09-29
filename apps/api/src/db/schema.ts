@@ -329,7 +329,12 @@ export const orders = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     number: integer("number").generatedAlwaysAsIdentity({ startWith: 1041 }).notNull().unique(),
     organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
-    siteId: uuid("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+    /** Null for orders imported from a marketplace (see `source`). */
+    siteId: uuid("site_id").references(() => sites.id, { onDelete: "cascade" }),
+    /** "site" for orders placed through the public API, otherwise the marketplace ("prom"). */
+    source: text("source").notNull().default("site"),
+    /** The marketplace's own order id; unique per organization and source, so imports never duplicate. */
+    externalId: text("external_id"),
     customerName: text("customer_name").notNull(),
     customerPhone: text("customer_phone").notNull(),
     customerEmail: text("customer_email"),
@@ -347,7 +352,11 @@ export const orders = pgTable(
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("orders_org_idx").on(t.organizationId, t.createdAt), index("orders_status_idx").on(t.organizationId, t.status)],
+  (t) => [
+    index("orders_org_idx").on(t.organizationId, t.createdAt),
+    index("orders_status_idx").on(t.organizationId, t.status),
+    uniqueIndex("orders_external_uq").on(t.organizationId, t.source, t.externalId),
+  ],
 );
 
 export const orderEvents = pgTable(
