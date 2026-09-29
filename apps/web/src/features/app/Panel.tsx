@@ -124,7 +124,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             {view === "security" && <Security me={me} onChange={onChange} />}
             {view === "admin" && me.isAdmin && <AdminLeads />}
             {view === "clients" && me.isAdmin && <Clients />}
-            {view === "site" && <SiteScreen />}
+            {view === "site" && <SiteScreen canEdit={me.permissions.includes("site")} />}
             {view === "billing" && <BillingScreen />}
             {view === "modules" && <ModulesScreen />}
             {view === "topups" && me.isAdmin && <TopupsAdmin />}

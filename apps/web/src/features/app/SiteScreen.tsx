@@ -7,11 +7,13 @@ import { Icon } from "@/components/ui/Icon";
 import { api } from "@/lib/api";
 import { AreaChart, Panel, Stat, useFormat } from "@/features/oneknight/ui/kit";
 import { SiteApiPanel } from "./Shop";
+import { AppearancePanel, type Look } from "./Appearance";
 
 export type SiteInfo = {
   id: string;
   publicKey?: string;
   reviewModeration?: "off" | "manual";
+  appearance?: Look;
   domain: string;
   name: string;
   status: "building" | "live" | "paused";
@@ -45,7 +47,7 @@ export function siteState(s: SiteInfo): { tone: "ok" | "bad" | "warn" | undefine
   return s.last.up ? { tone: "ok", key: "up" } : { tone: "bad", key: "down" };
 }
 
-function SiteCard({ s, onReload }: { s: SiteInfo; onReload: () => void }) {
+function SiteCard({ s, onReload, canEdit }: { s: SiteInfo; onReload: () => void; canEdit: boolean }) {
   const t = useDict().app.site;
   const f = useFormat();
   const [series, setSeries] = useState<number[] | null>(null);
@@ -72,12 +74,13 @@ function SiteCard({ s, onReload }: { s: SiteInfo; onReload: () => void }) {
         {series && series.length > 1 ? <AreaChart a={series} labelA={t.chart} /> : <p className="ok-muted">{t.noData}</p>}
       </Panel>
       <p className="ok-muted">{t.how}</p>
-      {s.publicKey && <SiteApiPanel site={s} onRotated={onReload} />}
+      {s.appearance && <AppearancePanel siteId={s.id} domain={s.domain} initial={s.appearance} canEdit={canEdit} key={s.id} />}
+      {s.publicKey && canEdit && <SiteApiPanel site={s} onRotated={onReload} />}
     </div>
   );
 }
 
-export function SiteScreen() {
+export function SiteScreen({ canEdit = true }: { canEdit?: boolean }) {
   const d = useDict();
   const t = d.app.site;
   const { sites, error, load } = useSites();
@@ -101,7 +104,7 @@ export function SiteScreen() {
           ))}
         </div>
       )}
-      <SiteCard s={cur} key={cur.id} onReload={load} />
+      <SiteCard s={cur} key={cur.id} onReload={load} canEdit={canEdit} />
     </>
   );
 }

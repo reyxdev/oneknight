@@ -1,0 +1,1 @@
+ALTER TABLE "sites" ADD COLUMN "appearance" jsonb DEFAULT '{"buttonAnim":"lift","hover":"glow","sound":"off","notice":"toast","accent":"#566f88"}'::jsonb NOT NULL;

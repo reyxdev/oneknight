@@ -275,6 +275,15 @@ export const app: Dict["app"] = {
     payments: { cod: "On delivery", iban: "Bank transfer", card: "By card" },
     outOfStock: "Not enough stock to reopen the order",
   },
+  look: {
+    title: "Website appearance",
+    lead: "Change a setting and see the result at once. After saving, your website picks it up by itself.",
+    custom: "Custom colour",
+    save: "Save",
+    saved: "Saved. The website shows the change within a minute.",
+    howTitle: "How it works on the website",
+    how: "The ONEKNIGHT script with the data-appearance attribute applies the settings to buttons with the data-ok-button attribute, and oneknight.notify(\"Text\") shows a notice in the chosen style.",
+  },
   api: {
     title: "Connect the website to ONEKNIGHT",
     lead: "The site key lets your website show products from ONEKNIGHT and send orders here. It works only from your website's domain.",

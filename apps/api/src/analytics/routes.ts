@@ -45,7 +45,8 @@ export const analyticsPublicRoutes: FastifyPluginAsync = async (app) => {
   app.post("/events", { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (req, reply) => {
     if (BOT.test(String(req.headers["user-agent"] ?? ""))) return reply.code(204).send();
     const site = req.site!;
-    if (!(await hasModule(site.organizationId, "analytics"))) return reply.code(403).send({ error: "module_not_active" });
+    // Without the module the event is quietly dropped: the client's site console stays clean.
+    if (!(await hasModule(site.organizationId, "analytics"))) return reply.code(204).send();
     const p = Event.safeParse(req.body);
     if (!p.success) return reply.code(400).send({ error: "invalid_input" });
     await recordEvent(site, p.data.type, p.data, { path: p.data.path });

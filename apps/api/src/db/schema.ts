@@ -149,6 +149,11 @@ export const sites = pgTable(
     status: siteStatusEnum("status").notNull().default("live"),
     /** Key the client's website uses for the public API (products, orders, reviews, analytics). Not a secret for reading. */
     reviewModeration: moderationEnum("review_moderation").notNull().default("manual"),
+    /** Supported look-and-feel options the client's site applies through ok.js (not a visual editor). */
+    appearance: jsonb("appearance")
+      .notNull()
+      .default(sql`'{"buttonAnim":"lift","hover":"glow","sound":"off","notice":"toast","accent":"#566f88"}'::jsonb`)
+      .$type<{ buttonAnim: string; hover: string; sound: string; notice: string; accent: string }>(),
     publicKey: text("public_key").notNull().unique().default(sql`'sk_' || replace(gen_random_uuid()::text, '-', '')`),
     /** Result of the last check, cached for quick lists and for detecting up/down transitions. */
     lastUp: boolean("last_up"),

@@ -73,6 +73,12 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
     await scoped.register(analyticsPublicRoutes);
   });
 
+  /** Look and feel for ok.js (public, cacheable for a minute). */
+  app.get("/appearance", { preHandler: siteByKey }, async (req, reply) => {
+    reply.header("cache-control", "public, max-age=60");
+    return req.site!.appearance;
+  });
+
   app.get("/products", { preHandler: siteByKey }, async (req) => {
     const rows = await db.select().from(products).where(and(eq(products.siteId, req.site!.id), eq(products.active, true))).orderBy(asc(products.sort), asc(products.createdAt));
     return rows.map((p) => ({

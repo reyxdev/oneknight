@@ -58,3 +58,10 @@ Add to every page of the website:
 - Count a request: `oneknight.track()` after a form is sent.
 - Attribute an order: send `analytics: oneknight.context()` with `POST /orders`.
 - Raw endpoint: `POST /events { type: "pageview" | "lead", session, path?, source?, medium?, campaign?, content?, referrer? }` → `204`.
+
+## Appearance
+
+`GET /appearance` returns the look-and-feel chosen in the account: `{ buttonAnim, hover, sound, notice, accent }`.
+With `data-appearance` on the script tag, ok.js applies it: buttons with `data-ok-button` get the animation, hover effect and click sound; `oneknight.notify("Text")` shows a notice in the chosen style.
+
+Without the analytics module, `POST /events` answers `204` and stores nothing.

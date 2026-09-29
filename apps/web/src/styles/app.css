@@ -44,3 +44,6 @@
 .app-creative { width: min(100%, 320px); aspect-ratio: 1; border-radius: 16px; box-shadow: var(--shadow-md); }
 .app-review-photo { max-width: 12rem; border-radius: 10px; border: 1px solid var(--line); }
 .app-invite-toast { position: fixed; left: 50%; bottom: 1.5rem; translate: -50% 0; z-index: var(--z-toast); }
+.app-swatch { width: 0.85rem; height: 0.85rem; border-radius: 50%; display: inline-block; }
+.app-color { cursor: pointer; }
+.app-color input { width: 1.2rem; height: 1.2rem; padding: 0; border: 0; background: none; cursor: pointer; }

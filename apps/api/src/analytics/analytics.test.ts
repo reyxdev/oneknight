@@ -35,7 +35,7 @@ test("events -> sources: channel → campaign → visits → leads → orders", 
   const K = { "x-site-key": site!.publicKey };
   const ev = (body: object, ua = "Mozilla/5.0") => app.inject({ method: "POST", url: "/api/public/events", payload: body, headers: { ...K, "user-agent": ua } });
 
-  assert.equal((await ev({ type: "pageview", session: "a".repeat(20) })).json().error, "module_not_active");
+  assert.equal((await ev({ type: "pageview", session: "a".repeat(20) })).statusCode, 204, "without the module events are dropped quietly");
   await startTrial(org);
   await installModule(org, "analytics");
 
