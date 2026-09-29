@@ -11,6 +11,8 @@ export const siteStatusEnum = pgEnum("site_status", ["building", "live", "paused
 export const subStatusEnum = pgEnum("subscription_status", ["trial", "active", "grace", "suspended", "cancelled"]);
 export const ledgerKindEnum = pgEnum("ledger_kind", ["topup", "charge", "refund", "adjustment"]);
 export const topupStatusEnum = pgEnum("topup_status", ["pending", "confirmed", "cancelled"]);
+export const ticketCategoryEnum = pgEnum("ticket_category", ["bug", "question", "change", "oneknight", "site", "other"]);
+export const ticketStatusEnum = pgEnum("ticket_status", ["open", "answered", "closed"]);
 export const leadStatusEnum = pgEnum("lead_status", ["new", "in_progress", "won", "lost"]);
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
@@ -238,4 +240,52 @@ export const topups = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("topups_org_idx").on(t.organizationId, t.createdAt), index("topups_status_idx").on(t.status)],
+);
+
+/** Uploaded files (screenshots, product photos, review photos). Stored on disk, served only after an access check. */
+export const files = pgTable(
+  "files",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").references(() => organizations.id, { onDelete: "cascade" }),
+    uploaderId: uuid("uploader_id").references(() => users.id, { onDelete: "set null" }),
+    mime: text("mime").notNull(),
+    size: integer("size").notNull(),
+    /** Name on disk (random). Never derived from user input. */
+    storageKey: text("storage_key").notNull().unique(),
+    /** Public files (e.g. product photos) may be served without a session. */
+    isPublic: boolean("is_public").notNull().default(false),
+    createdAt: createdAt(),
+  },
+  (t) => [index("files_org_idx").on(t.organizationId)],
+);
+
+export const tickets = pgTable(
+  "tickets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    number: integer("number").generatedAlwaysAsIdentity({ startWith: 201 }).notNull().unique(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    category: ticketCategoryEnum("category").notNull(),
+    status: ticketStatusEnum("status").notNull().default("open"),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("tickets_org_idx").on(t.organizationId, t.updatedAt), index("tickets_status_idx").on(t.status, t.updatedAt)],
+);
+
+export const ticketMessages = pgTable(
+  "ticket_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ticketId: uuid("ticket_id").notNull().references(() => tickets.id, { onDelete: "cascade" }),
+    authorId: uuid("author_id").references(() => users.id, { onDelete: "set null" }),
+    /** True for replies from ONEKNIGHT support. */
+    staff: boolean("staff").notNull().default(false),
+    body: text("body").notNull(),
+    fileId: uuid("file_id").references(() => files.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("ticket_messages_ticket_idx").on(t.ticketId, t.createdAt)],
 );

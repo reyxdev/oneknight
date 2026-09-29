@@ -356,3 +356,9 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 - Renewal (hourly job, row-locked, idempotent): charge ONEKNIGHT 149 + 99 per installed module from the balance. If the balance is short: grace for GRACE_DAYS (3-7, default 5) with a notification, then suspended. A confirmed top-up renews a grace or suspended subscription immediately.
 - Top-up: the client picks an amount and gets the requisites plus a reference `OK-XXXXXXXX` for the payment purpose. The balance changes only when the admin confirms the money arrived (no payment provider, per the brief). Requisites come from `PAYMENT_RECIPIENT`, `PAYMENT_IBAN`, `PAYMENT_TAX_ID`; while they are empty the account says so and offers no top-up.
 - Modules can be connected in the real account only when `live: true`. Today none is live, so the store shows them as "У розробці" and nothing can be bought that does not work.
+
+## 21. Support tickets and file uploads
+
+- `files` table + disk storage in `UPLOAD_DIR` (random names). Uploads are JSON base64 (keeps the JSON-only CSRF guard), max 4 MB, accepted only as real PNG/JPEG/WebP by magic bytes. `GET /api/files/:id` serves public files to anyone and private files only to members of the owning organization or admins. A daily sweep removes files no row points to.
+- Tickets (numbered from 201): category, status open / answered / closed, message thread with optional screenshot. Client: `/api/tickets`; admin: `/api/admin/tickets` (reply sets "answered" and notifies the client; a client message reopens). New tickets and client messages go to the owner's Telegram.
+- Test accounts (`@test.oneknight.local`) and `NODE_ENV=test` never send Telegram messages.

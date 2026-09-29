@@ -5,7 +5,7 @@ import { db } from "../db/client.ts";
 import { leads, memberships } from "../db/schema.ts";
 import { loadAuth, isComplete } from "../auth/session.ts";
 import { requireAuth } from "../auth/routes.ts";
-import { notifyOwner } from "../notify/telegram.ts";
+import { isTestContact, notifyOwner } from "../notify/telegram.ts";
 import { audit } from "../audit.ts";
 
 const short = z.string().trim().max(300);
@@ -70,6 +70,7 @@ export const leadRoutes: FastifyPluginAsync = async (app) => {
     void notifyOwner(
       [`Нова заявка #${lead!.number}`, `${user?.name ?? name} · ${user?.phone ?? phone}`, `Напрям: ${service}${siteType ? ` (${siteType})` : ""}`, `Бізнес: ${b.business}`].join("\n"),
       req.log,
+      { testContact: isTestContact(user?.email ?? email) },
     );
     return reply.code(201).send(lead);
   });

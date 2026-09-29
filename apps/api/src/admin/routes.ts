@@ -6,6 +6,7 @@ import { leads, memberships, organizations, sites, users } from "../db/schema.ts
 import { normalizeDomain } from "../monitor/probe.ts";
 import { checkSite } from "../monitor/scheduler.ts";
 import { billingOverview, confirmTopup, startTrial } from "../billing/service.ts";
+import { supportAdminRoutes } from "../support/routes.ts";
 import { subscriptions, topups } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
 import { audit } from "../audit.ts";
@@ -24,6 +25,7 @@ const uuid = z.string().uuid();
 /** Platform administration (Ivan). Every route requires is_admin. */
 export const adminRoutes: FastifyPluginAsync = async (app) => {
   app.addHook("preHandler", requireAdmin);
+  await app.register(supportAdminRoutes, { prefix: "/tickets" });
 
   app.get("/leads", async () => {
     return db.select().from(leads).orderBy(desc(leads.createdAt)).limit(200);

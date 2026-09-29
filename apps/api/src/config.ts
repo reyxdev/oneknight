@@ -19,6 +19,8 @@ const Env = z.object({
   PAYMENT_RECIPIENT: z.string().optional().transform((v) => v || undefined),
   PAYMENT_IBAN: z.string().optional().transform((v) => v || undefined),
   PAYMENT_TAX_ID: z.string().optional().transform((v) => v || undefined),
+  /** Where uploaded files are stored. */
+  UPLOAD_DIR: z.string().default("var/uploads"),
   COOKIE_SECURE: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
 });
 

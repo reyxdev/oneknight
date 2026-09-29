@@ -1,8 +1,12 @@
 import { env } from "../config.ts";
 
-/** Sends a plain-text message to the owner's Telegram chat. No-op when not configured. Never throws. */
-export async function notifyOwner(text: string, log: { warn: (o: object, m: string) => void }) {
+/** Automated tests use this email domain; their activity never reaches the owner's Telegram. */
+export const isTestContact = (email: string | null | undefined) => !!email && email.endsWith("@test.oneknight.local");
+
+/** Sends a plain-text message to the owner's Telegram chat. No-op when not configured or under test. Never throws. */
+export async function notifyOwner(text: string, log: { warn: (o: object, m: string) => void }, opts: { testContact?: boolean } = {}) {
   if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return false;
+  if (env.NODE_ENV === "test" || opts.testContact) return false;
   try {
     const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: "POST",

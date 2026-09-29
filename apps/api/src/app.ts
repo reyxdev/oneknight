@@ -7,6 +7,8 @@ import { leadRoutes } from "./leads/routes.ts";
 import { adminRoutes } from "./admin/routes.ts";
 import { siteRoutes } from "./sites/routes.ts";
 import { billingRoutes } from "./billing/routes.ts";
+import { supportRoutes } from "./support/routes.ts";
+import { fileRoutes } from "./files/routes.ts";
 import { registerGuard } from "./security/guard.ts";
 
 /** Builds the app without listening, so tests can use app.inject(). All routes live under /api. */
@@ -32,5 +34,7 @@ export async function buildApp(opts: FastifyServerOptions = {}) {
   await app.register(adminRoutes, { prefix: "/api/admin" });
   await app.register(siteRoutes, { prefix: "/api" });
   await app.register(billingRoutes, { prefix: "/api/billing" });
+  await app.register(supportRoutes, { prefix: "/api/tickets" });
+  await app.register(fileRoutes, { prefix: "/api/files" });
   return app;
 }

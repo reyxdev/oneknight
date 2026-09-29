@@ -25,3 +25,11 @@
   .app-shell .ok-bottom { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(4.6rem, 1fr); overflow-x: auto; scrollbar-width: none; }
   .app-user { display: none; }
 }
+.app-thread { display: grid; gap: 0.75rem; margin: 0; padding: 0; list-style: none; max-width: 48rem; }
+.app-thread li { display: grid; gap: 0.35rem; padding: 0.85rem 1rem; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); justify-self: start; max-width: 90%; }
+.app-thread li[data-staff="true"] { justify-self: end; background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+.app-thread small { color: var(--fg-muted); font-size: 0.75rem; }
+.app-thread p { margin: 0; white-space: pre-wrap; }
+.app-thread img { max-width: 16rem; border-radius: 10px; border: 1px solid var(--line); }
+.app-nav-sep { display: block; margin: 0.9rem 0 0.25rem; padding: 0 0.75rem; font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-faint); white-space: nowrap; }
+.ok-app[data-collapsed="true"] .app-nav-sep { opacity: 0; }
