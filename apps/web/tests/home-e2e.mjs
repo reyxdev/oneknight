@@ -140,10 +140,39 @@ ok(/^\(\d+\) /.test(await pg.title()), `the browser tab counts waiting orders ($
 await win.getByRole("button", { name: "Підтвердити" }).click();
 ok(await seen(pg.locator(".app-toast", { hasText: "Підтверджене" })), "confirmed from the window, with «Скасувати»");
 
+// «Приховати суми й телефони»: blurred, remembered; text size from «Мій профіль».
+await pg.getByRole("button", { name: "Приховати суми й телефони" }).click();
+ok(await pg.locator("[data-private='true'] .app-secret").first().isVisible(), "sums are hidden");
+await pg.reload({ waitUntil: "networkidle" });
+ok((await pg.locator(".ok-app").getAttribute("data-private")) === "true", "the choice is remembered");
+await pg.getByRole("button", { name: "Приховати суми й телефони" }).click();
+await pg.locator(".ok-side").getByRole("button", { name: "Мій профіль", exact: true }).click();
+await pg.getByRole("radio", { name: "Великий" }).click();
+ok((await pg.evaluate(() => document.documentElement.style.fontSize)) === "125%", "text size changes the panel");
+await pg.getByRole("radio", { name: "Звичайний" }).click();
+await pg.locator(".ok-side").getByRole("button", { name: "Головна", exact: true }).click();
+
 await pg.setViewportSize({ width: 390, height: 844 });
 await pg.reload({ waitUntil: "networkidle" });
 await pg.locator(".ok-home-stats").waitFor();
 ok(await pg.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "no horizontal scroll on a phone");
+// Phone: swipe a new order to the right to confirm it; the round «+» opens a new product.
+await pg.locator(".ok-bottom").getByRole("button", { name: "Замовлення" }).click();
+await pg.getByRole("button", { name: "Нове", exact: true }).click();
+await pg.locator(".app-table tbody tr").first().waitFor();
+const swipedName = (await pg.locator(".app-table tbody tr").first().locator("td[data-main] b").innerText()).trim();
+await pg.locator(".app-table tbody tr").first().evaluate((tr) => {
+  const r = tr.getBoundingClientRect();
+  const ev = (type, x) => tr.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerType: "touch", clientX: x, clientY: r.top + 10, isPrimary: true }));
+  ev("pointerdown", r.left + 20);
+  ev("pointermove", r.left + 80);
+  ev("pointermove", r.left + 140);
+  ev("pointerup", r.left + 140);
+});
+ok(await seen(pg.locator(".app-toast", { hasText: "Підтверджене" })), `swipe right confirms a new order (${swipedName})`);
+await pg.locator(".app-fab").click();
+ok(await seen(pg.getByLabel("Назва")), "the round «+» opens a new product");
+await pg.locator(".ok-bottom").getByRole("button", { name: "Головна" }).click();
 if (SHOTS) {
   await pg.locator(".ok-bottom").getByRole("button", { name: "Замовлення" }).click();
   await pg.locator(".app-table").waitFor();

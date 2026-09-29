@@ -151,7 +151,7 @@ function Goal({ g, onSaved }: { g: NonNullable<Dash["goal"]>; onSaved: () => voi
   if (g.goalKop === null)
     return (
       <Panel title={t.goalTitle}>
-        <p className="ok-muted">{fmt(t.goalMonth, { sum: f.money(g.monthKop / 100) })}</p>
+        <p className="ok-muted app-secret">{fmt(t.goalMonth, { sum: f.money(g.monthKop / 100) })}</p>
         {g.canEdit ? form : <p className="ok-muted">{t.goalNone}</p>}
       </Panel>
     );
@@ -164,7 +164,7 @@ function Goal({ g, onSaved }: { g: NonNullable<Dash["goal"]>; onSaved: () => voi
         {forecast !== null && <span className="ok-muted">{fmt(t.goalForecast, { v: Math.round(forecast * 100) })}</span>}
       </p>
       <div className="ok-bar" data-full={done >= 1} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.round(done * 100))} aria-label={t.goalTitle}><i style={{ width: `${Math.min(100, done * 100)}%` }} /></div>
-      <p className="ok-muted num">{f.money(g.monthKop / 100)} / {f.money(g.goalKop / 100)}</p>
+      <p className="ok-muted num app-secret">{f.money(g.monthKop / 100)} / {f.money(g.goalKop / 100)}</p>
       {done >= 1 && <p className="ok-goal-win"><Icon name="check" size={15} /> {t.goalReached}</p>}
       {editing && form}
     </Panel>
@@ -201,7 +201,7 @@ function ShipToday({ ship, go, notify }: { ship: NonNullable<Dash["ship"]>; go: 
                 <button type="button" className="ok-row" onClick={() => go("orders", `o-${o.id}`)}>
                   <span className="num ok-muted">#{o.number}</span>
                   <span className="ok-grow"><b>{o.customerName}</b><small>{(d.app.orders.methods as Record<string, string>)[o.method] ?? o.method}{o.waybill ? ` · ${o.waybill}` : ""}</small></span>
-                  {o.totalKop !== null && <span className="num">{formatUAH(o.totalKop / 100, lang)}</span>}
+                  {o.totalKop !== null && <span className="num app-secret">{formatUAH(o.totalKop / 100, lang)}</span>}
                   {o.waybill ? <StatusPill status={o.status} /> : <span className="ok-pill" data-s="new">{t.noWaybill}</span>}
                 </button>
               </li>
@@ -310,7 +310,7 @@ export function HomeScreen({ me, go }: { me: Me; go: Go }) {
 
       {data && (s || v) && (
         <div className="ok-stats ok-home-stats">
-          {s && s.cur.revenueKop !== null && <Stat label={h.revenue} icon="card" value={money(s.cur.revenueKop)} sub={<Delta cur={s.cur.revenueKop} prev={s.prev.revenueKop ?? 0} />} />}
+          {s && s.cur.revenueKop !== null && <Stat label={h.revenue} icon="card" value={<span className="app-secret">{money(s.cur.revenueKop)}</span>} sub={<Delta cur={s.cur.revenueKop} prev={s.prev.revenueKop ?? 0} />} />}
           {s && <Stat label={h.orders} icon="cart" value={f.num(s.cur.orders)} sub={<Delta cur={s.cur.orders} prev={s.prev.orders} />} />}
           {canAnalytics && <Stat label={h.visits} icon="eye" value={v ? f.num(v.cur.sessions) : "—"} sub={v ? <Delta cur={v.cur.sessions} prev={v.prev.sessions} /> : <button type="button" className="ok-link" onClick={() => go("modules")}>{t.dash.noAnalytics}</button>} />}
           {canAnalytics && <Stat label={t.dash.conversion} icon="chart" value={conv(v?.cur) === null ? "—" : f.pct(conv(v?.cur)!)} />}

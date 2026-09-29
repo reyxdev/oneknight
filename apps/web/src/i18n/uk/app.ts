@@ -80,6 +80,7 @@ export const app = {
     myProfile: "Мій профіль",
     business: "Бізнес",
     more: "Ще",
+    hideSums: "Приховати суми й телефони",
     modeBusiness: "Мій бізнес",
     modeAdmin: "Адмінка",
     locked: "Модуль не підключено",
@@ -785,6 +786,9 @@ export const app = {
   profileTabs: { profile: "Профіль", security: "Безпека", notifications: "Сповіщення" },
   account: {
     soundTitle: "Звук",
+    textSize: "Розмір тексту",
+    textSizeHint: "Діє в кабінеті на цьому пристрої.",
+    sizes: { normal: "Звичайний", large: "Більший", larger: "Великий" },
     orderSound: "Звук нового замовлення",
     orderSoundHint: "Грає, коли кабінет відкритий і приходить нове замовлення. Налаштування діє на цьому пристрої.",
     title: "Профіль",

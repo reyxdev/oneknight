@@ -257,7 +257,7 @@ function OrderDetail({ id, onChanged, shippingOnly, onClose }: { id: string; onC
         <div><span>{d.ok.orders.state}</span><StatusPill status={o.status} /></div>
         <div><span>{d.ok.orders.date}</span><b>{f.dateTime(new Date(o.createdAt).getTime())}</b></div>
         {o.source !== "site" && <div><span>{d.app.analytics.sources}</span><b>{(t.sources as Record<string, string>)[o.source] ?? o.source}{o.externalId ? ` · №${o.externalId}` : ""}</b></div>}
-        <div><span>{t.customer}</span><b><a className="ok-link" href={`tel:${o.customerPhone.replace(/[^\d+]/g, "")}`}>{o.customerPhone}</a>{o.customerEmail ? ` · ${o.customerEmail}` : ""}</b></div>
+        <div><span>{t.customer}</span><b><a className="ok-link app-secret" href={`tel:${o.customerPhone.replace(/[^\d+]/g, "")}`}>{o.customerPhone}</a>{o.customerEmail ? ` · ${o.customerEmail}` : ""}</b></div>
         <div><span>{t.delivery}</span><b>{t.methods[o.delivery.method as keyof typeof t.methods] ?? o.delivery.method}{[o.delivery.city, o.delivery.branch, o.delivery.address].filter(Boolean).length ? `: ${[o.delivery.city, o.delivery.branch, o.delivery.address].filter(Boolean).join(", ")}` : ""}</b></div>
         <div><span>{t.payment}</span><b>{t.payments[o.payment as keyof typeof t.payments] ?? o.payment}</b></div>
         {o.comment && <div><span>{t.comment}</span><b>{o.comment}</b></div>}
@@ -265,9 +265,9 @@ function OrderDetail({ id, onChanged, shippingOnly, onClose }: { id: string; onC
       <div className="ok-sub">{t.items}</div>
       <ul className="ok-list">
         {o.items.map((i) => (
-          <li key={i.productId}><span className="ok-grow">{i.name} × {i.qty}</span>{i.priceKop !== null && <span className="num">{money(i.priceKop * i.qty)}</span>}</li>
+          <li key={i.productId}><span className="ok-grow">{i.name} × {i.qty}</span>{i.priceKop !== null && <span className="num app-secret">{money(i.priceKop * i.qty)}</span>}</li>
         ))}
-        {o.totalKop !== null && <li><b className="ok-grow">{t.total}</b><b className="num">{money(o.totalKop)}</b></li>}
+        {o.totalKop !== null && <li><b className="ok-grow">{t.total}</b><b className="num app-secret">{money(o.totalKop)}</b></li>}
       </ul>
       {shippingOnly ? (
         (o.status === "confirmed" || o.status === "paid") && <div className="ok-actions"><button type="button" className="btn btn-sm" onClick={() => setStatus("shipped")}>{t.markShipped}</button></div>
@@ -343,6 +343,19 @@ export function OrdersScreen({ tab, shippingOnly = false, finance = true }: { ta
     return () => clearInterval(id);
   }, [load]);
   useEscClose(open ? () => setOpen(null) : null);
+  const toast = useToast();
+  // Phone: swipe a new order to the right to confirm it (with «Скасувати»).
+  const confirm = async (o: OrderRow) => {
+    const r = await api(`/shop/orders/${o.id}`, { method: "PATCH", body: { status: "confirmed" } });
+    void load();
+    if (!r.ok) return toast.show(r.error === "out_of_stock" ? t.outOfStock : d.app.auth.errors.server_error, "warn");
+    toast.undo(fmt(t.statusChanged, { n: o.number, s: d.ok.orders.status.confirmed }), {
+      undo: async () => {
+        await api(`/shop/orders/${o.id}`, { method: "PATCH", body: { status: "new" } });
+        void load();
+      },
+    });
+  };
   const cols: Col<OrderRow>[] = [
     { key: "number", label: t.colNumber, sort: true, render: (o) => <span className="num ok-muted">#{o.number}</span> },
     {
@@ -358,7 +371,7 @@ export function OrdersScreen({ tab, shippingOnly = false, finance = true }: { ta
       ),
     },
     { key: "createdAt", label: d.ok.orders.date, sort: true, render: (o) => <span title={f.dateTime(new Date(o.createdAt).getTime())}>{f.ago(new Date(o.createdAt).getTime())}</span> },
-    ...(finance ? [{ key: "total", label: t.total, sort: true as const, align: "end" as const, render: (o: OrderRow) => (o.totalKop === null ? null : <span className="num">{formatUAH(o.totalKop / 100, lang)}</span>) }] : []),
+    ...(finance ? [{ key: "total", label: t.total, sort: true as const, align: "end" as const, render: (o: OrderRow) => (o.totalKop === null ? null : <span className="num app-secret">{formatUAH(o.totalKop / 100, lang)}</span>) }] : []),
     { key: "status", label: d.ok.orders.state, sort: true, render: (o) => <StatusPill status={o.status} /> },
   ];
   return (
@@ -380,7 +393,7 @@ export function OrdersScreen({ tab, shippingOnly = false, finance = true }: { ta
           {rows && rows.length === 0 && page === 1 ? (
             <Empty icon="cart" text={t.empty} />
           ) : (
-            <Table id="orders" label={t.title} rows={rows ?? []} cols={cols} active={open} onOpen={(o) => setOpen(o.id)} sort={sort} onSort={setSort} page={page} onPage={setPage} hasMore={more} />
+            <Table id="orders" label={t.title} rows={rows ?? []} cols={cols} active={open} onOpen={(o) => setOpen(o.id)} sort={sort} onSort={setSort} page={page} onPage={setPage} hasMore={more} onSwipeRight={shippingOnly ? undefined : (o) => { if (o.status === "new") void confirm(o); }} />
           )}
         </Panel>
         {open && <OrderDetail id={open} key={open} onChanged={load} shippingOnly={shippingOnly} onClose={() => setOpen(null)} />}

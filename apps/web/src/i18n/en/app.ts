@@ -82,6 +82,7 @@ export const app: Dict["app"] = {
     myProfile: "My profile",
     business: "Business",
     more: "More",
+    hideSums: "Hide sums and phones",
     modeBusiness: "My business",
     modeAdmin: "Admin",
     locked: "Module not connected",
@@ -787,6 +788,9 @@ export const app: Dict["app"] = {
   profileTabs: { profile: "Profile", security: "Security", notifications: "Notifications" },
   account: {
     soundTitle: "Sound",
+    textSize: "Text size",
+    textSizeHint: "Applies to the account on this device.",
+    sizes: { normal: "Normal", large: "Larger", larger: "Large" },
     orderSound: "New order sound",
     orderSoundHint: "Plays when the account is open and a new order arrives. The setting applies to this device.",
     title: "Profile",

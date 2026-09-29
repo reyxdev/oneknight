@@ -86,7 +86,7 @@ export function NewOrders({ go, onCount }: { go: (screen: string, tab?: string) 
             <div className="app-neworders-head">
               <b className="num">№{o.number}</b>
               <span className="ok-grow">{o.customerName}</span>
-              {o.totalKop !== null && <b className="num">{formatUAH(o.totalKop / 100, lang)}</b>}
+              {o.totalKop !== null && <b className="num app-secret">{formatUAH(o.totalKop / 100, lang)}</b>}
             </div>
             <p className="ok-muted">{o.items.map((i) => `${i.name} × ${i.qty}`).join(", ")}</p>
             <div className="ok-actions">

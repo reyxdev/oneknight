@@ -128,7 +128,7 @@
 
 /* Notices, bottom right (above the bottom bar on a phone). */
 .app-toasts { position: fixed; z-index: 60; right: 16px; bottom: 16px; display: grid; gap: 0.5rem; width: min(380px, calc(100vw - 32px)); pointer-events: none; }
-@media (max-width: 767px) { .app-toasts { bottom: calc(76px + env(safe-area-inset-bottom)); } }
+@media (max-width: 767px) { .app-toasts { bottom: calc(148px + env(safe-area-inset-bottom)); } }
 .app-toast { position: relative; display: flex; align-items: center; gap: 0.6rem; padding: 0.7rem 0.85rem; border-radius: 14px; background: var(--inverse-bg); color: var(--inverse-fg); font-size: 0.875rem; font-weight: 600; box-shadow: var(--shadow-md); overflow: hidden; pointer-events: auto; animation: app-toast-in 0.28s var(--ease-out); }
 .app-toast[data-tone="warn"] { background: var(--bad); color: #fff; }
 .app-toast-undo { flex: none; padding: 0.3rem 0.6rem; border-radius: 8px; font-weight: 700; color: inherit; background: color-mix(in srgb, currentColor 16%, transparent); cursor: pointer; }
@@ -224,3 +224,12 @@ dialog.modal:has(.app-dialog) { max-width: min(520px, calc(100vw - 1.5rem)); }
   .app-table td[data-main] { grid-column: 1 / -1; order: -1; font-size: 0.95rem; }
   .app-table td[data-align="end"] { justify-content: flex-end; }
 }
+
+/* Phone: round «+» above the bottom bar, swipeable rows. */
+.app-fab { display: none; }
+@media (max-width: 767px) {
+  .app-fab { position: fixed; z-index: 45; right: 16px; bottom: calc(84px + env(safe-area-inset-bottom)); display: grid; place-items: center; width: 3.25rem; height: 3.25rem; border-radius: 50%; background: var(--ok-accent); color: #fff; box-shadow: var(--shadow-lg); cursor: pointer; }
+  .app-table tbody tr { touch-action: pan-y; transition: transform var(--dur-fast); }
+}
+[data-private="true"] .app-secret { filter: blur(7px); user-select: none; }
+.app-secret-btn[aria-pressed="true"] { color: var(--ok-accent); }

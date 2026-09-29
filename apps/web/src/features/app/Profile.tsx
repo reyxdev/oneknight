@@ -10,7 +10,8 @@ import { TelegramPanel } from "./TelegramPanel";
 import { Security } from "./Security";
 import { Tabs } from "./Tabs";
 import { orderSoundOn, setOrderSound } from "./NewOrders";
-import { Toggle } from "@/components/ui/Toggle";
+import { readTextSize, setTextSize, type TextSize } from "./textSize";
+import { Segmented, Toggle } from "@/components/ui/Toggle";
 
 export type ProfileTab = "profile" | "security" | "notifications";
 export const PROFILE_TABS: ProfileTab[] = ["profile", "security", "notifications"];
@@ -24,6 +25,7 @@ export function ProfileScreen({ me, tab, setTab, onChange }: { me: Me; tab: Prof
   const [f, setF] = useState({ name: me.name, phone: me.phone });
   const [pw, setPw] = useState({ current: "", next: "" });
   const [sound, setSound] = useState(orderSoundOn);
+  const [size, setSize] = useState<TextSize>(readTextSize);
   const err = (e: string) => (t.errors as Record<string, string>)[e] ?? d.app.auth.errors.server_error;
 
   const save = async (e: FormEvent) => {
@@ -79,6 +81,10 @@ export function ProfileScreen({ me, tab, setTab, onChange }: { me: Me; tab: Prof
           </div>
           <button className="btn btn-sm" type="submit" style={{ justifySelf: "start" }}>{t.save}</button>
         </form>
+      </Panel>
+      <Panel title={t.textSize}>
+        <Segmented<TextSize> label={t.textSize} value={size} onChange={(v) => { setSize(v); setTextSize(v); }} options={[{ v: "normal", t: t.sizes.normal }, { v: "large", t: t.sizes.large }, { v: "larger", t: t.sizes.larger }]} />
+        <p className="ok-muted">{t.textSizeHint}</p>
       </Panel>
       <Panel title={t.passwordTitle}>
         <form className="grid gap-3" onSubmit={change} noValidate>

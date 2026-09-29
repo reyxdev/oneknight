@@ -8,6 +8,7 @@ import { KnightMark } from "@/components/global/Logo";
 import type { Me } from "@/lib/api";
 import { AdminLeads } from "./Leads";
 import { Toasts } from "./Toasts";
+import { applyTextSize } from "./textSize";
 import { NewOrders } from "./NewOrders";
 import { Search } from "./Search";
 import { Modal } from "@/components/ui/Modal";
@@ -127,6 +128,21 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
   // Keys: «/» search, «N» new (on a screen that has it), «?» the list of keys. Not while typing in a field.
   const searchRef = useRef<HTMLInputElement>(null);
   const [keysOpen, setKeysOpen] = useState(false);
+  useEffect(() => applyTextSize(), []);
+  // «Приховати суми й телефони» (showing the screen to someone, a café): remembered on this device.
+  const [secret, setSecret] = useState(false);
+  useEffect(() => {
+    try {
+      setSecret(localStorage.getItem("ok.private") === "1");
+    } catch {}
+  }, []);
+  const toggleSecret = () =>
+    setSecret((v) => {
+      try {
+        localStorage.setItem("ok.private", v ? "0" : "1");
+      } catch {}
+      return !v;
+    });
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
@@ -176,7 +192,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
     </Modal>
     {me.permissions.includes("orders") && <NewOrders go={(id, tab) => go(id as Screen, tab ?? null)} onCount={setNewCount} />}
     <div className="app-shell">
-      <div className="ok-app" data-accent="alby" data-mode={adminMode ? "admin" : "business"}>
+      <div className="ok-app" data-accent="alby" data-mode={adminMode ? "admin" : "business"} data-private={secret || undefined}>
         <aside className="ok-side" aria-label={t.nav.sections}>
           <div className="ok-brand"><span className="ok-brand-mark"><KnightMark size={30} /></span><b>ONEKNIGHT</b></div>
           <nav>
@@ -219,6 +235,11 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
                 {fmt(t.billing.trialBadge, { n: Math.max(0, Math.ceil((new Date(me.subscription.periodEnd).getTime() - Date.now()) / 86_400_000)) })}
               </button>
             )}
+            {!adminMode && (
+              <button type="button" className="btn btn-sm btn-ghost btn-icon app-secret-btn" aria-pressed={secret} aria-label={t.nav.hideSums} title={t.nav.hideSums} onClick={toggleSecret}>
+                <Icon name="eye" size={17} />
+              </button>
+            )}
             <button type="button" className="btn btn-sm btn-ghost btn-icon app-keys-btn" aria-label={t.keys.title} title={t.keys.title} onClick={() => setKeysOpen(true)}>?</button>
             {me.isAdmin && (
               <button type="button" className="btn btn-sm btn-secondary app-mode" data-mode-switch data-admin={adminMode} onClick={() => go(adminMode ? "home" : "admin")}>
@@ -251,6 +272,9 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             {adminMode && view === "keys" && <KeysAdmin />}
           </div>
         </div>
+        {!adminMode && allowed("products") && screen !== "products" && (
+          <button type="button" className="app-fab" aria-label={t.products.add} title={t.products.add} onClick={() => go("products", "new")}><Icon name="plus" size={24} /></button>
+        )}
         <nav className="ok-bottom" aria-label={t.nav.sections}>
           {(adminMode ? ADMIN : MOBILE.filter(allowed).map((id) => [...GROUPS.flatMap((g) => g.items)].find((i) => i.id === id)!)).map((n) => (
             <button key={n.id} type="button" aria-current={screen === n.id ? "page" : undefined} onClick={() => go(n.id)}>

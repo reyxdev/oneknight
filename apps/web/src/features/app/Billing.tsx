@@ -130,7 +130,7 @@ export function BillingScreen({ onChange }: { onChange?: () => void }) {
       {s?.status === "grace" && s.graceUntil && <div className="ok-alert" role="alert"><Icon name="bolt" size={18} /><div><p>{fmt(t.graceText, { date: f.date(new Date(s.graceUntil).getTime()) })}</p></div></div>}
       {s?.status === "suspended" && <div className="ok-alert" role="alert"><Icon name="bolt" size={18} /><div><p>{t.suspendedText}</p></div></div>}
       <div className="ok-stats">
-        <Stat label={t.balance} icon="card" value={money(data.balanceKop)} tone={s && data.balanceKop < data.monthlyKop && s.status !== "trial" ? "bad" : undefined} />
+        <Stat label={t.balance} icon="card" value={<span className="app-secret">{money(data.balanceKop)}</span>} tone={s && data.balanceKop < data.monthlyKop && s.status !== "trial" ? "bad" : undefined} />
         <Stat
           label={t.sub}
           icon="shield"

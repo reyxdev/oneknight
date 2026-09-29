@@ -43,6 +43,7 @@ export function Table<T extends { id: string }>({
   page,
   onPage,
   hasMore,
+  onSwipeRight,
 }: {
   id: string;
   label: string;
@@ -56,6 +57,8 @@ export function Table<T extends { id: string }>({
   onPage: (p: number) => void;
   /** Server paging: whether a next page exists (rows are already one page). Omitted: pages are made here. */
   hasMore?: boolean;
+  /** Phone: a row swiped to the right (e.g. confirm a new order); return false where it does not apply. */
+  onSwipeRight?: (row: T) => boolean | void;
 }) {
   const t = useDict().app.table;
   const [hidden, setHidden] = useState<string[]>([]);
@@ -89,6 +92,35 @@ export function Table<T extends { id: string }>({
   }
   const pages = server ? null : Math.max(1, Math.ceil(rows.length / PAGE));
   const next = server ? hasMore : page < (pages ?? 1);
+
+  // Touch swipe: the row follows the finger; past 90 px to the right the action runs.
+  const swipe = useRef<{ x: number; id: string; el: HTMLElement } | null>(null);
+  // A swipe is not a tap: the click that follows it does not open the row.
+  const swiped = useRef(false);
+  const swipeProps = (row: T) =>
+    onSwipeRight
+      ? {
+          onPointerDown: (e: React.PointerEvent<HTMLTableRowElement>) => {
+            if (e.pointerType === "touch") swipe.current = { x: e.clientX, id: row.id, el: e.currentTarget };
+          },
+          onPointerMove: (e: React.PointerEvent<HTMLTableRowElement>) => {
+            const s = swipe.current;
+            if (s?.id === row.id) s.el.style.transform = `translateX(${Math.max(0, Math.min(120, e.clientX - s.x))}px)`;
+          },
+          onPointerUp: (e: React.PointerEvent<HTMLTableRowElement>) => {
+            const s = swipe.current;
+            swipe.current = null;
+            if (!s || s.id !== row.id) return;
+            s.el.style.transform = "";
+            swiped.current = Math.abs(e.clientX - s.x) > 10;
+            if (e.clientX - s.x > 90) onSwipeRight(row);
+          },
+          onPointerCancel: () => {
+            if (swipe.current) swipe.current.el.style.transform = "";
+            swipe.current = null;
+          },
+        }
+      : {};
 
   const onKey = (e: KeyboardEvent<HTMLTableRowElement>, row: T) => {
     const trs = [...(body.current?.querySelectorAll<HTMLTableRowElement>("tr[tabindex]") ?? [])];
@@ -142,8 +174,16 @@ export function Table<T extends { id: string }>({
               key={row.id}
               tabIndex={onOpen ? 0 : undefined}
               aria-current={active === row.id ? "true" : undefined}
-              onClick={onOpen ? () => onOpen(row) : undefined}
+              onClick={
+                onOpen
+                  ? () => {
+                      if (swiped.current) swiped.current = false;
+                      else onOpen(row);
+                    }
+                  : undefined
+              }
               onKeyDown={(e) => onKey(e, row)}
+              {...swipeProps(row)}
             >
               {shown.map((c) => (
                 <td key={c.key} data-label={c.label} data-align={c.align} data-main={c.fixed || undefined}>{c.render(row)}</td>

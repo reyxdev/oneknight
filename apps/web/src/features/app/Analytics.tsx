@@ -64,7 +64,7 @@ export function AnalyticsScreen({ goModules }: { goModules: () => void }) {
             <Stat label={t.visits} icon="eye" value={f.num(tot.sessions)} />
             <Stat label={t.leads} icon="chat" value={f.num(tot.leads)} />
             <Stat label={t.orders} icon="cart" value={f.num(tot.orders)} />
-            {tot.revenueKop !== null && <Stat label={t.revenue} icon="card" value={formatUAH(tot.revenueKop / 100, lang)} />}
+            {tot.revenueKop !== null && <Stat label={t.revenue} icon="card" value={<span className="app-secret">{formatUAH(tot.revenueKop / 100, lang)}</span>} />}
             <Stat label={t.conversion} icon="chart" value={f.pct(tot.conversion)} />
           </div>
           <Panel title={t.chart}>
