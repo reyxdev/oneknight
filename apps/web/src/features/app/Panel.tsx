@@ -232,7 +232,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
           <div className="ok-content" key={`${me.activeOrgId}/${screen}/${route.tab ?? ""}`}>
             {!view && <p className="ok-muted">{screen === "business" ? t.business.ownerOnly : t.team.noAccess}</p>}
             {view === "home" && <HomeScreen me={me} go={(id, tab) => go(id as Screen, tab ?? null)} />}
-            {view === "orders" && <OrdersScreen tab={route.tab} shippingOnly={!me.permissions.includes("orders")} />}
+            {view === "orders" && <OrdersScreen tab={route.tab} shippingOnly={!me.permissions.includes("orders")} finance={me.permissions.includes("finance")} />}
             {view === "products" && <ProductsScreen tab={route.tab} />}
             {view === "reviews" && <ReviewsScreen goModules={() => go("modules")} />}
             {view === "analytics" && <AnalyticsScreen goModules={() => go("modules")} />}

@@ -109,19 +109,32 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
     return { ok: true };
   });
 
-  app.get<{ Querystring: { status?: string } }>("/orders", async (req) => {
+  /**
+   * Orders list: filter, sort by column (newest first by default) and pages (`limit` up to 200, `page` from 1).
+   * The panel asks for 51 to know whether there is a next page of 50. Sorting by sum needs `finance`.
+   */
+  app.get<{ Querystring: { status?: string; sort?: string; dir?: string; page?: string; limit?: string } }>("/orders", async (req) => {
     const acc = await orderAccess(req);
     if (!acc) return [];
     const orgs = [acc.org];
     const st = z.enum(["new", "confirmed", "paid", "shipped", "done", "cancelled"]).safeParse(req.query.status);
     // "nowaybill": confirmed or paid, going by a carrier, no waybill yet («Що треба зробити» on Home).
     const filter = req.query.status === "nowaybill" ? needsWaybill() : st.success ? eq(orders.status, st.data) : undefined;
+    // Names in Ukrainian alphabetical order (А, Б, … Є, … І, Ї …), not by code points.
+    const cols = { createdAt: orders.createdAt, number: orders.number, customer: dsql`${orders.customerName} collate "uk-UA-x-icu"`, status: orders.status, ...(acc.finance ? { total: orders.totalKop } : {}) };
+    const col = cols[req.query.sort as keyof typeof cols] ?? orders.createdAt;
+    const order = req.query.dir === "asc" ? asc(col) : desc(col);
+    const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 200));
+    const page = Math.max(1, Math.min(10_000, Number(req.query.page) || 1));
+    // Pages are 50 long; one more row than a page only tells the panel that a next page exists.
+    const offset = (page - 1) * Math.min(limit, 50);
     return db
       .select({ id: orders.id, number: orders.number, customerName: orders.customerName, totalKop: orders.totalKop, status: orders.status, createdAt: orders.createdAt, siteId: orders.siteId, source: orders.source, isExample: orders.isExample })
       .from(orders)
       .where(and(inArray(orders.organizationId, orgs), filter, acc.full ? undefined : inArray(orders.status, [...SHIPPING_STATUSES])))
-      .orderBy(desc(orders.createdAt))
-      .limit(200)
+      .orderBy(order, desc(orders.number))
+      .limit(limit)
+      .offset(offset)
       .then((rows) => (acc.finance ? rows : rows.map((r) => ({ ...r, totalKop: null }))));
   });
 

@@ -417,6 +417,7 @@ export const app = {
     all: "Усі",
     noWaybill: "Без ТТН",
     statusChanged: "Замовлення №{n}: {s}",
+    colNumber: "№",
     example: "Приклад",
     exampleNote: "Це приклад замовлень: так виглядатимуть справжні. Він зникне сам із першим справжнім замовленням.",
     exampleRemove: "Прибрати приклад",
@@ -771,6 +772,7 @@ export const app = {
     toPanel: "Перейти в кабінет",
   },
   toast: { undo: "Скасувати", close: "Закрити" },
+  table: { columns: "Колонки", pages: "Сторінки", prev: "Назад", next: "Далі", page: "Сторінка {n}", pageOf: "Сторінка {n} з {total}" },
   newOrders: { one: "Нове замовлення", many: "Нових замовлень: {n}", confirm: "Підтвердити", open: "Відкрити" },
   business: {
     title: "Бізнес",

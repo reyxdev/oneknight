@@ -63,7 +63,7 @@ const order = await res.json();
 ok(res.status === 201 && order.total === 2200, `order total comes from the server (${order.total})`);
 
 await nav("Замовлення");
-await pg.locator(".ok-row", { hasText: "Олена Покупець" }).click();
+await pg.locator(".app-table tbody tr", { hasText: "Олена Покупець" }).click();
 await pg.getByRole("button", { name: "Оформити ТТН" }).click();
 ok(await pg.getByText("Щоб оформлювати ТТН, підключіть модуль «Нова пошта».").waitFor({ timeout: 5000 }).then(() => true, () => false), "waybill button explains the missing module");
 ok(await pg.getByRole("link", { name: "Перейти в Модулі" }).isVisible(), "link to Modules offered");
@@ -108,17 +108,22 @@ await rzCard.getByLabel("Пароль").fill("not a real password");
 await rzCard.getByRole("button", { name: "Перевірити й підключити" }).click();
 ok(await rzCard.locator(".field-error").getByText(/Rozetka не прийняла логін або пароль: incorrect_username_password/).waitFor({ timeout: 20000 }).then(() => true, () => false), "wrong Rozetka login rejected by the real Seller API");
 await nav("Товари");
-ok(await pg.getByText("Залишок: 1").waitFor({ timeout: 5000 }).then(() => true, () => false), "stock decreased by the order");
-// Deleting: the row goes at once, «Скасувати» brings it back; without it the product is deleted after 7 s.
-const row = pg.locator(".ok-row", { hasText: "Залишок: 1" });
-await row.getByRole("button", { name: "Видалити" }).click();
-ok(await row.waitFor({ state: "detached", timeout: 3000 }).then(() => true, () => false), "deleted row disappears at once");
+const prod = pg.locator(".app-table tbody tr", { hasText: "Хлібниця «Маки»" });
+await prod.waitFor();
+ok((await prod.locator("td").nth(3).innerText()).trim() === "1", "stock decreased by the order");
+// Details open in the panel on the right; deleting: the row goes at once, «Скасувати» brings it back,
+// without it the product is deleted after 7 s.
+await prod.click();
+ok(await pg.locator(".ok-detail").getByLabel("Назва").inputValue() === "Хлібниця «Маки»", "product opens in the panel on the right");
+await pg.locator(".ok-detail").getByRole("button", { name: "Видалити" }).click();
+ok(await prod.waitFor({ state: "detached", timeout: 3000 }).then(() => true, () => false), "deleted row disappears at once");
 await pg.locator(".app-toast", { hasText: "видалено" }).getByRole("button", { name: "Скасувати" }).click();
-ok(await pg.getByText("Залишок: 1").waitFor({ timeout: 3000 }).then(() => true, () => false), "«Скасувати» brings the product back");
-await pg.locator(".ok-row", { hasText: "Залишок: 1" }).getByRole("button", { name: "Видалити" }).click();
+ok(await prod.waitFor({ timeout: 3000 }).then(() => true, () => false), "«Скасувати» brings the product back");
+await prod.click();
+await pg.locator(".ok-detail").getByRole("button", { name: "Видалити" }).click();
 await pg.waitForTimeout(8000);
 await pg.reload({ waitUntil: "networkidle" });
-ok(!(await pg.getByText("Залишок: 1").count()), "after 7 s the product is really deleted");
+ok(!(await pg.getByText("Хлібниця «Маки»").count()), "after 7 s the product is really deleted");
 
 cleanupTestData();
 // Known, intermittent React #418 (hydration) seen only after a form sign-up + reloads; tracked in TODO.md.

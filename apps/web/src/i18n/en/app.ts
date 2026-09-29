@@ -419,6 +419,7 @@ export const app: Dict["app"] = {
     all: "All",
     noWaybill: "No waybill",
     statusChanged: "Order #{n}: {s}",
+    colNumber: "#",
     example: "Example",
     exampleNote: "These are example orders: real ones will look like this. They disappear with the first real order.",
     exampleRemove: "Remove the example",
@@ -773,6 +774,7 @@ export const app: Dict["app"] = {
     toPanel: "Go to the account",
   },
   toast: { undo: "Undo", close: "Close" },
+  table: { columns: "Columns", pages: "Pages", prev: "Previous", next: "Next", page: "Page {n}", pageOf: "Page {n} of {total}" },
   newOrders: { one: "New order", many: "New orders: {n}", confirm: "Confirm", open: "Open" },
   business: {
     title: "Business",

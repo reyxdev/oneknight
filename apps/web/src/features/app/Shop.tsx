@@ -14,6 +14,7 @@ import { Empty, Panel, StatusPill, useFlash, useFormat } from "@/features/onekni
 import { useSites, type SiteInfo } from "./SiteScreen";
 import { WaybillForm, WaybillPrint } from "./Waybill";
 import { useToast } from "./Toasts";
+import { PAGE, Table, type Col, type Sort } from "./Table";
 
 type Product = { id: string; name: string; description: string; price: number; stock: number | null; active: boolean; photo: string | null };
 type Draft = { name: string; description: string; price: string; stock: string; active: boolean; photo: { name: string; data: string } | null; photoUrl: string | null };
@@ -32,6 +33,19 @@ function useSitePicker() {
       </div>
     ) : null;
   return { sites, site, picker };
+}
+
+/** Esc closes the panel on the right (not while typing in a field or with a window open). */
+function useEscClose(close: (() => void) | null) {
+  useEffect(() => {
+    if (!close) return;
+    const on = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || (e.target as HTMLElement).closest("input, textarea, select, dialog[open]")) return;
+      close();
+    };
+    window.addEventListener("keydown", on);
+    return () => window.removeEventListener("keydown", on);
+  }, [close]);
 }
 
 function ProductForm({ site, initial, onDone, onCancel }: { site: SiteInfo; initial: Draft & { id?: string }; onDone: () => void; onCancel: () => void }) {
@@ -109,44 +123,54 @@ export function ProductsScreen({ tab }: { tab?: string | null }) {
     void load();
   }, [load]);
 
+  const [sort, setSort] = useState<Sort>({ key: "name", dir: "asc" });
+  const [page, setPage] = useState(1);
+  useEscClose(editing ? () => setEditing(null) : null);
+
   if (!sites) return null;
   if (!site) return <div className="ok-screen"><div className="ok-h"><h3>{t.title}</h3></div><Panel><p className="ok-muted">{t.noSite}</p></Panel></div>;
   const done = () => { setEditing(null); show(t.saved); void load(); };
+  const rows = (list ?? []).filter((p) => !gone.includes(p.id));
+  const current = editing && editing !== "new" ? rows.find((p) => p.id === editing) : null;
+  const stockText = (p: Product) => (p.stock === null ? "∞" : p.stock === 0 ? t.outOfStock : String(p.stock));
+  const cols: Col<Product>[] = [
+    { key: "photo", label: t.photo, render: (p) => (p.photo ? <img className="app-thumb" src={p.photo} alt="" loading="lazy" /> : <span className="ok-thumb" style={{ ["--h" as string]: 200 }} />) },
+    { key: "name", label: t.name, fixed: true, sort: (p) => p.name, render: (p) => <span className="app-cell-main"><b>{p.name}</b>{!p.active && <small>{t.hidden}</small>}</span> },
+    { key: "price", label: t.price, align: "end", sort: (p) => p.price, render: (p) => <span className="num">{formatUAH(p.price, lang)}</span> },
+    { key: "stock", label: t.stock, align: "end", sort: (p) => (p.stock === null ? Number.MAX_SAFE_INTEGER : p.stock), render: (p) => <span className="num" data-bad={p.stock === 0 || undefined}>{stockText(p)}</span> },
+  ];
   return (
     <div className="ok-screen">
       <div className="ok-h">
         <h3>{t.title}</h3>
-        {editing === null && <button type="button" className="btn btn-sm" onClick={() => setEditing("new")}><Icon name="plus" size={15} />{t.add}</button>}
+        <button type="button" className="btn btn-sm" onClick={() => setEditing("new")}><Icon name="plus" size={15} />{t.add}</button>
       </div>
       {picker}
-      {editing === "new" && <Panel><ProductForm site={site} initial={empty} onDone={done} onCancel={() => setEditing(null)} /></Panel>}
-      <Panel>
-        {list && list.length === 0 && editing !== "new" ? (
-          <Empty icon="box" text={t.empty} />
-        ) : (
-          <ul className="ok-rows">
-            {(list ?? []).filter((p) => !gone.includes(p.id)).map((p) =>
-              editing === p.id ? (
-                <li key={p.id}>
-                  <ProductForm site={site} initial={{ id: p.id, name: p.name, description: p.description, price: String(p.price), stock: p.stock === null ? "" : String(p.stock), active: p.active, photo: null, photoUrl: p.photo }} onDone={done} onCancel={() => setEditing(null)} />
-                </li>
-              ) : (
-                <li key={p.id} className="ok-row ok-row-static">
-                  {p.photo ? <img className="app-thumb" src={p.photo} alt="" loading="lazy" /> : <span className="ok-thumb" style={{ ["--h" as string]: 200 }} />}
-                  <span className="ok-grow">
-                    <b>{p.name}</b>
-                    <small>{formatUAH(p.price, lang)} · {p.stock === null ? "∞" : p.stock === 0 ? t.outOfStock : `${t.stock}: ${p.stock}`}{!p.active ? ` · ${t.hidden}` : ""}</small>
-                  </span>
-                  <span className="ok-actions">
-                    <button type="button" className="ok-link" onClick={() => setEditing(p.id)}>{t.edit}</button>
-                    <button type="button" className="ok-link ok-danger" onClick={() => remove(p)}>{t.delete}</button>
-                  </span>
-                </li>
-              ),
-            )}
-          </ul>
+      <div className="ok-split" data-open={!!editing}>
+        <Panel>
+          {list && rows.length === 0 ? (
+            <Empty icon="box" text={t.empty} />
+          ) : (
+            <Table id="products" label={t.title} rows={rows} cols={cols} active={editing} onOpen={(p) => setEditing(p.id)} sort={sort} onSort={setSort} page={page} onPage={setPage} />
+          )}
+        </Panel>
+        {editing && (editing === "new" || current) && (
+          <Panel
+            className="ok-detail"
+            title={editing === "new" ? t.add : current!.name}
+            action={<button type="button" className="btn btn-sm btn-ghost btn-icon" aria-label={d.app.toast.close} onClick={() => setEditing(null)}><Icon name="close" size={16} /></button>}
+          >
+            <ProductForm
+              key={editing}
+              site={site}
+              initial={editing === "new" ? empty : { id: current!.id, name: current!.name, description: current!.description, price: String(current!.price), stock: current!.stock === null ? "" : String(current!.stock), active: current!.active, photo: null, photoUrl: current!.photo }}
+              onDone={done}
+              onCancel={() => setEditing(null)}
+            />
+            {current && <button type="button" className="ok-link ok-danger" style={{ justifySelf: "start" }} onClick={() => { remove(current); setEditing(null); }}>{t.delete}</button>}
+          </Panel>
         )}
-      </Panel>
+      </div>
       {flash}
     </div>
   );
@@ -170,7 +194,7 @@ type OrderFull = OrderRow & {
 };
 const FLOW: Status[] = ["new", "confirmed", "paid", "shipped", "done"];
 
-function OrderDetail({ id, onChanged, shippingOnly }: { id: string; onChanged: () => void; shippingOnly: boolean }) {
+function OrderDetail({ id, onChanged, shippingOnly, onClose }: { id: string; onChanged: () => void; shippingOnly: boolean; onClose: () => void }) {
   const d = useDict();
   const t = d.app.orders;
   const lang = useLang();
@@ -228,7 +252,7 @@ function OrderDetail({ id, onChanged, shippingOnly }: { id: string; onChanged: (
     onChanged();
   };
   return (
-    <Panel className="ok-detail" title={<>#{o.number} · {o.customerName}</>}>
+    <Panel className="ok-detail" title={<>#{o.number} · {o.customerName}</>} action={<button type="button" className="btn btn-sm btn-ghost btn-icon" aria-label={d.app.toast.close} onClick={onClose}><Icon name="close" size={16} /></button>}>
       <div className="ok-kv">
         <div><span>{d.ok.orders.state}</span><StatusPill status={o.status} /></div>
         <div><span>{d.ok.orders.date}</span><b>{f.dateTime(new Date(o.createdAt).getTime())}</b></div>
@@ -292,31 +316,57 @@ const SHIP_FILTERS = ["all", "nowaybill", "confirmed", "paid", "shipped"] as con
 type Filter = (typeof FILTERS)[number];
 
 /** `tab` from the address: a filter ("new", "nowaybill", …) or "o-<id>" to open one order (links from Home). */
-export function OrdersScreen({ tab, shippingOnly = false }: { tab?: string | null; shippingOnly?: boolean }) {
+export function OrdersScreen({ tab, shippingOnly = false, finance = true }: { tab?: string | null; shippingOnly?: boolean; finance?: boolean }) {
   const d = useDict();
   const t = d.app.orders;
   const lang = useLang();
   const f = useFormat();
   const [filter, setFilter] = useState<Filter>((FILTERS as readonly string[]).includes(tab ?? "") ? (tab as Filter) : "all");
+  const [sort, setSort] = useState<Sort>({ key: "createdAt", dir: "desc" });
+  const [page, setPage] = useState(1);
   const [rows, setRows] = useState<OrderRow[] | null>(null);
+  const [more, setMore] = useState(false);
   const [open, setOpen] = useState<string | null>(tab?.startsWith("o-") ? tab.slice(2) : null);
   const [next] = useState(latestOnly);
   const load = useCallback(async () => {
     const isLatest = next();
-    const r = await api<OrderRow[]>(`/shop/orders${filter === "all" ? "" : `?status=${filter}`}`);
-    if (r.ok && isLatest()) setRows(r.data);
-  }, [filter, next]);
+    const q = new URLSearchParams({ sort: sort.key, dir: sort.dir, page: String(page), limit: String(PAGE + 1), ...(filter === "all" ? {} : { status: filter }) });
+    const r = await api<OrderRow[]>(`/shop/orders?${q}`);
+    if (r.ok && isLatest()) {
+      setRows(r.data.slice(0, PAGE));
+      setMore(r.data.length > PAGE);
+    }
+  }, [filter, sort, page, next]);
   useEffect(() => {
     void load();
     const id = setInterval(load, 30_000);
     return () => clearInterval(id);
   }, [load]);
+  useEscClose(open ? () => setOpen(null) : null);
+  const cols: Col<OrderRow>[] = [
+    { key: "number", label: t.colNumber, sort: true, render: (o) => <span className="num ok-muted">#{o.number}</span> },
+    {
+      key: "customer",
+      label: t.customer,
+      sort: true,
+      fixed: true,
+      render: (o) => (
+        <span className="app-cell-main">
+          <b>{o.customerName}{o.isExample && <span className="ok-pill app-example-pill">{t.example}</span>}</b>
+          {o.source !== "site" && <small>{(t.sources as Record<string, string>)[o.source] ?? o.source}</small>}
+        </span>
+      ),
+    },
+    { key: "createdAt", label: d.ok.orders.date, sort: true, render: (o) => <span title={f.dateTime(new Date(o.createdAt).getTime())}>{f.ago(new Date(o.createdAt).getTime())}</span> },
+    ...(finance ? [{ key: "total", label: t.total, sort: true as const, align: "end" as const, render: (o: OrderRow) => (o.totalKop === null ? null : <span className="num">{formatUAH(o.totalKop / 100, lang)}</span>) }] : []),
+    { key: "status", label: d.ok.orders.state, sort: true, render: (o) => <StatusPill status={o.status} /> },
+  ];
   return (
     <div className="ok-screen">
       <div className="ok-h"><h3>{t.title}</h3></div>
       <div className="ok-chips" role="group" aria-label={d.ok.orders.state}>
         {(shippingOnly ? SHIP_FILTERS : FILTERS).map((x) => (
-          <button key={x} type="button" className="ok-chip" aria-pressed={filter === x} onClick={() => setFilter(x)}>{x === "all" ? t.all : x === "nowaybill" ? t.noWaybill : d.ok.orders.status[x]}</button>
+          <button key={x} type="button" className="ok-chip" aria-pressed={filter === x} onClick={() => { setFilter(x); setPage(1); }}>{x === "all" ? t.all : x === "nowaybill" ? t.noWaybill : d.ok.orders.status[x]}</button>
         ))}
       </div>
       {!shippingOnly && rows?.some((o) => o.isExample) && (
@@ -327,24 +377,13 @@ export function OrdersScreen({ tab, shippingOnly = false }: { tab?: string | nul
       )}
       <div className="ok-split" data-open={!!open}>
         <Panel>
-          {rows && rows.length === 0 ? (
+          {rows && rows.length === 0 && page === 1 ? (
             <Empty icon="cart" text={t.empty} />
           ) : (
-            <ul className="ok-rows">
-              {(rows ?? []).map((o) => (
-                <li key={o.id}>
-                  <button type="button" className="ok-row" aria-current={open === o.id} onClick={() => setOpen(o.id)}>
-                    <span className="num ok-muted">#{o.number}</span>
-                    <span className="ok-grow"><b>{o.customerName}{o.isExample && <span className="ok-pill app-example-pill">{t.example}</span>}</b><small>{f.ago(new Date(o.createdAt).getTime())}{o.source !== "site" ? ` · ${(t.sources as Record<string, string>)[o.source] ?? o.source}` : ""}</small></span>
-                    {o.totalKop !== null && <span className="num">{formatUAH(o.totalKop / 100, lang)}</span>}
-                    <StatusPill status={o.status} />
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <Table id="orders" label={t.title} rows={rows ?? []} cols={cols} active={open} onOpen={(o) => setOpen(o.id)} sort={sort} onSort={setSort} page={page} onPage={setPage} hasMore={more} />
           )}
         </Panel>
-        {open && <OrderDetail id={open} key={open} onChanged={load} shippingOnly={shippingOnly} />}
+        {open && <OrderDetail id={open} key={open} onChanged={load} shippingOnly={shippingOnly} onClose={() => setOpen(null)} />}
       </div>
     </div>
   );

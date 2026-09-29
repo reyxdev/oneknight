@@ -52,7 +52,36 @@ if (SHOTS) {
 
 await todo.getByText(/Підтверджені без ТТН/).click();
 ok(await seen(pg.getByRole("button", { name: "Без ТТН", pressed: true })), "the item opens the filtered order list");
-ok((await pg.locator(".ok-rows > li").count()) > 0, "the filtered list is not empty");
+ok((await pg.locator(".app-table tbody tr").count()) > 0, "the filtered list is not empty");
+// The table: sort by a column, hide a column (remembered), ↓ Enter opens, Esc closes the panel.
+await pg.getByRole("button", { name: "Усі", exact: true }).click();
+await pg.locator("th", { hasText: "Клієнт" }).getByRole("button").click();
+await pg.waitForFunction(() => document.querySelector("th[aria-sort]")?.textContent?.includes("Клієнт"));
+await pg.locator("th", { hasText: "Клієнт" }).getByRole("button").click();
+await pg.waitForFunction(() => document.querySelector("th[aria-sort]")?.getAttribute("aria-sort") === "ascending");
+await pg.waitForTimeout(500);
+const names = await pg.locator(".app-table tbody td[data-main] b").allInnerTexts();
+ok(names.length > 1 && names.every((n, i) => i === 0 || names[i - 1].localeCompare(n, "uk") <= 0), "sorted by customer A→Я");
+await pg.getByRole("button", { name: "Колонки" }).click();
+await pg.getByRole("group", { name: "Колонки" }).getByLabel("Дата").uncheck();
+ok(!(await pg.locator("th", { hasText: "Дата" }).count()), "a column can be hidden");
+await pg.reload({ waitUntil: "networkidle" });
+await pg.locator(".app-table").waitFor();
+ok(!(await pg.locator("th", { hasText: "Дата" }).count()), "hidden columns are remembered");
+await pg.locator(".app-table tbody tr").first().focus();
+await pg.keyboard.press("ArrowDown");
+await pg.keyboard.press("Enter");
+ok(await seen(pg.locator(".ok-split[data-open='true'] .ok-detail")), "↓ Enter opens the order in the panel on the right");
+if (SHOTS) {
+  await pg.setViewportSize({ width: 1280, height: 900 });
+  await pg.screenshot({ path: `${SHOTS}/orders-table.png` });
+}
+await pg.locator("body").click({ position: { x: 5, y: 300 } });
+await pg.keyboard.press("Escape");
+ok(await seen(pg.locator(".ok-split[data-open='false']")), "Esc closes the panel");
+await pg.getByRole("button", { name: "Колонки" }).click();
+await pg.getByRole("group", { name: "Колонки" }).getByLabel("Дата").check();
+await pg.getByRole("button", { name: "Без ТТН" }).click();
 await pg.goBack();
 await pg.locator(".ok-todos").waitFor();
 
@@ -116,6 +145,11 @@ await pg.reload({ waitUntil: "networkidle" });
 await pg.locator(".ok-home-stats").waitFor();
 ok(await pg.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "no horizontal scroll on a phone");
 if (SHOTS) {
+  await pg.locator(".ok-bottom").getByRole("button", { name: "Замовлення" }).click();
+  await pg.locator(".app-table").waitFor();
+  await pg.waitForTimeout(600);
+  await pg.screenshot({ path: `${SHOTS}/orders-mobile.png` });
+  await pg.locator(".ok-bottom").getByRole("button", { name: "Головна" }).click();
   await pg.setViewportSize({ width: 390, height: 2400 });
   await pg.waitForTimeout(1600);
   await pg.screenshot({ path: `${SHOTS}/home-mobile.png` });
