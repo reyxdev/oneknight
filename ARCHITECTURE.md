@@ -323,3 +323,11 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 - Gesture detection: a new gesture needs a 180 ms pause that is not a decaying inertia tail, or a clear acceleration. One trackpad swipe = one move; one wheel notch = one move.
 - Never hijacked: touch scrolling, Ctrl+wheel zoom, horizontal wheel, open modal or menu, calm motion mode, anything inside an element with its own scroll (the ONEKNIGHT demo, dialogs, inputs).
 - Same-page anchor links glide too and update the URL. Pointer or touch input cancels a glide.
+
+## 17. ONEKNIGHT account (/app), first real slice
+
+- `/app` and `/en/app`: separate root layout (no marketing header, cursor or guided scroll), `noindex`.
+- States: loading, offline (API unreachable, with retry), login/register, TOTP step, account.
+- Account sections backed by real data only: Home (honest empty states), Security (2FA with QR, sessions with revoke, sign-in history), Profile. Other ONEKNIGHT sections appear as their data exists; the full picture stays in the public demo.
+- Landing: "Увійти" and "Замовити через ONEKNIGHT" lead to `/app`; a non-secret `ok_auth=1` cookie tells static pages to show "Відкрити ONEKNIGHT". The old browser-only demo account was removed.
+- The brief from the pricing calculator still ends in a Telegram/WhatsApp hand-off until leads are stored (next step).

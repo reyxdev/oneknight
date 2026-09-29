@@ -2,8 +2,9 @@
 
 import type { ReactNode } from "react";
 import { useModal, type OrderStart } from "@/components/global/ModalProvider";
-import { useDict } from "@/i18n/provider";
-import { useSession } from "@/lib/session";
+import { useDict, useLang } from "@/i18n/provider";
+import { useSignedIn } from "@/lib/session";
+import { withLang } from "@/i18n";
 
 type Props = {
   className?: string;
@@ -14,19 +15,20 @@ type Props = {
   magnetic?: boolean;
 };
 
-/** The one primary conversion control. Signed out: order modal. Signed in: jumps to the ONEKNIGHT demo. */
+/** The one primary conversion control. Signed out: order modal. Signed in: opens the ONEKNIGHT account. */
 export function OrderButton({ className = "btn btn-lg", start = "choose", children, authAware = true, magnetic = true }: Props) {
   const dict = useDict();
-  const session = useSession();
+  const lang = useLang();
+  const session = useSignedIn();
   const { openOrder } = useModal();
-  const signedIn = authAware && !!session;
+  const signedIn = authAware && session;
   return (
     <button
       type="button"
       className={className}
       data-magnetic={magnetic ? "" : undefined}
       onClick={() => {
-        if (signedIn) document.getElementById("playground")?.scrollIntoView({ behavior: "smooth" });
+        if (signedIn) window.location.href = withLang(lang, "/app/");
         else openOrder(start);
       }}
     >

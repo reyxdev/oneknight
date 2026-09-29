@@ -12,6 +12,7 @@
 @import "./case.css";
 @import "./oneknight.css";
 @import "./closing.css";
+@import "./app.css";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .scheme-dark, .scheme-dark *));
 

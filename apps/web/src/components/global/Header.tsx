@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { navItems } from "@/data/navigation";
 import { useDict, useLang } from "@/i18n/provider";
 import { withLang } from "@/i18n";
-import { useSession } from "@/lib/session";
+import { useSignedIn } from "@/lib/session";
 import { KnightMark } from "./Logo";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { PrefsMenu } from "./PrefsMenu";
@@ -15,7 +15,8 @@ export function Header() {
   const dict = useDict();
   const lang = useLang();
   const pathname = usePathname() ?? "/";
-  const session = useSession();
+  const session = useSignedIn();
+  const appHref = withLang(lang, "/app/");
   const { openOrder } = useModal();
   const [menu, setMenu] = useState(false);
 
@@ -32,15 +33,9 @@ export function Header() {
   }, [menu]);
 
   const primary = () => {
-    if (session) {
-      setMenu(false);
-      const el = document.getElementById("playground");
-      if (el) el.scrollIntoView({ behavior: "smooth" });
-      else window.location.href = `${home}#playground`;
-    } else {
-      setMenu(false);
-      openOrder("choose");
-    }
+    setMenu(false);
+    if (session) window.location.href = appHref;
+    else openOrder("choose");
   };
   const ctaLabel = session ? dict.nav.open : dict.nav.order;
 
@@ -69,9 +64,9 @@ export function Header() {
               <LanguageSwitcher />
               <PrefsMenu />
               {!session && (
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => openOrder("login")}>
+                <a href={appHref} className="btn btn-ghost btn-sm">
                   {dict.nav.login}
-                </button>
+                </a>
               )}
             </div>
           </div>
@@ -105,16 +100,9 @@ export function Header() {
           <LanguageSwitcher />
           <PrefsMenu />
           {!session && (
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => {
-                setMenu(false);
-                openOrder("login");
-              }}
-            >
+            <a href={appHref} className="btn btn-secondary btn-sm">
               {dict.nav.login}
-            </button>
+            </a>
           )}
         </div>
         <button type="button" className="btn btn-lg mt-4" onClick={primary}>

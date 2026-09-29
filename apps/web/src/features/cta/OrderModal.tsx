@@ -9,12 +9,12 @@ import { useDict, useLang } from "@/i18n/provider";
 import { fmt } from "@/i18n";
 import { contacts, messengerLink } from "@/data/contacts";
 import { formatUAH, websiteTypes } from "@/data/pricing";
-import { findDemoAccount, signIn, useSession } from "@/lib/session";
+import { useSignedIn } from "@/lib/session";
+import { withLang } from "@/i18n";
 import { playSound } from "@/lib/sound";
 
-type View = "choose" | "call" | "login" | "register" | "service" | "brief" | "handoff";
+type View = "choose" | "call" | "brief" | "handoff";
 type ServiceId = "website" | "automation" | "analytics" | "advertising" | "seo";
-const SERVICES: ServiceId[] = ["website", "automation", "analytics", "advertising", "seo"];
 const FEATURES = ["catalog", "cart", "payment", "delivery", "form", "multilang", "booking", "blog"] as const;
 
 type Brief = {
@@ -34,7 +34,7 @@ export function OrderModal() {
   const dict = useDict();
   const lang = useLang();
   const { state, close } = useModal();
-  const session = useSession();
+  const signedIn = useSignedIn();
   const toast = useToast();
   const d = dict.order;
 
@@ -42,7 +42,6 @@ export function OrderModal() {
   const [service, setService] = useState<ServiceId>("website");
   const [brief, setBrief] = useState<Brief>(emptyBrief);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [acc, setAcc] = useState({ name: "", phone: "", email: "", password: "" });
   const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -62,36 +61,9 @@ export function OrderModal() {
     bodyRef.current?.scrollTo({ top: 0 });
   };
 
-  const startOk = () => go(session ? "service" : "register");
-
-  const submitAccount = (mode: "login" | "register") => (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const err: Record<string, string> = {};
-    if (mode === "register") {
-      if (acc.name.trim().length < 2) err.name = d.account.errName;
-      if (!/^\+?[0-9\s()-]{9,17}$/.test(acc.phone.trim())) err.phone = d.account.errPhone;
-      if (acc.password.length < 8) err.password = d.account.errPassword;
-    }
-    if (!/^\S+@\S+\.\S+$/.test(acc.email.trim())) err.email = d.account.errEmail;
-    if (Object.keys(err).length) {
-      setErrors(err);
-      playSound("error");
-      focusFirstInvalid(e.currentTarget);
-      return;
-    }
-    if (mode === "login") {
-      const found = findDemoAccount(acc.email);
-      if (!found) {
-        setErrors({ email: d.account.notFound });
-        playSound("error");
-        return;
-      }
-      signIn(found);
-    } else {
-      signIn({ name: acc.name.trim(), phone: acc.phone.trim(), email: acc.email.trim() });
-    }
-    setAcc((a) => ({ ...a, password: "" }));
-    go("service");
+  /** ONEKNIGHT path: real account first (register or open the account), brief continues there. */
+  const startOk = () => {
+    window.location.href = withLang(lang, signedIn ? "/app/" : "/app/?start=register");
   };
 
   const submitBrief = (e: FormEvent<HTMLFormElement>) => {
@@ -125,10 +97,9 @@ export function OrderModal() {
       [L.features, featureNames],
       [L.references, brief.references.trim()],
       [L.special, brief.special.trim()],
-      [L.contact, session ? [session.name, session.phone, session.email].filter(Boolean).join(", ") : ""],
     ];
     return [L.greeting, "", ...rows.filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`)].join("\n");
-  }, [brief, service, session, d, dict.siteTypes]);
+  }, [brief, service, d, dict.siteTypes]);
 
   const copy = async () => {
     try {
@@ -144,9 +115,6 @@ export function OrderModal() {
   const title = {
     choose: d.title,
     call: d.callTitle,
-    login: d.account.loginTitle,
-    register: d.account.registerTitle,
-    service: d.service.title,
     brief: d.brief.title,
     handoff: d.handoff.title,
   }[view];
@@ -158,7 +126,7 @@ export function OrderModal() {
           <button
             type="button"
             className="btn btn-ghost btn-sm mb-4 -ml-3"
-            onClick={() => go(view === "call" || view === "login" || view === "register" ? "choose" : view === "service" ? "choose" : view === "brief" ? "service" : "brief")}
+            onClick={() => go(view === "handoff" ? "brief" : "choose")}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 3L5 8l5 5" /></svg>
             {dict.common.back}
@@ -185,52 +153,6 @@ export function OrderModal() {
               <a className="btn btn-secondary" href={contacts.viber.url}>{dict.footer.viber}</a>
               <a className="btn btn-secondary" href={contacts.whatsapp.url} target="_blank" rel="noopener">{dict.footer.whatsapp}</a>
               <a className="btn btn-secondary" href={contacts.facebook.url} target="_blank" rel="noopener">{dict.footer.facebook}</a>
-            </div>
-          </>
-        )}
-
-        {(view === "register" || view === "login") && (
-          <form onSubmit={submitAccount(view)} noValidate className="grid gap-4">
-            <p className="small rounded-[12px] bg-surface-2 p-3">{d.account.demoNote}</p>
-            {view === "register" && (
-              <>
-                <Field label={d.account.name} error={errors.name}>
-                  {(p) => <input {...p} className="input" autoComplete="name" value={acc.name} onChange={(e) => setAcc({ ...acc, name: e.target.value })} />}
-                </Field>
-                <Field label={d.account.phone} error={errors.phone}>
-                  {(p) => <input {...p} className="input" type="tel" autoComplete="tel" inputMode="tel" value={acc.phone} onChange={(e) => setAcc({ ...acc, phone: e.target.value })} />}
-                </Field>
-              </>
-            )}
-            <Field label={d.account.email} error={errors.email} hint={view === "register" ? d.account.noEmailVerify : undefined}>
-              {(p) => <input {...p} className="input" type="email" autoComplete="email" inputMode="email" value={acc.email} onChange={(e) => setAcc({ ...acc, email: e.target.value })} />}
-            </Field>
-            {view === "register" && (
-              <Field label={d.account.password} hint={d.account.passwordHint} error={errors.password}>
-                {(p) => <input {...p} className="input" type="password" autoComplete="new-password" value={acc.password} onChange={(e) => setAcc({ ...acc, password: e.target.value })} />}
-              </Field>
-            )}
-            <button className="btn btn-lg mt-2" type="submit">{view === "register" ? d.account.register : d.account.login}</button>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <button type="button" className="btn btn-secondary" disabled aria-disabled="true">{d.account.google}<span className="pill">{dict.common.soon}</span></button>
-              <button type="button" className="btn btn-secondary" disabled aria-disabled="true">{d.account.telegram}<span className="pill">{dict.common.soon}</span></button>
-            </div>
-            <p className="small text-center">
-              {view === "register" ? d.account.haveAccount : d.account.noAccount}{" "}
-              <button type="button" className="font-semibold underline underline-offset-4" onClick={() => go(view === "register" ? "login" : "register")}>
-                {view === "register" ? d.account.login : d.account.register}
-              </button>
-            </p>
-          </form>
-        )}
-
-        {view === "service" && (
-          <>
-            <p className="lead mb-6">{d.service.lead}</p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {SERVICES.map((s) => (
-                <Choice key={s} onClick={() => { setService(s); go("brief"); }} title={d.service[s]} text={d.service[`${s}Text` as `${ServiceId}Text`]} />
-              ))}
             </div>
           </>
         )}

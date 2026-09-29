@@ -18,3 +18,5 @@ Owner input needed before launch. The UI shows an honest placeholder for each.
 - [ ] Zadarma and AI content modules: future, shown as future only
 - [ ] Karpatu.shop screenshots: refresh when the site changes (capture scripts in the session notes; images in `public/case/karpatu/`)
 - [ ] OG image `public/og.png` is a render of the hero; replace if a designed one is preferred
+- [ ] Password reset channel: no email sending is configured. Choose email (SMTP provider) or Telegram bot; until then reset goes through support
+- [ ] Google and Telegram sign-in (buttons shown as "Скоро"): need a Google OAuth client and a Telegram bot token

@@ -1,0 +1,27 @@
+/* ONEKNIGHT account (/app) */
+.app-body { min-height: 100dvh; background: var(--bg-soft); }
+.app-center, .app-auth { min-height: 100dvh; display: grid; place-items: center; padding: 1.25rem; }
+.app-auth-card { display: grid; gap: 1rem; width: min(100%, 27rem); padding: clamp(1.5rem, 4vw, 2.25rem); }
+.app-auth-card .ok-seg { width: 100%; grid-auto-columns: 1fr; }
+.app-auth-brand { display: inline-flex; align-items: center; gap: 0.6rem; justify-self: start; color: var(--fg); }
+.app-auth-brand b { font-weight: 800; letter-spacing: -0.02em; }
+.app-code { font-family: var(--font-code); font-size: 1.5rem; letter-spacing: 0.4em; text-align: center; }
+.app-pulse { color: var(--fg); animation: app-pulse 1.4s var(--ease-inout) infinite; }
+@keyframes app-pulse { 50% { opacity: 0.4; transform: scale(0.94); } }
+.app-shell { height: 100dvh; padding: 0; }
+.app-shell .ok-app { --ok-accent: var(--accent); height: 100dvh; background: var(--bg); }
+.app-shell .ok-content { padding: clamp(1rem, 2.5vw, 2rem); }
+.app-shell .ok-screen { max-width: 1100px; }
+.app-side-foot { margin-top: auto; display: grid; gap: 2px; }
+.app-org { font-weight: 800; letter-spacing: -0.01em; }
+.app-user { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.875rem; color: var(--fg-muted); }
+.app-2fa { display: grid; gap: 1rem; max-width: 30rem; }
+.app-2fa-steps { display: grid; gap: 0.5rem; }
+.app-2fa-steps p { margin: 0; }
+.app-qr { width: 12rem; padding: 0.5rem; border-radius: 12px; background: #fff; }
+.app-qr svg { width: 100%; height: auto; }
+.app-key { font-family: var(--font-code); font-size: 0.875rem; background: var(--surface-2); padding: 0.15rem 0.4rem; border-radius: 6px; word-break: break-all; color: var(--fg); }
+@media (max-width: 767px) {
+  .app-shell .ok-bottom { grid-template-columns: repeat(4, 1fr); }
+  .app-user { display: none; }
+}

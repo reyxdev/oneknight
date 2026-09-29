@@ -4,8 +4,22 @@
     {
       "name": "oneknight-static",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "apps/web/out", "-l", "4173", "--no-clipboard"],
+      "runtimeArgs": [
+        "serve",
+        "apps/web/out",
+        "-l",
+        "4173",
+        "--no-clipboard"
+      ],
       "port": 4173
+    },
+    {
+      "name": "oneknight-full",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "scripts/local-proxy.mjs"
+      ],
+      "port": 8080
     }
   ]
 }

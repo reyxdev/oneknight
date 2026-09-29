@@ -17,6 +17,7 @@
     "db:generate": "npm run db:generate -w @oneknight/api",
     "db:migrate": "npm run db:migrate -w @oneknight/api",
     "dev:api": "npm run dev -w @oneknight/api",
-    "test:api": "npm test -w @oneknight/api"
+    "test:api": "npm test -w @oneknight/api",
+    "serve": "node scripts/local-proxy.mjs"
   }
 }

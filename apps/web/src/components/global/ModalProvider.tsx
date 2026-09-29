@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { playSound } from "@/lib/sound";
 
-export type OrderStart = "choose" | "login" | "register" | "call" | "brief";
+export type OrderStart = "choose" | "call" | "brief";
 export type OrderOptions = { siteType?: string };
 
 type Ctx = {

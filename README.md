@@ -32,6 +32,17 @@ npm run dev:api      # http://127.0.0.1:4000/api/health
 npm run test:api
 ```
 
+### Whole product locally (site + account + API, same origin like production)
+
+```bash
+npm run build        # static site, including /app
+npm run start -w @oneknight/api
+npm run serve        # http://127.0.0.1:8080  (/app = ONEKNIGHT account)
+npm run test:app -w @oneknight/web   # real account flow in a browser
+```
+
+In development `npm run dev:web` proxies `/api` to the API on :4000, so `/app` works there too.
+
 Schema lives in `apps/api/src/db/schema.ts`. After changing it: `npm run db:generate`, review the SQL in `apps/api/drizzle/`, then `npm run db:migrate`.
 
 ## Where things live

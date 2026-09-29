@@ -5,6 +5,7 @@ import { template } from "./en/template";
 import { karpatu } from "./en/karpatu";
 import { ok } from "./en/ok";
 import { offer, trust, process, supportPlan, about, final } from "./en/rest";
+import { app } from "./en/app";
 
 export const en: Dict = {
   services,
@@ -18,6 +19,7 @@ export const en: Dict = {
   supportPlan,
   about,
   final,
+  app,
   meta: {
     title: "ONEKNIGHT: websites and a system to run your business",
     description:
@@ -114,29 +116,6 @@ export const en: Dict = {
     callTitle: "Call or message",
     callLead: "One number for calls, Viber and WhatsApp. Telegram and Facebook are also available.",
     callButton: "Call {phone}",
-    account: {
-      loginTitle: "Log in to ONEKNIGHT",
-      registerTitle: "Create a ONEKNIGHT account",
-      demoNote:
-        "Demo mode: the account is stored only in your browser. The password is not stored or sent anywhere. Real accounts arrive with the ONEKNIGHT launch.",
-      name: "Name",
-      phone: "Phone",
-      email: "Email",
-      password: "Password",
-      passwordHint: "At least 8 characters",
-      register: "Create account",
-      login: "Log in",
-      haveAccount: "Already have an account?",
-      noAccount: "No account yet?",
-      google: "Continue with Google",
-      telegram: "Continue with Telegram",
-      noEmailVerify: "No email verification needed.",
-      errName: "Enter your name",
-      errPhone: "Enter a phone number, for example +380...",
-      errEmail: "Check the email address",
-      errPassword: "The password must be at least 8 characters",
-      notFound: "This browser has no demo account with that email. Create one.",
-    },
     service: {
       title: "What do you need?",
       lead: "Pick a direction. You can change it later.",

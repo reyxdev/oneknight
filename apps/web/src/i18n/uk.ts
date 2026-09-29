@@ -8,6 +8,7 @@ import { template } from "./uk/template";
 import { karpatu } from "./uk/karpatu";
 import { ok } from "./uk/ok";
 import { offer, trust, process, supportPlan, about, final } from "./uk/rest";
+import { app } from "./uk/app";
 
 export const uk = {
   services,
@@ -21,6 +22,7 @@ export const uk = {
   supportPlan,
   about,
   final,
+  app,
   meta: {
     title: "ONEKNIGHT: сайти та система для керування бізнесом",
     description:
@@ -117,29 +119,6 @@ export const uk = {
     callTitle: "Зателефонувати або написати",
     callLead: "Один номер для дзвінка, Viber і WhatsApp. Є також Telegram і Facebook.",
     callButton: "Набрати {phone}",
-    account: {
-      loginTitle: "Вхід у ONEKNIGHT",
-      registerTitle: "Створення акаунта ONEKNIGHT",
-      demoNote:
-        "Демо-режим: акаунт зберігається лише у вашому браузері. Пароль ніде не зберігається і нікуди не надсилається. Реальні акаунти з'являться разом із запуском ONEKNIGHT.",
-      name: "Ім'я",
-      phone: "Телефон",
-      email: "Електронна пошта",
-      password: "Пароль",
-      passwordHint: "Мінімум 8 символів",
-      register: "Створити акаунт",
-      login: "Увійти",
-      haveAccount: "Уже є акаунт?",
-      noAccount: "Ще немає акаунта?",
-      google: "Увійти через Google",
-      telegram: "Увійти через Telegram",
-      noEmailVerify: "Підтверджувати пошту не потрібно.",
-      errName: "Вкажіть ім'я",
-      errPhone: "Вкажіть телефон, наприклад +380...",
-      errEmail: "Перевірте адресу пошти",
-      errPassword: "Пароль має бути не коротший за 8 символів",
-      notFound: "У цьому браузері немає демо-акаунта з такою поштою. Створіть його.",
-    },
     service: {
       title: "Що вам потрібно?",
       lead: "Оберіть напрям. Це можна змінити пізніше.",
