@@ -3,7 +3,7 @@ import { chromium } from "playwright-core";
 import { execSync } from "node:child_process";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
-const DOMAIN = process.env.SITE ?? "karpatu.shop";
+const DOMAIN = process.env.SITE ?? "example.com"; // IANA test domain; must not be a domain already added to a client
 const b = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox"] });
 const pg = await b.newPage({ viewport: { width: 1280, height: 900 } });
 const errs = [];

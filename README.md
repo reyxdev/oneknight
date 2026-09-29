@@ -39,7 +39,8 @@ npm run build        # static site, including /app
 npm run start -w @oneknight/api
 npm run serve        # http://127.0.0.1:8080  (/app = ONEKNIGHT account)
 npm run test:app -w @oneknight/web   # real account flow in a browser
-node apps/web/tests/site-e2e.mjs      # admin adds a site, client sees monitoring (probes karpatu.shop)
+node apps/web/tests/site-e2e.mjs      # admin adds a site, client sees monitoring (probes example.com)
+node apps/web/tests/billing-e2e.mjs   # trial, IBAN top-up, admin confirmation (API started with test PAYMENT_* values)
 ```
 
 In development `npm run dev:web` proxies `/api` to the API on :4000, so `/app` works there too.

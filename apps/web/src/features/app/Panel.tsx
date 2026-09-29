@@ -12,11 +12,15 @@ import { AdminLeads, MyLeads } from "./Leads";
 import { SiteScreen, siteState, useSites } from "./SiteScreen";
 import { Clients } from "./Clients";
 import { Bell } from "./Bell";
+import { BillingScreen, ModulesScreen } from "./Billing";
+import { TopupsAdmin } from "./TopupsAdmin";
 
-type Screen = "home" | "site" | "security" | "account" | "admin" | "clients";
+type Screen = "home" | "site" | "modules" | "billing" | "security" | "account" | "admin" | "clients" | "topups";
 const NAV: { id: Screen; icon: IconName }[] = [
   { id: "home", icon: "home" },
   { id: "site", icon: "globe" },
+  { id: "modules", icon: "puzzle" },
+  { id: "billing", icon: "card" },
   { id: "security", icon: "shield" },
   { id: "account", icon: "person" },
 ];
@@ -28,8 +32,9 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
   const lang = useLang();
   const [screen, setScreen] = useState<Screen>("home");
   const org = me.organizations[0];
-  const nav = me.isAdmin ? [...NAV, { id: "admin" as const, icon: "table" as IconName }, { id: "clients" as const, icon: "layers" as IconName }] : NAV;
-  const label = (id: Screen) => (id === "admin" ? t.admin.nav : id === "clients" ? t.clients.nav : id === "site" ? t.site.title : t.nav[id]);
+  const nav = me.isAdmin ? [...NAV, { id: "admin" as const, icon: "table" as IconName }, { id: "clients" as const, icon: "layers" as IconName }, { id: "topups" as const, icon: "card" as IconName }] : NAV;
+  const label = (id: Screen) =>
+    ({ admin: t.admin.nav, clients: t.clients.nav, topups: t.topupsAdmin.nav, site: t.site.title, modules: t.modulesApp.nav, billing: t.billing.nav } as Partial<Record<Screen, string>>)[id] ?? t.nav[id as "home" | "security" | "account"];
   const { sites } = useSites();
 
   return (
@@ -106,6 +111,9 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             {screen === "admin" && me.isAdmin && <AdminLeads />}
             {screen === "clients" && me.isAdmin && <Clients />}
             {screen === "site" && <SiteScreen />}
+            {screen === "billing" && <BillingScreen />}
+            {screen === "modules" && <ModulesScreen />}
+            {screen === "topups" && me.isAdmin && <TopupsAdmin />}
             {screen === "account" && (
               <div className="ok-screen">
                 <div className="ok-h"><h3>{t.account.title}</h3></div>

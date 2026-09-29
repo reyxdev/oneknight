@@ -10,7 +10,10 @@ export async function notifyOwner(text: string, log: { warn: (o: object, m: stri
       body: JSON.stringify({ chat_id: env.TELEGRAM_CHAT_ID, text, disable_web_page_preview: true }),
       signal: AbortSignal.timeout(5000),
     });
-    if (!res.ok) log.warn({ status: res.status }, "telegram notify failed");
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as { description?: string } | null;
+      log.warn({ status: res.status, description: body?.description }, "telegram notify failed");
+    }
     return res.ok;
   } catch (e) {
     log.warn({ err: String(e) }, "telegram notify failed");

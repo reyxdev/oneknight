@@ -347,3 +347,12 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 - Account: "Сайт" screen (status, 30-day availability, 24-hour average response, SSL days, response chart, what is checked), home summary, notification bell (polls every 30 s).
 - Admin: "Клієнти й сайти": organizations with owner contacts, add site, check now, pause/resume, delete.
 - Not claimed anywhere: backups (need access to the hosting), API and error monitoring. They arrive when sites run on ONEKNIGHT hosting.
+
+## 20. Billing: subscription, balance, modules
+
+- Prices and the module catalogue live in `@oneknight/domain` (one source for site, account and API).
+- Tables: `subscriptions` (trial / active / grace / suspended / cancelled, period end, grace end), `ledger_entries` (amounts in kopecks; balance = sum), `module_installs` (free flag inside the trial), `topups` (IBAN transfers with a unique reference, pending / confirmed / cancelled).
+- Trial: the admin opens 3 free months for a website customer ("Відкрити 3 місяці безкоштовно"). Up to 5 paid modules are free inside the trial.
+- Renewal (hourly job, row-locked, idempotent): charge ONEKNIGHT 149 + 99 per installed module from the balance. If the balance is short: grace for GRACE_DAYS (3-7, default 5) with a notification, then suspended. A confirmed top-up renews a grace or suspended subscription immediately.
+- Top-up: the client picks an amount and gets the requisites plus a reference `OK-XXXXXXXX` for the payment purpose. The balance changes only when the admin confirms the money arrived (no payment provider, per the brief). Requisites come from `PAYMENT_RECIPIENT`, `PAYMENT_IBAN`, `PAYMENT_TAX_ID`; while they are empty the account says so and offers no top-up.
+- Modules can be connected in the real account only when `live: true`. Today none is live, so the store shows them as "У розробці" and nothing can be bought that does not work.

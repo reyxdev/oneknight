@@ -8,7 +8,7 @@ Owner input needed before launch. The UI shows an honest placeholder for each.
 - [ ] Karpatu.shop: verified metrics, if any should be shown
 - [ ] Karpatu.shop: optional 30-second video testimonial
 - [ ] Phone: confirm +380683587559 accepts voice calls (it was supplied as Viber / WhatsApp)
-- [ ] IBAN requisites for balance top-up (placeholder in demo)
+- [ ] IBAN requisites: set PAYMENT_RECIPIENT, PAYMENT_IBAN, PAYMENT_TAX_ID in .env (the account offers top-ups only then)
 - [x] Production domain: oneknight.pro (`src/config.ts`)
 - [ ] Legal wording for the 7 legal pages (reviewed by a specialist)
 - [ ] Warranty policy wording (data model only, no terms invented)
@@ -23,3 +23,5 @@ Owner input needed before launch. The UI shows an honest placeholder for each.
 - [ ] Telegram alerts for new requests: create a bot in @BotFather, then set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env
 - [ ] Register your own account in /app and run `npm run admin:grant -w @oneknight/api -- your@email` to see all requests
 - [ ] Backups and API/error monitoring: possible once client sites are hosted on an ONEKNIGHT server (decide hosting)
+- [ ] Telegram: send any message to @oneknight_bot (or add it to the group) so it can write to TELEGRAM_CHAT_ID; check with `npm run notify:test -w @oneknight/api`
+- [ ] First real modules (Nova Poshta, reviews, ...): each becomes installable by setting `live: true` once it works

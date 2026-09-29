@@ -15,6 +15,7 @@ type Org = {
   ownerPhone: string | null;
   createdAt: string;
   sites: { id: string; domain: string; status: "building" | "live" | "paused"; lastUp: boolean | null }[];
+  subscription: { status: "trial" | "active" | "grace" | "suspended" | "cancelled"; periodEnd: string } | null;
 };
 
 /** Admin: clients (organizations) and their sites. Adding a site starts monitoring immediately. */
@@ -51,6 +52,17 @@ export function Clients() {
               ))}
             </ul>
           )}
+          <div className="ok-actions">
+            {o.subscription ? (
+              <span className="ok-pill" data-s={o.subscription.status === "trial" || o.subscription.status === "active" ? "done" : "cancelled"}>
+                {d.app.billing.status[o.subscription.status]} · {f.date(new Date(o.subscription.periodEnd).getTime())}
+              </span>
+            ) : (
+              <button type="button" className="btn btn-sm btn-secondary" onClick={async () => { const r = await api(`/admin/organizations/${o.id}/trial`, { method: "POST", body: {} }); if (r.ok) { show(d.app.topupsAdmin.trialDone); void load(); } }}>
+                {d.app.topupsAdmin.trial}
+              </button>
+            )}
+          </div>
           <AddSite orgId={o.id} onAdded={() => { show(t.added); void load(); setTimeout(load, 12_000); }} />
         </Panel>
       ))}

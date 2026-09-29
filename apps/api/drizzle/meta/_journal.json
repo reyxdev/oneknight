@@ -29,6 +29,13 @@
       "when": 1790655383381,
       "tag": "0003_sites_monitoring",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790656186607,
+      "tag": "0004_billing",
+      "breakpoints": true
     }
   ]
 }

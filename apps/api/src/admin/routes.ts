@@ -5,6 +5,8 @@ import { db } from "../db/client.ts";
 import { leads, memberships, organizations, sites, users } from "../db/schema.ts";
 import { normalizeDomain } from "../monitor/probe.ts";
 import { checkSite } from "../monitor/scheduler.ts";
+import { billingOverview, confirmTopup, startTrial } from "../billing/service.ts";
+import { subscriptions, topups } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
 import { audit } from "../audit.ts";
 
@@ -38,7 +40,8 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
       .orderBy(desc(organizations.createdAt));
     const counts = await db.select({ org: sites.organizationId, n: count() }).from(sites).groupBy(sites.organizationId);
     const siteList = await db.select({ id: sites.id, org: sites.organizationId, domain: sites.domain, status: sites.status, lastUp: sites.lastUp }).from(sites);
-    return orgs.map((o) => ({ ...o, siteCount: counts.find((c) => c.org === o.id)?.n ?? 0, sites: siteList.filter((s) => s.org === o.id) }));
+    const subs = await db.select({ org: subscriptions.organizationId, status: subscriptions.status, periodEnd: subscriptions.periodEnd }).from(subscriptions);
+    return orgs.map((o) => ({ ...o, siteCount: counts.find((c) => c.org === o.id)?.n ?? 0, sites: siteList.filter((s) => s.org === o.id), subscription: subs.find((x) => x.org === o.id) ?? null }));
   });
 
   app.post("/sites", async (req, reply) => {
@@ -77,6 +80,40 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     const [site] = await db.select().from(sites).where(eq(sites.id, req.params.id)).limit(1);
     if (!site) return reply.code(404).send({ error: "not_found" });
     return checkSite(site, req.log);
+  });
+
+  /** Start the 3-month free period for a website customer. */
+  app.post<{ Params: { id: string } }>("/organizations/:id/trial", async (req, reply) => {
+    if (!uuid.safeParse(req.params.id).success) return reply.code(400).send({ error: "invalid_input" });
+    const until = await startTrial(req.params.id);
+    await audit(req, "subscription.trial", req.auth!.user.id, { until }, req.params.id);
+    return { ok: true, until };
+  });
+
+  app.get<{ Params: { id: string } }>("/organizations/:id/billing", async (req, reply) => {
+    if (!uuid.safeParse(req.params.id).success) return reply.code(400).send({ error: "invalid_input" });
+    return billingOverview(req.params.id);
+  });
+
+  app.get("/topups", async () => {
+    return db
+      .select({ id: topups.id, organizationId: topups.organizationId, org: organizations.name, amountKop: topups.amountKop, reference: topups.reference, status: topups.status, at: topups.createdAt })
+      .from(topups)
+      .innerJoin(organizations, eq(organizations.id, topups.organizationId))
+      .orderBy(desc(topups.createdAt))
+      .limit(100);
+  });
+
+  app.post<{ Params: { id: string; action: string } }>("/topups/:id/:action", async (req, reply) => {
+    if (!uuid.safeParse(req.params.id).success || !["confirm", "cancel"].includes(req.params.action)) return reply.code(400).send({ error: "invalid_input" });
+    if (req.params.action === "cancel") {
+      const [row] = await db.update(topups).set({ status: "cancelled" }).where(eq(topups.id, req.params.id)).returning({ id: topups.id });
+      await audit(req, "topup.cancel", req.auth!.user.id, { topup: req.params.id });
+      return row ? { ok: true } : reply.code(404).send({ error: "not_found" });
+    }
+    const r = await confirmTopup(req.params.id, req.auth!.user.id);
+    await audit(req, "topup.confirm", req.auth!.user.id, { topup: req.params.id, result: r });
+    return r === "confirmed" ? { ok: true } : reply.code(r === "not_found" ? 404 : 409).send({ error: r });
   });
 
   app.patch<{ Params: { id: string } }>("/leads/:id", async (req, reply) => {

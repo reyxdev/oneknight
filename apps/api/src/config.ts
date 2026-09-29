@@ -13,6 +13,12 @@ const Env = z.object({
   TELEGRAM_CHAT_ID: z.string().optional().transform((v) => v || undefined),
   /** Minutes between monitoring rounds. 0 disables the in-process monitor. */
   MONITOR_INTERVAL_MIN: z.coerce.number().int().min(0).default(5),
+  /** Days the service keeps working after a failed renewal (product range 3-7). */
+  GRACE_DAYS: z.coerce.number().int().min(3).max(7).default(5),
+  /** Bank details for top-ups (IBAN transfer). Empty = top-ups are not offered yet. */
+  PAYMENT_RECIPIENT: z.string().optional().transform((v) => v || undefined),
+  PAYMENT_IBAN: z.string().optional().transform((v) => v || undefined),
+  PAYMENT_TAX_ID: z.string().optional().transform((v) => v || undefined),
   COOKIE_SECURE: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
 });
 

@@ -10,7 +10,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file=../../.env src/db/migrate.ts",
     "test": "tsx --env-file=../../.env --test src/**/*.test.ts",
-    "admin:grant": "tsx --env-file=../../.env scripts/grant-admin.ts"
+    "admin:grant": "tsx --env-file=../../.env scripts/grant-admin.ts",
+    "notify:test": "tsx --env-file=../../.env scripts/notify-test.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",

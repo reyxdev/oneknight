@@ -8,6 +8,9 @@ import { boolean, index, inet, integer, jsonb, pgEnum, pgTable, primaryKey, smal
 
 export const roleEnum = pgEnum("member_role", ["owner", "manager", "marketer"]);
 export const siteStatusEnum = pgEnum("site_status", ["building", "live", "paused"]);
+export const subStatusEnum = pgEnum("subscription_status", ["trial", "active", "grace", "suspended", "cancelled"]);
+export const ledgerKindEnum = pgEnum("ledger_kind", ["topup", "charge", "refund", "adjustment"]);
+export const topupStatusEnum = pgEnum("topup_status", ["pending", "confirmed", "cancelled"]);
 export const leadStatusEnum = pgEnum("lead_status", ["new", "in_progress", "won", "lost"]);
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
@@ -174,4 +177,65 @@ export const notifications = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("notifications_org_idx").on(t.organizationId, t.createdAt)],
+);
+
+/** ONEKNIGHT subscription of an organization (one per organization). */
+export const subscriptions = pgTable("subscriptions", {
+  organizationId: uuid("organization_id").primaryKey().references(() => organizations.id, { onDelete: "cascade" }),
+  status: subStatusEnum("status").notNull(),
+  /** End of the free period for website customers (3 months). Null when never on trial. */
+  trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
+  /** The subscription is paid (or free) until this moment; renewal happens here. */
+  periodEnd: timestamp("period_end", { withTimezone: true }).notNull(),
+  /** Set when a renewal could not be paid: service keeps working until this moment. */
+  graceUntil: timestamp("grace_until", { withTimezone: true }),
+  createdAt: createdAt(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Money movements. The balance is the sum of amounts. Amounts in kopecks (100 = 1 UAH), charges negative. */
+export const ledgerEntries = pgTable(
+  "ledger_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    kind: ledgerKindEnum("kind").notNull(),
+    amountKop: integer("amount_kop").notNull(),
+    /** Machine description: renewal, module:<id>, topup:<reference>... */
+    reason: text("reason").notNull(),
+    meta: jsonb("meta").notNull().default(sql`'{}'::jsonb`),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("ledger_org_idx").on(t.organizationId, t.createdAt)],
+);
+
+/** Installed modules. `free` = installed inside the free period within the free-module limit. */
+export const moduleInstalls = pgTable(
+  "module_installs",
+  {
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    moduleId: text("module_id").notNull(),
+    free: boolean("free").notNull().default(false),
+    installedAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.organizationId, t.moduleId] })],
+);
+
+/** A bank-transfer (IBAN) top-up the client announced. Confirmed manually when the money arrives. */
+export const topups = pgTable(
+  "topups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    amountKop: integer("amount_kop").notNull(),
+    /** Printed in the payment purpose so the transfer can be matched. */
+    reference: text("reference").notNull().unique(),
+    status: topupStatusEnum("status").notNull().default("pending"),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    confirmedBy: uuid("confirmed_by").references(() => users.id, { onDelete: "set null" }),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("topups_org_idx").on(t.organizationId, t.createdAt), index("topups_status_idx").on(t.status)],
 );
