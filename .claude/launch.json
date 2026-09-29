@@ -4,7 +4,7 @@
     {
       "name": "oneknight-static",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "out", "-l", "4173", "--no-clipboard"],
+      "runtimeArgs": ["serve", "apps/web/out", "-l", "4173", "--no-clipboard"],
       "port": 4173
     }
   ]

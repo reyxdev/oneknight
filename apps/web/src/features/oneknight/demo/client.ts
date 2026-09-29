@@ -1,5 +1,5 @@
 import type { ActionResult, OneKnightClient } from "../client";
-import type { ID, OkState, Order, Review } from "../domain";
+import type { ID, OkState, Order, Review } from "@oneknight/domain";
 import { moduleCatalog } from "@/data/modules";
 import { config } from "@/config";
 import { seed } from "./seed";

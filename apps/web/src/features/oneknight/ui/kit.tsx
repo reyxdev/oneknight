@@ -5,7 +5,7 @@ import { useDict, useLang } from "@/i18n/provider";
 import { fmt } from "@/i18n";
 import { formatUAH } from "@/data/pricing";
 import { Icon, type IconName } from "@/components/ui/Icon";
-import type { OrderStatus } from "../domain";
+import type { OrderStatus } from "@oneknight/domain";
 
 export function useFormat() {
   const lang = useLang();

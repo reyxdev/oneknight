@@ -8,7 +8,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Segmented } from "@/components/ui/Toggle";
 import { useClient, useOkState } from "../state";
 import { Empty, Panel, useFormat } from "../ui/kit";
-import type { Review, ReviewStatus } from "../domain";
+import type { Review, ReviewStatus } from "@oneknight/domain";
 
 const DAY = 86_400_000;
 

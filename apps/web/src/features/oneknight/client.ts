@@ -1,6 +1,6 @@
 import type {
   Customization, ID, IntegrationId, Moderation, ModuleId, OkState, OrderStatus, TicketCategory,
-} from "./domain";
+} from "@oneknight/domain";
 
 export type ActionResult = { ok: true } | { ok: false; reason: "insufficient_balance" | "not_available" | "requires_module" | "invalid" };
 

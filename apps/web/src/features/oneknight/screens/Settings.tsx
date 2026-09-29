@@ -5,7 +5,7 @@ import { useDict } from "@/i18n/provider";
 import { Icon } from "@/components/ui/Icon";
 import { useOkState } from "../state";
 import { Panel, useFormat } from "../ui/kit";
-import type { Member, Permission } from "../domain";
+import type { Member, Permission } from "@oneknight/domain";
 
 const PERMS: Permission[] = ["orders", "products", "reviews", "analytics", "site", "modules", "billing", "team"];
 

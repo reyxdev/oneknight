@@ -5,7 +5,7 @@ import { useDict } from "@/i18n/provider";
 import { Icon } from "@/components/ui/Icon";
 import { useClient, useOkState } from "../state";
 import { Panel } from "../ui/kit";
-import type { IntegrationId } from "../domain";
+import type { IntegrationId } from "@oneknight/domain";
 
 const OAUTH: IntegrationId[] = ["google", "meta", "telegram"];
 

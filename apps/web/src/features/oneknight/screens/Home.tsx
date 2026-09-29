@@ -7,7 +7,7 @@ import { Icon } from "@/components/ui/Icon";
 import { useClient, useOkState } from "../state";
 import { AreaChart, Panel, Stat, StatusPill, useFormat } from "../ui/kit";
 import type { ScreenId } from "../ui/Shell";
-import type { Recommendation } from "../domain";
+import type { Recommendation } from "@oneknight/domain";
 
 const DAY = 86_400_000;
 

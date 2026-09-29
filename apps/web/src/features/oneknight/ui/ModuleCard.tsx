@@ -7,7 +7,7 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { playSound } from "@/lib/sound";
 import { useClient, useOkState } from "../state";
 import { useFormat } from "./kit";
-import type { ModuleDef, ModuleId } from "../domain";
+import type { ModuleDef, ModuleId } from "@oneknight/domain";
 
 export const moduleIcon: Record<ModuleId, IconName> = {
   novaposhta: "truck", ukrposhta: "box", analytics: "chart", reviews: "star", olx: "cart", prom: "cart", rozetka: "cart", "ai-content": "bolt", zadarma: "phone",

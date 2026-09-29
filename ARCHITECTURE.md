@@ -306,3 +306,10 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 - IBAN requisites are not shown until provided.
 - Measured on a throttled mobile profile (4x CPU, about 1.6 Mbit/s): FCP = LCP about 2.3 s, CLS 0, initial JS about 175 KB gzip (framework about 115 KB).
 - The in-app preview browser reports a React hydration warning (#418) on every page, including a bare html/body test page; headless Chromium reports none. Treated as an artefact of that browser.
+
+## 15. Real product: decisions (2026-09-29)
+
+- Domain: oneknight.pro. Code: private GitHub `reyxdev/oneknight`. Hosting: local development first, server chosen later.
+- Monorepo with npm workspaces: `apps/web`, `apps/api`, `packages/domain`.
+- Proposed URL layout: site `oneknight.pro`, panel `oneknight.pro/app`, API `oneknight.pro/api` behind one reverse proxy. Same origin means session cookies stay `HttpOnly; Secure; SameSite=Lax` with no CORS. (Replaces the earlier app./api. subdomain idea.)
+- First vertical slice: accounts (register without email verification, login, sessions, login history, rate limiting, TOTP 2FA) and brief/lead storage with an admin list and Telegram alert.

@@ -7,7 +7,7 @@ import { Icon } from "@/components/ui/Icon";
 import { playSound } from "@/lib/sound";
 import { useClient, useOkState } from "../state";
 import { Empty, Panel, StatusPill, useFlash, useFormat } from "../ui/kit";
-import { orderFlow, type OrderStatus } from "../domain";
+import { orderFlow, type OrderStatus } from "@oneknight/domain";
 import type { ScreenId } from "../ui/Shell";
 
 const FILTERS: (OrderStatus | "all")[] = ["all", "new", "confirmed", "paid", "shipped", "done", "cancelled"];

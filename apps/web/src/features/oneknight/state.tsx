@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useSyncExternalStore, type ReactNode } from "react";
 import type { OneKnightClient } from "./client";
-import type { OkState } from "./domain";
+import type { OkState } from "@oneknight/domain";
 import { createDemoClient } from "./demo/client";
 import { useLang } from "@/i18n/provider";
 

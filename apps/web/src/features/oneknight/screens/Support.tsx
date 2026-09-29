@@ -8,7 +8,7 @@ import { Icon } from "@/components/ui/Icon";
 import { playSound } from "@/lib/sound";
 import { useClient, useOkState } from "../state";
 import { Empty, Panel, useFlash, useFormat } from "../ui/kit";
-import type { TicketCategory } from "../domain";
+import type { TicketCategory } from "@oneknight/domain";
 
 export function Support() {
   const t = useDict().ok.support;

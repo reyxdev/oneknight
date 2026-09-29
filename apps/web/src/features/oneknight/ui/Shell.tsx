@@ -7,7 +7,7 @@ import { KnightMark } from "@/components/global/Logo";
 import { playSound } from "@/lib/sound";
 import { useClient, useOkState } from "../state";
 import { notifText, useFormat } from "./kit";
-import type { ModuleId } from "../domain";
+import type { ModuleId } from "@oneknight/domain";
 
 export type ScreenId = "home" | "orders" | "site" | "analytics" | "products" | "reviews" | "modules" | "integrations" | "services" | "support" | "account" | "settings";
 

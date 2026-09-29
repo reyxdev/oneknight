@@ -6,7 +6,7 @@ import { Icon } from "@/components/ui/Icon";
 import { playSound, type SoundProfile } from "@/lib/sound";
 import { useClient, useOkState } from "../state";
 import { Panel, useFlash, useFormat } from "../ui/kit";
-import type { Customization } from "../domain";
+import type { Customization } from "@oneknight/domain";
 
 type Opt<K extends keyof Customization> = { key: K; label: string; values: Record<Customization[K], string> };
 

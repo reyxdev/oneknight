@@ -1,4 +1,4 @@
-import type { ModuleDef } from "@/features/oneknight/domain";
+import type { ModuleDef } from "@oneknight/domain";
 import { oneknightPricing } from "./pricing";
 
 /** Module catalogue. Adding a module = one entry here + copy in i18n. */

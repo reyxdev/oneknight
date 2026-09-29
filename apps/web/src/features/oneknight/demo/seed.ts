@@ -1,4 +1,4 @@
-import type { OkState } from "../domain";
+import type { OkState } from "@oneknight/domain";
 import { oneknightPricing } from "@/data/pricing";
 
 /**
