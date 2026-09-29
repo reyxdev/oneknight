@@ -148,3 +148,8 @@ Raw answers; the agreed result is written into ARCHITECTURE.md §4 when all bloc
 - Q133 admin Telegram: new lead, sign-up, top-up waiting, new ticket, client site down, new idea
 - Q134 admin daily morning digest: yes
 - Q135 priorities: all seven, in the listed order: menu+home, orders, buyers, buyer messages, products, ONEKNIGHT sales, admin
+
+## Clarifications (2026-09-29, after the questionnaire)
+- Anything that needs a paid service is not built now; the idea and structure stay documented for later (buyer messaging via Viber/SMS and everything that depends on it).
+- Q19 changed: no invoices from ONEKNIGHT for top-ups. Instead the client's business issues a «Рахунок-фактура» to its own buyer from an order, with the client's own requisites; nothing of the owner's (ONEKNIGHT) data is involved.
+- Q107 Google reviews: only if the client connects their own Google Business Profile in Інтеграції and grants access.
