@@ -65,7 +65,8 @@ const OUT: OrderStatus[] = ["cancelled", "returned"];
  * again. A business's own status sets its group. Cancelling needs a reason. `from`: allowed only from these groups
  * (a shipping-only member).
  */
-export async function setOrderStatus(orderId: string, orgIds: string[], change: StatusChange, userId: string, from?: readonly OrderStatus[]) {
+/** `userId` null: the change was made by ONEKNIGHT itself (parcel tracking). */
+export async function setOrderStatus(orderId: string, orgIds: string[], change: StatusChange, userId: string | null, from?: readonly OrderStatus[]) {
   return db.transaction(async (tx) => {
     const [o] = await tx.select().from(orders).where(and(eq(orders.id, orderId), inArray(orders.organizationId, orgIds))).for("update");
     if (!o) return { ok: false as const, error: "not_found" };

@@ -8,6 +8,7 @@ import { syncAllProm } from "./integrations/prom.ts";
 import { syncAllRozetka } from "./integrations/rozetka.ts";
 import { runBackups, sweepBackupFiles } from "./backups/service.ts";
 import { deliverTelegram, startBotPolling } from "./notify/bot.ts";
+import { trackParcels } from "./integrations/tracking.ts";
 import { purgeTrash } from "./reviews/routes.ts";
 import { purgeAnalytics } from "./analytics/routes.ts";
 
@@ -19,6 +20,8 @@ void runBilling().catch((e) => app.log.error(e));
 const stopBot = startBotPolling(app.log);
 const tgTimer = setInterval(() => void deliverTelegram(undefined, { skipTestAccounts: true }).catch((e) => app.log.error(e)), 15_000);
 const backupTimer = setInterval(() => void runBackups(app.log).catch((e) => app.log.error(e)), 3600_000);
+// Parcels: Nova Poshta and Ukrposhta statuses hourly (Відправлено / Завершено / Повернення, waiting at the branch).
+const trackTimer = setInterval(() => void trackParcels({ skipTestAccounts: true }).catch((e) => app.log.error(e)), 3600_000);
 const promTimer = setInterval(() => {
   void syncAllProm(app.log).catch((e) => app.log.error(e));
   void syncAllRozetka(app.log).catch((e) => app.log.error(e));
@@ -36,6 +39,7 @@ const shutdown = async () => {
   clearInterval(billingTimer);
   clearInterval(sweepTimer);
   clearInterval(promTimer);
+  clearInterval(trackTimer);
   clearInterval(backupTimer);
   clearInterval(tgTimer);
   stopBot();

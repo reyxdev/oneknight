@@ -288,3 +288,4 @@ dialog.modal:has(.app-dialog) { max-width: min(520px, calc(100vw - 1.5rem)); }
 .app-seal { display: grid; gap: 0.5rem; padding: 0.75rem; border-radius: 12px; border: 1px dashed var(--line-strong); }
 .app-seal-label { font-weight: 700; font-size: 0.875rem; }
 .app-seal img { max-height: 90px; max-width: 200px; object-fit: contain; }
+.app-track { display: flex; align-items: center; gap: 0.45rem; margin: 0; font-size: 0.875rem; }

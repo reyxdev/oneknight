@@ -132,6 +132,8 @@ export function notificationText(key: string, p: Record<string, any>, finance = 
   switch (key) {
     // Without `finance` the person does not see sums, in Telegram either.
     case "newOrder": return finance ? `🛒 Нове замовлення №${p.n} на ${money(p.total)} грн` : `🛒 Нове замовлення №${p.n}`;
+    case "parcelWaiting": return `📦 Посилка №${p.n} чекає у відділенні ${p.days}+ дні. Подзвоніть покупцю`;
+    case "parcelRefused": return `↩️ Замовлення №${p.n}: відмова або повернення посилки`;
     case "newReview": return `⭐ Новий відгук від ${p.name} (${p.rating}★)`;
     case "siteDown": return `⚠️ ${p.domain} недоступний${p.error ? ` (${p.error})` : ""}`;
     case "siteUp": return `✅ ${p.domain} знову працює`;

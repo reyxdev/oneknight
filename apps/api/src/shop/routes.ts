@@ -138,6 +138,8 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
         ? needsWaybill()
         : req.query.status === "callback"
           ? and(inArray(orders.status, ["new", "confirmed"]), lte(orders.callbackAt, new Date()))
+          : req.query.status === "waiting"
+            ? and(eq(orders.status, "shipped"), lte(orders.arrivedAt, new Date(Date.now() - 3 * 86_400_000)))
           : st.success
             ? eq(orders.status, st.data)
             : undefined;
@@ -162,6 +164,7 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
         paymentStatus: orders.paymentStatus,
         waybill: orders.waybill,
         callbackAt: orders.callbackAt,
+        trackText: orders.trackText,
         createdAt: orders.createdAt,
         siteId: orders.siteId,
         source: orders.source,

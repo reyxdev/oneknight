@@ -241,7 +241,7 @@ await pg.locator(".ok-side").getByRole("button", { name: "Головна", exact
 
 // «Приховати суми й телефони»: blurred, remembered; text size from «Мій профіль».
 await pg.getByRole("button", { name: "Приховати суми й телефони" }).click();
-ok(await pg.locator("[data-private='true'] .app-secret").first().isVisible(), "sums are hidden");
+ok((await pg.locator("[data-private='true'] .app-secret:visible").count()) > 0, "sums are hidden");
 await pg.reload({ waitUntil: "networkidle" });
 ok((await pg.locator(".ok-app").getAttribute("data-private")) === "true", "the choice is remembered");
 await pg.getByRole("button", { name: "Приховати суми й телефони" }).click();

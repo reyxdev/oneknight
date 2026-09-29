@@ -35,7 +35,8 @@ export type UpSender = {
   edrpou?: string;
   bankAccount?: string;
 };
-export type UpCreds = { bearer: string; token: string; sender: UpSender };
+/** `trackingBearer`: the separate bearer of the status-tracking API (Ukrposhta issues it with the contract); the eCom one is tried when absent. */
+export type UpCreds = { bearer: string; token: string; trackingBearer?: string; sender: UpSender };
 export type UpSettings = {
   cityRef?: string;
   cityName?: string;

@@ -4,6 +4,7 @@ import { insightDismissals, monitorChecks, orders, products, reviews, sites, sub
 import type { Permission } from "../auth/access.ts";
 import { hasModule } from "../billing/service.ts";
 import { orderSettingsOf } from "../shop/settings.ts";
+import { WAITING_DAYS } from "../integrations/tracking.ts";
 
 /**
  * «Що треба зробити»: things that need a person, each counted from real data and leading to the filtered list.
@@ -44,6 +45,8 @@ export async function todoFor(orgId: string, perms: Permission[], now = new Date
     if (o && o.n > 0) out.push({ id: `newOrders:${o.n}:${o.urgent}`, tone: o.urgent ? "bad" : "warn", key: o.urgent ? "newOrdersUrgent" : "newOrders", params: { n: o.n, urgent: o.urgent }, screen: "orders", tab: "new" });
   }
   if (can("orders") || can("shipping")) {
+    const [pw] = await db.select({ n: count() }).from(orders).where(and(eq(orders.organizationId, orgId), eq(orders.status, "shipped"), lte(orders.arrivedAt, new Date(now.getTime() - WAITING_DAYS * 24 * HOUR))));
+    if (pw && pw.n > 0) out.push({ id: `parcelWaiting:${pw.n}`, tone: "warn", key: "parcelWaiting", params: { n: pw.n, days: WAITING_DAYS }, screen: "orders", tab: "waiting" });
     const [w] = await db.select({ n: count() }).from(orders).where(and(eq(orders.organizationId, orgId), eq(orders.isExample, false), needsWaybill()));
     if (w && w.n > 0) out.push({ id: `noWaybill:${w.n}`, tone: "warn", key: "noWaybill", params: { n: w.n }, screen: "orders", tab: "nowaybill" });
   }

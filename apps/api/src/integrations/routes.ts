@@ -175,7 +175,7 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
     app.post("/ukrposhta/connect", { config: { rateLimit: { max: 10, timeWindow: "10 minutes" } } }, async (req, reply) => {
       const [org] = await orgScope(req, "modules");
       if (!org) return reply.code(403).send({ error: "forbidden" });
-      const p = z.object({ bearer: z.string().trim().min(10).max(200), token: z.string().trim().min(10).max(200), sender: UpSenderSchema }).safeParse(req.body);
+      const p = z.object({ bearer: z.string().trim().min(10).max(200), token: z.string().trim().min(10).max(200), trackingBearer: z.string().trim().min(10).max(200).optional(), sender: UpSenderSchema }).safeParse(req.body);
       if (!p.success) return reply.code(400).send({ error: "invalid_input", fields: p.error.issues.map((i) => i.path.join(".")) });
       const v = await verifyUp(p.data.bearer, p.data.token, up);
       if (!v.ok) return reply.code(400).send({ error: "provider_rejected", detail: v.error });

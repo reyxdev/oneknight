@@ -391,6 +391,13 @@ export const orders = pgTable(
     assigneeId: uuid("assignee_id").references(() => users.id, { onDelete: "set null" }),
     /** «Не додзвонились»: when to call again (shown in «Що треба зробити»). */
     callbackAt: timestamp("callback_at", { withTimezone: true }),
+    /** Parcel tracking (checked hourly): the carrier's last status code and text, and when it was seen. */
+    trackCode: text("track_code"),
+    trackText: text("track_text"),
+    trackAt: timestamp("track_at", { withTimezone: true }),
+    /** When the parcel arrived at the branch / parcel locker: 3+ days waiting → «подзвоніть покупцю». */
+    arrivedAt: timestamp("arrived_at", { withTimezone: true }),
+    waitingNotified: boolean("waiting_notified").notNull().default(false),
     delivery: jsonb("delivery").notNull().$type<{ method: string; city?: string; branch?: string; address?: string }>(),
     payment: text("payment").notNull(),
     comment: text("comment"),

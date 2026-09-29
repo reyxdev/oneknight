@@ -136,7 +136,7 @@ function Ukrposhta({ item, reload }: { item: Item; reload: () => void }) {
   const d = useDict();
   const t = d.app.integrations;
   const [flash, show] = useFlash();
-  const [f, setF] = useState({ bearer: "", token: "", type: "PRIVATE_ENTREPRENEUR" as UpSenderType, lastName: "", firstName: "", middleName: "", companyName: "", phone: "", tin: "", edrpou: "", bankAccount: "" });
+  const [f, setF] = useState({ bearer: "", token: "", trackingBearer: "", type: "PRIVATE_ENTREPRENEUR" as UpSenderType, lastName: "", firstName: "", middleName: "", companyName: "", phone: "", tin: "", edrpou: "", bankAccount: "" });
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const connected = item.status === "connected";
@@ -153,7 +153,7 @@ function Ukrposhta({ item, reload }: { item: Item; reload: () => void }) {
         ? { type: f.type, companyName: opt(f.companyName), edrpou: opt(f.edrpou), phone: f.phone, bankAccount: opt(f.bankAccount.replace(/\s/g, "")) }
         : { type: f.type, lastName: opt(f.lastName), firstName: opt(f.firstName), middleName: opt(f.middleName), phone: f.phone, ...(f.type === "PRIVATE_ENTREPRENEUR" ? { tin: opt(f.tin) } : {}), bankAccount: opt(f.bankAccount.replace(/\s/g, "")) };
     setBusy(true);
-    const r = await api("/integrations/ukrposhta/connect", { method: "POST", body: { bearer: f.bearer.trim(), token: f.token.trim(), sender } });
+    const r = await api("/integrations/ukrposhta/connect", { method: "POST", body: { bearer: f.bearer.trim(), token: f.token.trim(), ...(f.trackingBearer.trim() ? { trackingBearer: f.trackingBearer.trim() } : {}), sender } });
     setBusy(false);
     if (!r.ok) {
       playSound("error");
@@ -178,6 +178,7 @@ function Ukrposhta({ item, reload }: { item: Item; reload: () => void }) {
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label={t.upBearer}>{(p) => <input {...p} className="input" autoComplete="off" spellCheck={false} maxLength={200} value={f.bearer} onChange={set("bearer")} />}</Field>
             <Field label={t.upToken}>{(p) => <input {...p} className="input" autoComplete="off" spellCheck={false} maxLength={200} value={f.token} onChange={set("token")} />}</Field>
+            <Field label={t.upTracking} hint={t.upTrackingHint} optionalLabel={t.optional}>{(p) => <input {...p} className="input" autoComplete="off" spellCheck={false} maxLength={200} value={f.trackingBearer} onChange={set("trackingBearer")} />}</Field>
             <Field label={t.upSenderType}>
               {(p) => (
                 <select {...p} className="input" value={f.type} onChange={set("type")}>

@@ -51,6 +51,7 @@ type OrderRow = {
   paymentStatus: Payment | null;
   waybill: string | null;
   callbackAt: string | null;
+  trackText: string | null;
   createdAt: string;
   source: string;
   isExample: boolean;
@@ -68,6 +69,8 @@ type OrderFull = OrderRow & {
   comment: string | null;
   warranty: { enabled: boolean; until?: string; note?: string };
   assignee: string | null;
+  trackAt: string | null;
+  arrivedAt: string | null;
   duplicates: { id: string; number: number; status: Group; createdAt: string }[];
   events: Event[];
 };
@@ -144,6 +147,7 @@ function History({ events }: { events: Event[] }) {
             )}
             {e.kind === "created" && <span>{fmt(t.ev.created, { s: sourceName(String(e.data?.source ?? "")) })}</span>}
             {e.kind === "comment" && <span className="app-comment">{String(e.data?.text ?? "")}</span>}
+            {e.kind === "tracking" && <span>{fmt(t.ev.tracking, { s: String(e.data?.text ?? "") })}</span>}
             {e.kind === "assign" && <span>{t.ev.assign}</span>}
             {e.kind === "call" && <span>{t.ev.noAnswer}</span>}
             {e.kind === "merge" && <span>{fmt(t.ev.merge, { n: String(e.data?.number ?? "") })}</span>}
@@ -161,7 +165,7 @@ function History({ events }: { events: Event[] }) {
               </span>
             )}
           </span>
-          <small className="ok-muted">{f.dateTime(new Date(e.at).getTime())}{e.by ? ` · ${e.by}` : ""}</small>
+          <small className="ok-muted">{f.dateTime(new Date(e.at).getTime())} · {e.by ?? t.ev.system}</small>
         </li>
       ))}
     </ol>
@@ -300,6 +304,7 @@ function OrderDetail({ id, onChanged, shippingOnly, settings, meName, onClose }:
           ))}
         </div>
       )}
+      {o.waybill && o.trackText && <p className="app-track"><Icon name="truck" size={15} />{fmt(t.parcel, { s: o.trackText, t: f.dateTime(new Date(o.trackAt ?? o.createdAt).getTime()) })}</p>}
       {o.callbackAt && (o.status === "new" || o.status === "confirmed") && <p className="ok-note">{fmt(t.callbackAt, { t: f.dateTime(new Date(o.callbackAt).getTime()) })}</p>}
       {!shippingOnly && (
         <p className="app-assignee">
@@ -483,9 +488,9 @@ function Board({ rows, settings, finance, onOpen, onMove }: { rows: OrderRow[]; 
   );
 }
 
-const FILTERS = ["all", "new", "callback", "nowaybill", "confirmed", "shipped", "done", "cancelled", "returned"] as const;
+const FILTERS = ["all", "new", "callback", "nowaybill", "confirmed", "shipped", "waiting", "done", "cancelled", "returned"] as const;
 /** «Комплектувальник» works only with orders waiting to be sent. */
-const SHIP_FILTERS = ["all", "nowaybill", "confirmed", "shipped"] as const;
+const SHIP_FILTERS = ["all", "nowaybill", "confirmed", "shipped", "waiting"] as const;
 type Filter = (typeof FILTERS)[number];
 
 /** `tab` from the address: a filter ("new", "nowaybill", …) or "o-<id>" to open one order (links from Home). */
@@ -623,7 +628,7 @@ export function OrdersScreen({ tab, shippingOnly = false, finance = true, meName
           { key: "payment", label: t.paymentTitle, render: (o: OrderRow) => (o.paymentStatus ? <span className="ok-pill" data-pay={o.paymentStatus}>{t.paymentStates[o.paymentStatus]}</span> : null) },
         ]
       : []),
-    { key: "waybill", label: t.waybill, render: (o) => (o.waybill ? <span className="num">{o.waybill}</span> : null) },
+    { key: "waybill", label: t.waybill, render: (o) => (o.waybill ? <span className="app-cell-main"><span className="num">{o.waybill}</span>{o.trackText && <small>{o.trackText}</small>}</span> : null) },
     { key: "status", label: d.ok.orders.state, sort: true, render: (o) => <StatusBadge status={o.status} statusId={o.statusId} settings={settings} /> },
   ];
   return (
@@ -643,7 +648,7 @@ export function OrdersScreen({ tab, shippingOnly = false, finance = true, meName
       <div className="ok-chips" role="group" aria-label={d.ok.orders.state}>
         {/* The board shows every group side by side: status chips only in the list. */}
         {(view === "board" && !shippingOnly ? [] : shippingOnly ? SHIP_FILTERS : FILTERS).map((x) => (
-          <button key={x} type="button" className="ok-chip" aria-pressed={filter === x} onClick={() => { setFilter(x); setPage(1); }}>{x === "all" ? t.all : x === "nowaybill" ? t.noWaybill : x === "callback" ? t.callbackFilter : d.ok.orders.status[x]}</button>
+          <button key={x} type="button" className="ok-chip" aria-pressed={filter === x} onClick={() => { setFilter(x); setPage(1); }}>{x === "all" ? t.all : x === "nowaybill" ? t.noWaybill : x === "callback" ? t.callbackFilter : x === "waiting" ? t.waitingFilter : d.ok.orders.status[x]}</button>
         ))}
         {finance && (
           <label className="ok-select app-filter-select">
