@@ -411,6 +411,14 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 - Printing: «Роздрукувати ТТН» (A4 `printDocument`) and «Наклейка 100×100» (`printMarking100x100`) call `GET /novaposhta/print/:orderId`, which downloads the PDF from my.novaposhta.ua on the server (URL format as in the NP SDKs), so the key never reaches the browser.
 - The NP client and the PDF fetcher are injectable, so API tests run on recorded-shape responses without network.
 
+## 28a. Integrations: Ukrposhta (same flow as Nova Poshta)
+
+- From the official docs (dev.ukrposhta.ua: API documentation 02.09.2026, address classifier v3.22, "Пошук відділень та індексів"). eCom `https://www.ukrposhta.ua/ecom/0.0.1`, forms `https://www.ukrposhta.ua/forms/ecom/0.0.1`, classifier `https://www.ukrposhta.ua/address-classifier-ws`; every call `Authorization: Bearer <PRODUCTION BEARER eCom>`, clients/shipments/printing also `?token=<PROD_COUNTERPARTY TOKEN>`. Both come with the contract, so the connect steps say so honestly.
+- «Інтеграції»: the two keys (verified with the read-only `GET /phones/UA/prohibited`) and who sends (ФОП with ІПН, company with ЄДРПОУ, or a private person with a middle name; IBAN for cash on delivery), stored encrypted.
+- Order with Ukrposhta delivery: «Оформити ТТН» → `GET /api/integrations/ukrposhta/draft/:orderId` (office found by a 5-digit postcode in the order, else cities to pick; remembered sender office, weight and size) → `POST /ukrposhta/waybill`: address by postcode → sender client (created once per sender postcode and remembered) → recipient INDIVIDUAL client → shipment `STANDARD`, `W2W`, recipient pays delivery, declared value = order total, parcel weight in grams and L×W×H in cm; cash on delivery = total, and for a ФОП/company sender only to the bank account (`transferPostPayToBankAccount`), as the docs require. Barcode and uuid are saved on the order.
+- Printing: `GET /ukrposhta/print/:orderId` fetches `/shipments/{uuid}/sticker` (100×100, or `size=SIZE_A4`) on the server.
+- Office pickers use the classifier (cities by name → offices by KATOTTG), hiding blocked (`LOCK_CODE` ≠ 0) and closed-institution offices.
+
 ## 29. Integrations: Prom.ua orders import
 
 - Based on the official spec (public-api.docs.prom.ua, `documentation/index.yaml`): `Authorization: Bearer <token>`, `GET /api/v1/orders/list` with `date_from`, `limit`, `last_id`.

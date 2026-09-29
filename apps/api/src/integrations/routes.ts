@@ -9,12 +9,13 @@ import { hasModule } from "../billing/service.ts";
 import { decrypt, encrypt } from "../security/crypto.ts";
 import { audit } from "../audit.ts";
 import { promFetch, syncProm, verifyPromToken, type PromFetch } from "./prom.ts";
+import { createUpShipment, ensureSender, upCities, upFetch, upOfficeByPostcode, upOffices, upSticker, verifyUp, type UpCreds, type UpFetch, type UpSettings } from "./ukrposhta.ts";
 import { forgetRozetkaToken, rozetkaFetch, rozetkaLogin, syncRozetka, type RozetkaFetch } from "./rozetka.ts";
 import { createWaybill, findCities, findWarehouses, verifyKey, type NpCall, type NpSender, type NpSettings, npCall } from "./novaposhta.ts";
 
 export const PROVIDERS = ["novaposhta", "ukrposhta", "prom", "olx", "rozetka", "google", "meta", "telegram"] as const;
 /** Providers that can actually be connected today. The rest are shown honestly as "in development". */
-export const LIVE_PROVIDERS = new Set<string>(["novaposhta", "prom", "rozetka"]);
+export const LIVE_PROVIDERS = new Set<string>(["novaposhta", "ukrposhta", "prom", "rozetka"]);
 
 type NpCreds = { apiKey: string; sender: NpSender };
 
@@ -36,7 +37,7 @@ export const fetchPdf: PrintPdf = async (url) => {
 };
 
 /** /api/integrations. `call` lets tests replace the Nova Poshta network client. */
-export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promFetch, rozetka: RozetkaFetch = rozetkaFetch, printPdf: PrintPdf = fetchPdf): FastifyPluginAsync {
+export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promFetch, rozetka: RozetkaFetch = rozetkaFetch, printPdf: PrintPdf = fetchPdf, up: UpFetch = upFetch): FastifyPluginAsync {
   return async (app) => {
     app.addHook("preHandler", requireAuth);
 
@@ -140,6 +141,146 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
       const n = org ? await np(org) : null;
       if (!n || !req.query.city) return reply.code(409).send({ error: "not_connected" });
       return findWarehouses(n.creds.apiKey, req.query.city, String(req.query.q ?? "").slice(0, 50), call);
+    });
+
+    // ---------------- Ukrposhta: same flow as Nova Poshta (key here, waybill + printing in the order) ----------------
+    const UpSenderSchema = z
+      .object({
+        type: z.enum(["INDIVIDUAL", "PRIVATE_ENTREPRENEUR", "COMPANY"]),
+        firstName: z.string().trim().min(2).max(100).optional(),
+        lastName: z.string().trim().min(2).max(100).optional(),
+        middleName: z.string().trim().min(2).max(100).optional(),
+        companyName: z.string().trim().min(2).max(250).optional(),
+        phone: z.string().trim().regex(/^\+?[0-9\s()-]{9,20}$/),
+        tin: z.string().trim().regex(/^\d{10}$/).optional(),
+        edrpou: z.string().trim().regex(/^\d{5,8}$/).optional(),
+        bankAccount: z.string().trim().toUpperCase().regex(/^UA\d{27}$/).optional(),
+      })
+      .refine((s) => (s.type === "COMPANY" ? !!s.companyName && !!s.edrpou : !!s.firstName && !!s.lastName), { path: ["name"] })
+      .refine((s) => s.type !== "PRIVATE_ENTREPRENEUR" || !!s.tin, { path: ["tin"] })
+      // The docs require the middle name of an individual sender for cash on delivery.
+      .refine((s) => s.type !== "INDIVIDUAL" || !!s.middleName, { path: ["middleName"] });
+
+    app.post("/ukrposhta/connect", { config: { rateLimit: { max: 10, timeWindow: "10 minutes" } } }, async (req, reply) => {
+      const [org] = await orgScope(req, "modules");
+      if (!org) return reply.code(403).send({ error: "forbidden" });
+      const p = z.object({ bearer: z.string().trim().min(10).max(200), token: z.string().trim().min(10).max(200), sender: UpSenderSchema }).safeParse(req.body);
+      if (!p.success) return reply.code(400).send({ error: "invalid_input", fields: p.error.issues.map((i) => i.path.join(".")) });
+      const v = await verifyUp(p.data.bearer, p.data.token, up);
+      if (!v.ok) return reply.code(400).send({ error: "provider_rejected", detail: v.error });
+      const enc = encrypt(JSON.stringify(p.data satisfies UpCreds));
+      // New credentials or sender details: sender clients are created again on the next waybill.
+      await db
+        .insert(integrations)
+        .values({ organizationId: org, provider: "ukrposhta", credentialsEnc: enc, status: "connected" })
+        .onConflictDoUpdate({ target: [integrations.organizationId, integrations.provider], set: { credentialsEnc: enc, status: "connected", lastError: null, settings: {}, updatedAt: new Date() } });
+      await audit(req, "integration.connect", req.auth!.user.id, { provider: "ukrposhta" }, org);
+      return { ok: true };
+    });
+
+    async function upOf(orgId: string) {
+      const row = await getIntegration(orgId, "ukrposhta");
+      if (!row) return null;
+      return { creds: JSON.parse(decrypt(row.credentialsEnc)) as UpCreds, settings: row.settings as UpSettings };
+    }
+
+    app.get<{ Querystring: { q?: string } }>("/ukrposhta/cities", async (req, reply) => {
+      const [org] = await orgScope(req);
+      const u = org ? await upOf(org) : null;
+      if (!u) return reply.code(409).send({ error: "not_connected" });
+      return upCities(u.creds.bearer, String(req.query.q ?? "").slice(0, 50), up);
+    });
+
+    app.get<{ Querystring: { city?: string; q?: string } }>("/ukrposhta/warehouses", async (req, reply) => {
+      const [org] = await orgScope(req);
+      const u = org ? await upOf(org) : null;
+      if (!u || !req.query.city) return reply.code(409).send({ error: "not_connected" });
+      return upOffices(u.creds.bearer, req.query.city, String(req.query.q ?? "").slice(0, 50), up);
+    });
+
+    app.get<{ Params: { orderId: string } }>("/ukrposhta/draft/:orderId", async (req, reply) => {
+      const [org] = await orgScope(req, "orders");
+      if (!org || !z.string().uuid().safeParse(req.params.orderId).success) return reply.code(404).send({ error: "not_found" });
+      const moduleActive = await hasModule(org, "ukrposhta");
+      const u = await upOf(org);
+      if (!moduleActive || !u) return { moduleActive, connected: !!u };
+      const o = await orderOf(org, req.params.orderId);
+      if (!o) return reply.code(404).send({ error: "not_found" });
+      const s = u.settings;
+      // A 5-digit postcode in the branch or address points at the exact office; otherwise suggest cities by name.
+      const code = `${o.delivery.branch ?? ""} ${o.delivery.address ?? ""}`.match(/\b\d{5}\b/)?.[0];
+      const exact = code ? await upOfficeByPostcode(u.creds.bearer, code, up) : null;
+      const cities = !exact && o.delivery.city ? await upCities(u.creds.bearer, o.delivery.city, up) : [];
+      return {
+        moduleActive,
+        connected: true,
+        sender: s.cityRef && s.warehouseRef ? { city: { ref: s.cityRef, name: s.cityName ?? "", area: "" }, warehouse: { ref: s.warehouseRef, name: s.warehouseName ?? "", number: s.warehouseRef } } : null,
+        recipient: { city: exact?.city ?? null, warehouse: exact?.office ?? null, cities, warehouses: [] },
+        weight: s.weight ?? 1,
+        size: { length: s.length ?? 30, width: s.width ?? 20, height: s.height ?? 10 },
+        description: s.description ?? "",
+        cod: o.payment === "cod" ? o.totalKop / 100 : 0,
+      };
+    });
+
+    const UpWaybill = z.object({
+      orderId: z.string().uuid(),
+      sender: z.object({ cityRef: z.string().max(80), cityName: z.string().max(120), warehouseRef: z.string().regex(/^\d{5}$/), warehouseName: z.string().max(300) }),
+      recipient: z.object({ cityRef: z.string().max(80), warehouseRef: z.string().regex(/^\d{5}$/) }),
+      weight: z.number().min(0.05).max(30),
+      size: z.object({ length: z.number().int().min(1).max(120), width: z.number().int().min(1).max(70), height: z.number().int().min(1).max(70) }),
+      description: z.string().trim().max(255).optional(),
+    });
+
+    app.post("/ukrposhta/waybill", { config: { rateLimit: { max: 30, timeWindow: "10 minutes" } } }, async (req, reply) => {
+      const [org] = await orgScope(req, "orders");
+      const p = UpWaybill.safeParse(req.body);
+      if (!org || !p.success) return reply.code(400).send({ error: "invalid_input" });
+      if (!(await hasModule(org, "ukrposhta"))) return reply.code(403).send({ error: "module_not_active" });
+      const u = await upOf(org);
+      if (!u) return reply.code(409).send({ error: "not_connected" });
+      const o = await orderOf(org, p.data.orderId);
+      if (!o) return reply.code(404).send({ error: "not_found" });
+      if (o.waybill) return reply.code(409).send({ error: "already_has_waybill" });
+      const where = and(eq(integrations.organizationId, org), eq(integrations.provider, "ukrposhta"));
+      const fail = async (error: string) => {
+        await db.update(integrations).set({ lastError: error, updatedAt: new Date() }).where(where);
+        return reply.code(409).send({ error: error === "iban_required_for_cod" ? error : "provider_rejected", detail: error });
+      };
+
+      const postcode = p.data.sender.warehouseRef;
+      const snd = await ensureSender(u.creds, postcode, u.settings.senders?.[postcode], up);
+      if (!snd.ok) return fail(snd.error);
+      const settings: UpSettings = {
+        ...u.settings,
+        ...p.data.sender,
+        weight: p.data.weight,
+        ...p.data.size,
+        ...(p.data.description ? { description: p.data.description } : {}),
+        senders: { ...u.settings.senders, [postcode]: snd.uuid },
+      };
+      await db.update(integrations).set({ settings, updatedAt: new Date() }).where(where);
+      const r = await createUpShipment(
+        u.creds,
+        { senderUuid: snd.uuid, recipientPostcode: p.data.recipient.warehouseRef, customerName: o.customerName, customerPhone: o.customerPhone, totalUah: o.totalKop / 100, cod: o.payment === "cod", weightKg: p.data.weight, ...p.data.size, description: p.data.description },
+        up,
+      );
+      if (!r.ok) return fail(r.error);
+      await db.update(orders).set({ waybill: r.barcode, waybillRef: r.uuid, updatedAt: new Date() }).where(eq(orders.id, o.id));
+      await audit(req, "order.waybill", req.auth!.user.id, { order: o.id, waybill: r.barcode, carrier: "ukrposhta" }, org);
+      return { number: r.barcode, cost: r.cost };
+    });
+
+    /** 100x100 label, or the same label on A4 (kind=document). The PDF is fetched on the server with the stored token. */
+    app.get<{ Params: { orderId: string }; Querystring: { kind?: string } }>("/ukrposhta/print/:orderId", async (req, reply) => {
+      const [org] = await orgScope(req, "orders");
+      if (!org || !z.string().uuid().safeParse(req.params.orderId).success) return reply.code(404).send({ error: "not_found" });
+      const u = await upOf(org);
+      const o = await orderOf(org, req.params.orderId);
+      if (!u || !o?.waybill) return reply.code(404).send({ error: "not_found" });
+      const pdf = await upSticker(u.creds, o.waybillRef ?? o.waybill, req.query.kind !== "marking", up);
+      if (!pdf) return reply.code(409).send({ error: "print_failed" });
+      return reply.header("content-type", "application/pdf").header("content-disposition", `inline; filename="ukrposhta-${o.waybill}.pdf"`).header("cache-control", "private, no-store").send(pdf);
     });
 
     /** Resolves the customer's city and branch from the order text; exact match only, otherwise candidates. */

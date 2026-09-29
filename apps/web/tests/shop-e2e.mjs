@@ -85,6 +85,17 @@ const promCard = pg.locator(".okp", { hasText: "API-токен Prom" });
 await promCard.getByLabel("API-токен Prom").fill("0".repeat(40));
 await promCard.getByRole("button", { name: "Перевірити й підключити" }).click();
 ok(await promCard.getByText("Prom відхилив токен: unauthorized").waitFor({ timeout: 20000 }).then(() => true, () => false), "invalid Prom token rejected by the real Prom API");
+// Ukrposhta: keys from the contract; wrong keys are refused by the real eCom API.
+const upCard = pg.locator(".okp", { hasText: "PRODUCTION BEARER eCom" }).first();
+ok(await upCard.getByText(/Укладіть договір з Укрпоштою/).isVisible(), "Ukrposhta connect steps shown");
+await upCard.getByLabel("PRODUCTION BEARER eCom").fill("00000000-0000-0000-0000-000000000000");
+await upCard.getByLabel("PROD_COUNTERPARTY TOKEN").fill("00000000-0000-0000-0000-000000000000");
+await upCard.getByLabel("Телефон відправника").fill("+380671231234");
+await upCard.getByLabel("Прізвище").fill("Майстер");
+await upCard.getByLabel("Ім'я").fill("Іван");
+await upCard.getByLabel("ІПН (10 цифр)").fill("1234567890");
+await upCard.getByRole("button", { name: "Перевірити й підключити" }).click();
+ok(await upCard.getByText(/Укрпошта не прийняла ключі: unauthorized/).waitFor({ timeout: 20000 }).then(() => true, () => false), "wrong Ukrposhta keys rejected by the real API");
 const rzCard = pg.locator(".okp", { hasText: "Логін кабінету продавця Rozetka" });
 await rzCard.getByLabel("Логін кабінету продавця Rozetka").fill(`nobody_e2e_${Date.now()}`);
 await rzCard.getByLabel("Пароль").fill("not a real password");

@@ -33,11 +33,13 @@ function useSearch<T>(path: (q: string) => string | null, initial: T[] = []) {
 }
 
 /** City + branch picker. `initial` lists come from the API (e.g. the ambiguous-address response). */
-export function NpPicker({ labels, value, onChange, initialCities = [], initialWarehouses = [] }: { labels: { city: string; branch: string }; value: NpPick; onChange: (v: NpPick) => void; initialCities?: NpCity[]; initialWarehouses?: NpWarehouse[] }) {
+export type Carrier = "novaposhta" | "ukrposhta";
+
+export function NpPicker({ provider = "novaposhta", labels, value, onChange, initialCities = [], initialWarehouses = [] }: { provider?: Carrier; labels: { city: string; branch: string }; value: NpPick; onChange: (v: NpPick) => void; initialCities?: NpCity[]; initialWarehouses?: NpWarehouse[] }) {
   const t = useDict().app.integrations;
-  const cityPath = useCallback((q: string) => (q.trim().length >= 2 ? `/integrations/novaposhta/cities?q=${encodeURIComponent(q.trim())}` : null), []);
+  const cityPath = useCallback((q: string) => (q.trim().length >= 2 ? `/integrations/${provider}/cities?q=${encodeURIComponent(q.trim())}` : null), [provider]);
   const cityRef = value.city?.ref;
-  const whPath = useCallback((q: string) => (cityRef ? `/integrations/novaposhta/warehouses?city=${cityRef}&q=${encodeURIComponent(q.trim())}` : null), [cityRef]);
+  const whPath = useCallback((q: string) => (cityRef ? `/integrations/${provider}/warehouses?city=${encodeURIComponent(cityRef)}&q=${encodeURIComponent(q.trim())}` : null), [cityRef, provider]);
   const cities = useSearch<NpCity>(cityPath, initialCities);
   const whs = useSearch<NpWarehouse>(whPath, initialWarehouses);
   return (
@@ -108,6 +110,97 @@ function NovaPoshta({ item, reload }: { item: Item; reload: () => void }) {
       ) : (
         <div className="grid gap-3">
           <p className="ok-note">{t.npReady}</p>
+          {item.lastError && <p className="ok-note">{t.lastError}: {item.lastError}</p>}
+          <div className="ok-actions">
+            {confirm ? (
+              <>
+                <span className="ok-muted">{t.confirmDisconnect}</span>
+                <button type="button" className="btn btn-sm btn-secondary" onClick={disconnect}>{t.disconnect}</button>
+              </>
+            ) : (
+              <button type="button" className="btn btn-sm btn-secondary" onClick={() => setConfirm(true)}>{t.disconnect}</button>
+            )}
+          </div>
+        </div>
+      )}
+      {flash}
+    </Panel>
+  );
+}
+
+type UpSenderType = "PRIVATE_ENTREPRENEUR" | "COMPANY" | "INDIVIDUAL";
+
+/** Ukrposhta: bearer + counterparty token from the contract, and who sends (a sender client is created from it). */
+function Ukrposhta({ item, reload }: { item: Item; reload: () => void }) {
+  const d = useDict();
+  const t = d.app.integrations;
+  const [flash, show] = useFlash();
+  const [f, setF] = useState({ bearer: "", token: "", type: "PRIVATE_ENTREPRENEUR" as UpSenderType, lastName: "", firstName: "", middleName: "", companyName: "", phone: "", tin: "", edrpou: "", bankAccount: "" });
+  const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const connected = item.status === "connected";
+  const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
+  const connect = async (e: FormEvent) => {
+    e.preventDefault();
+    const opt = (v: string) => (v.trim() ? v.trim() : undefined);
+    const sender =
+      f.type === "COMPANY"
+        ? { type: f.type, companyName: opt(f.companyName), edrpou: opt(f.edrpou), phone: f.phone, bankAccount: opt(f.bankAccount.replace(/\s/g, "")) }
+        : { type: f.type, lastName: opt(f.lastName), firstName: opt(f.firstName), middleName: opt(f.middleName), phone: f.phone, ...(f.type === "PRIVATE_ENTREPRENEUR" ? { tin: opt(f.tin) } : {}), bankAccount: opt(f.bankAccount.replace(/\s/g, "")) };
+    setBusy(true);
+    const r = await api("/integrations/ukrposhta/connect", { method: "POST", body: { bearer: f.bearer.trim(), token: f.token.trim(), sender } });
+    setBusy(false);
+    if (!r.ok) {
+      playSound("error");
+      const detail = (r.body as { detail?: string } | undefined)?.detail;
+      return show(`${(t.upErrors as Record<string, string>)[r.error] ?? d.app.auth.errors.server_error}${detail ? `: ${detail}` : ""}`, "warn");
+    }
+    playSound("success");
+    reload();
+  };
+  const disconnect = async () => {
+    await api("/integrations/ukrposhta", { method: "DELETE" });
+    setConfirm(false);
+    reload();
+  };
+  const person = f.type !== "COMPANY";
+  return (
+    <Panel title={t.names.ukrposhta} action={<span className="ok-muted">{connected ? t.connected : t.notConnected}</span>}>
+      <p className="ok-muted">{t.upAbout}</p>
+      {!connected ? (
+        <form className="grid gap-3" onSubmit={connect} noValidate>
+          <ol className="ok-steps">{t.upSteps.map((x) => <li key={x}>{x}</li>)}</ol>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label={t.upBearer}>{(p) => <input {...p} className="input" autoComplete="off" spellCheck={false} maxLength={200} value={f.bearer} onChange={set("bearer")} />}</Field>
+            <Field label={t.upToken}>{(p) => <input {...p} className="input" autoComplete="off" spellCheck={false} maxLength={200} value={f.token} onChange={set("token")} />}</Field>
+            <Field label={t.upSenderType}>
+              {(p) => (
+                <select {...p} className="input" value={f.type} onChange={set("type")}>
+                  {(["PRIVATE_ENTREPRENEUR", "COMPANY", "INDIVIDUAL"] as const).map((x) => <option key={x} value={x}>{t.upTypes[x]}</option>)}
+                </select>
+              )}
+            </Field>
+            <Field label={t.upPhone}>{(p) => <input {...p} className="input" type="tel" value={f.phone} onChange={set("phone")} />}</Field>
+            {person ? (
+              <>
+                <Field label={t.upLastName}>{(p) => <input {...p} className="input" value={f.lastName} onChange={set("lastName")} />}</Field>
+                <Field label={t.upFirstName}>{(p) => <input {...p} className="input" value={f.firstName} onChange={set("firstName")} />}</Field>
+                <Field label={f.type === "INDIVIDUAL" ? t.upMiddleNameReq : t.upMiddleName}>{(p) => <input {...p} className="input" value={f.middleName} onChange={set("middleName")} />}</Field>
+                {f.type === "PRIVATE_ENTREPRENEUR" && <Field label={t.upTin}>{(p) => <input {...p} className="input" inputMode="numeric" maxLength={10} value={f.tin} onChange={set("tin")} />}</Field>}
+              </>
+            ) : (
+              <>
+                <Field label={t.upCompany}>{(p) => <input {...p} className="input" value={f.companyName} onChange={set("companyName")} />}</Field>
+                <Field label={t.upEdrpou}>{(p) => <input {...p} className="input" inputMode="numeric" maxLength={8} value={f.edrpou} onChange={set("edrpou")} />}</Field>
+              </>
+            )}
+            {f.type !== "INDIVIDUAL" && <Field label={t.upIban} hint={t.upIbanHint}>{(p) => <input {...p} className="input" spellCheck={false} maxLength={34} value={f.bankAccount} onChange={set("bankAccount")} />}</Field>}
+          </div>
+          <button className="btn btn-sm" type="submit" disabled={busy || f.bearer.trim().length < 10 || f.token.trim().length < 10} style={{ justifySelf: "start" }}>{busy ? t.checking : t.connect}</button>
+        </form>
+      ) : (
+        <div className="grid gap-3">
+          <p className="ok-note">{t.upReady}</p>
           {item.lastError && <p className="ok-note">{t.lastError}: {item.lastError}</p>}
           <div className="ok-actions">
             {confirm ? (
@@ -230,6 +323,7 @@ export function IntegrationsScreen() {
   }, [load]);
   if (!items) return null;
   const np = items.find((i) => i.provider === "novaposhta");
+  const ukr = items.find((i) => i.provider === "ukrposhta");
   const prom = items.find((i) => i.provider === "prom");
   const rozetka = items.find((i) => i.provider === "rozetka");
   return (
@@ -237,6 +331,7 @@ export function IntegrationsScreen() {
       <div className="ok-h"><h3>{t.title}</h3></div>
       <p className="ok-muted">{t.lead}</p>
       {np && <NovaPoshta item={np} key={np.status} reload={load} />}
+      {ukr && <Ukrposhta item={ukr} key={`up-${ukr.status}`} reload={load} />}
       {prom && <Marketplace item={prom} key={`prom-${prom.status}`} reload={load} cfg={{ provider: "prom", about: t.promAbout, steps: t.promSteps, fields: [{ key: "token", label: t.promToken, min: 20 }], errors: t.promErrors }} />}
       {rozetka && <Marketplace item={rozetka} key={`rz-${rozetka.status}`} reload={load} cfg={{ provider: "rozetka", about: t.rozetkaAbout, steps: t.rozetkaSteps, fields: [{ key: "username", label: t.rozetkaLogin, min: 2 }, { key: "password", label: t.rozetkaPassword, type: "password", min: 1 }], errors: t.rozetkaErrors }} />}
       <Panel title={t.soon}>

@@ -224,11 +224,11 @@ function OrderDetail({ id, onChanged }: { id: string; onChanged: () => void }) {
           </select>
         </label>
       </div>
-      {o.delivery.method === "novaposhta" && o.status !== "cancelled" && (
+      {(o.delivery.method === "novaposhta" || o.delivery.method === "ukrposhta") && o.status !== "cancelled" && (
         o.waybillRef ? (
-          <div className="ok-actions"><b className="num">{t.waybill}: {o.waybill}</b><WaybillPrint orderId={o.id} /></div>
+          <div className="ok-actions"><b className="num">{t.waybill}: {o.waybill}</b><WaybillPrint orderId={o.id} provider={o.delivery.method} /></div>
         ) : !o.waybill ? (
-          <WaybillForm orderId={o.id} notify={show} onCreated={() => { void load(); onChanged(); }} />
+          <WaybillForm key={o.delivery.method} provider={o.delivery.method} orderId={o.id} notify={show} onCreated={() => { void load(); onChanged(); }} />
         ) : null
       )}
       <form className="grid gap-3" onSubmit={(e) => { e.preventDefault(); void patch({ waybill: waybill.trim() || null, warranty: { enabled: w.enabled, ...(w.until ? { until: w.until } : {}), ...(w.note ? { note: w.note } : {}) } }, t.saved); }}>

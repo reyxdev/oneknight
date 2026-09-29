@@ -67,3 +67,5 @@
 /* Nova Poshta waybill form inside an order */
 .app-waybill { padding: 0.9rem; border: 1px solid var(--line); border-radius: 12px; }
 .app-waybill-need { align-items: center; }
+.app-size { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; margin: 0; padding: 0; border: 0; }
+.app-size legend { grid-column: 1 / -1; padding: 0; margin-bottom: 0.4rem; font-size: 0.875rem; font-weight: 600; }

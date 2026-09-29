@@ -32,4 +32,5 @@ Owner input needed before launch. The UI shows an honest placeholder for each.
 - [ ] Contests / public promotions: decide the rules (who takes part, prizes as keys or promo codes); the key and promo code system already covers the rewards
 - [ ] Telegram: link your own account once (Профіль → Telegram) to receive client-style notifications; in production consider a webhook instead of long polling
 - [ ] Rozetka: connect a real seller account (a separate manager user) and check one import; field mapping follows the official example
-- [ ] Ukrposhta, OLX: need API access from them (Ukrposhta contract tokens, OLX partner app client id/secret) before they can be built and tested honestly
+- [ ] Ukrposhta: built from the official docs; needs the contract keys to check one real shipment and label
+- [ ] OLX: needs a partner app (client id/secret) from OLX before it can be built and tested honestly
