@@ -294,6 +294,7 @@ export function HomeScreen({ me, go }: { me: Me; go: Go }) {
           <p>{h.lead}</p>
         </div>
         <div className="ok-actions">
+          {me.permissions.includes("orders") && <button type="button" className="btn btn-sm" onClick={() => go("orders", "new-order")}><Icon name="plus" size={15} />{h.addOrder}</button>}
           {canProducts && <button type="button" className="btn btn-sm btn-secondary" onClick={() => go("products", "new")}><Icon name="plus" size={15} />{h.addProduct}</button>}
         </div>
       </div>

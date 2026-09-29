@@ -368,6 +368,10 @@ export const orders = pgTable(
     paymentStatus: paymentStatusEnum("payment_status").notNull().default("unpaid"),
     /** Prepayment with cash on delivery: the carrier collects total − prepaid. */
     prepaidKop: integer("prepaid_kop").notNull().default(0),
+    /** Responsible person: who took the order in work (or the first to confirm it). */
+    assigneeId: uuid("assignee_id").references(() => users.id, { onDelete: "set null" }),
+    /** «Не додзвонились»: when to call again (shown in «Що треба зробити»). */
+    callbackAt: timestamp("callback_at", { withTimezone: true }),
     delivery: jsonb("delivery").notNull().$type<{ method: string; city?: string; branch?: string; address?: string }>(),
     payment: text("payment").notNull(),
     comment: text("comment"),

@@ -158,6 +158,9 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
       } else if (e.code === "KeyN" && !e.shiftKey && screen === "products" && allowed("products")) {
         e.preventDefault();
         go("products", "new");
+      } else if (e.code === "KeyN" && !e.shiftKey && screen === "orders" && me.permissions.includes("orders")) {
+        e.preventDefault();
+        go("orders", "new-order");
       }
     };
     window.addEventListener("keydown", on);
@@ -254,7 +257,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
           <div className="ok-content" key={`${me.activeOrgId}/${screen}/${route.tab ?? ""}`}>
             {!view && <p className="ok-muted">{screen === "business" ? t.business.ownerOnly : t.team.noAccess}</p>}
             {view === "home" && <HomeScreen me={me} go={(id, tab) => go(id as Screen, tab ?? null)} />}
-            {view === "orders" && <OrdersScreen tab={route.tab} shippingOnly={!me.permissions.includes("orders")} finance={me.permissions.includes("finance")} />}
+            {view === "orders" && <OrdersScreen tab={route.tab} shippingOnly={!me.permissions.includes("orders")} finance={me.permissions.includes("finance")} meName={me.name} />}
             {view === "products" && <ProductsScreen tab={route.tab} />}
             {view === "reviews" && <ReviewsScreen goModules={() => go("modules")} />}
             {view === "analytics" && <AnalyticsScreen goModules={() => go("modules")} />}
@@ -273,8 +276,16 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             {adminMode && view === "keys" && <KeysAdmin />}
           </div>
         </div>
-        {!adminMode && allowed("products") && screen !== "products" && (
-          <button type="button" className="app-fab" aria-label={t.products.add} title={t.products.add} onClick={() => go("products", "new")}><Icon name="plus" size={24} /></button>
+        {!adminMode && (me.permissions.includes("orders") || allowed("products")) && screen !== "products" && (
+          <button
+            type="button"
+            className="app-fab"
+            aria-label={me.permissions.includes("orders") ? t.orders.addOrder : t.products.add}
+            title={me.permissions.includes("orders") ? t.orders.addOrder : t.products.add}
+            onClick={() => (me.permissions.includes("orders") ? go("orders", "new-order") : go("products", "new"))}
+          >
+            <Icon name="plus" size={24} />
+          </button>
         )}
         <nav className="ok-bottom" aria-label={t.nav.sections}>
           {(adminMode ? ADMIN : MOBILE.filter(allowed).map((id) => [...GROUPS.flatMap((g) => g.items)].find((i) => i.id === id)!)).map((n) => (

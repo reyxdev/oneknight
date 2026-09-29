@@ -176,6 +176,13 @@
       "when": 1790721083884,
       "tag": "0024_order_statuses",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1790722256590,
+      "tag": "0025_order_work",
+      "breakpoints": true
     }
   ]
 }

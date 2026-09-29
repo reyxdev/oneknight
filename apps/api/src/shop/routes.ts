@@ -8,6 +8,7 @@ import { SHIPPING_STATUSES, orderAccess, orgScope, type Permission } from "../au
 import { audit } from "../audit.ts";
 import { Upload, saveImage } from "../files/store.ts";
 import { setOrderStatus, setPayment } from "./service.ts";
+import { duplicatesOf } from "./work.ts";
 import { needsWaybill } from "../dashboard/todo.ts";
 
 const uuid = z.string().uuid();
@@ -131,7 +132,15 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
     const orgs = [acc.org];
     const st = z.enum(GROUPS).safeParse(req.query.status);
     // "nowaybill": confirmed or paid, going by a carrier, no waybill yet («Що треба зробити» on Home).
-    const filter = req.query.status === "nowaybill" ? needsWaybill() : st.success ? eq(orders.status, st.data) : undefined;
+    // "nowaybill": in work, going by a carrier, no waybill yet; "callback": «Не додзвонились», time to call again.
+    const filter =
+      req.query.status === "nowaybill"
+        ? needsWaybill()
+        : req.query.status === "callback"
+          ? and(inArray(orders.status, ["new", "confirmed"]), lte(orders.callbackAt, new Date()))
+          : st.success
+            ? eq(orders.status, st.data)
+            : undefined;
     const pay = z.enum(["unpaid", "prepaid", "paid", "refunded"]).safeParse(req.query.payment);
     // Names in Ukrainian alphabetical order (А, Б, … Є, … І, Ї …), not by code points.
     const cols = { createdAt: orders.createdAt, number: orders.number, customer: dsql`${orders.customerName} collate "uk-UA-x-icu"`, status: orders.status, ...(acc.finance ? { total: orders.totalKop } : {}) };
@@ -152,6 +161,7 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
         statusId: orders.statusId,
         paymentStatus: orders.paymentStatus,
         waybill: orders.waybill,
+        callbackAt: orders.callbackAt,
         createdAt: orders.createdAt,
         siteId: orders.siteId,
         source: orders.source,
@@ -196,7 +206,7 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
       : [];
     const [prodOrg] = await orgScope(req, "products");
     const prods = prodOrg
-      ? await db.select({ id: products.id, name: products.name, stock: products.stock, active: products.active }).from(products).where(and(eq(products.organizationId, prodOrg), ilike(products.name, like))).orderBy(asc(products.name)).limit(5)
+      ? await db.select({ id: products.id, name: products.name, stock: products.stock, active: products.active, priceKop: products.priceKop }).from(products).where(and(eq(products.organizationId, prodOrg), ilike(products.name, like))).orderBy(asc(products.name)).limit(5)
       : [];
     return { orders: found, products: prods };
   });
@@ -238,7 +248,10 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
       .leftJoin(users, eq(users.id, orderEvents.userId))
       .where(eq(orderEvents.orderId, o.id))
       .orderBy(asc(orderEvents.createdAt));
-    const { ip: _ip, ...all } = o;
+    const [assignee] = o.assigneeId ? await db.select({ name: users.name }).from(users).where(eq(users.id, o.assigneeId)) : [];
+    const extra = { assignee: assignee?.name ?? null, duplicates: acc.full && !o.isExample ? await duplicatesOf(o) : [] };
+    const { ip: _ip, ...base } = o;
+    const all = { ...base, ...extra };
     // «Комплектувальник» sees the phone partly (the carrier has it on the waybill anyway).
     const rest = acc.full ? all : { ...all, customerPhone: maskPhone(all.customerPhone), customerEmail: null };
     // Without `finance`: no sums at all (total, item prices, prepayment).

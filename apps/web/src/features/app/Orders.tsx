@@ -14,6 +14,7 @@ import { Empty, Panel, useFlash, useFormat } from "@/features/oneknight/ui/kit";
 import { WaybillForm, WaybillPrint } from "./Waybill";
 import { useToast } from "./Toasts";
 import { PAGE, Table, useEscClose, type Col, type Sort } from "./Table";
+import { OrderForm, emptyOrder, type OrderDraft } from "./OrderForm";
 
 export type Group = "new" | "confirmed" | "shipped" | "done" | "cancelled" | "returned";
 export const GROUPS: Group[] = ["new", "confirmed", "shipped", "done", "cancelled", "returned"];
@@ -47,6 +48,7 @@ type OrderRow = {
   statusId: string | null;
   paymentStatus: Payment | null;
   waybill: string | null;
+  callbackAt: string | null;
   createdAt: string;
   source: string;
   isExample: boolean;
@@ -63,6 +65,8 @@ type OrderFull = OrderRow & {
   cancelReason: string | null;
   comment: string | null;
   warranty: { enabled: boolean; until?: string; note?: string };
+  assignee: string | null;
+  duplicates: { id: string; number: number; status: Group; createdAt: string }[];
   events: Event[];
 };
 
@@ -124,6 +128,7 @@ function History({ events }: { events: Event[] }) {
   const f = useFormat();
   const lang = useLang();
   const reason = useReasonText();
+  const sourceName = (s: string) => (d.app.orderForm.sources as Record<string, string>)[s] ?? (t.sources as Record<string, string>)[s] ?? s;
   return (
     <ol className="app-timeline">
       {events.map((e, i) => (
@@ -134,6 +139,18 @@ function History({ events }: { events: Event[] }) {
                 <span className="ok-pill" data-s={e.status}>{(e.data?.name as string | undefined) ?? d.ok.orders.status[e.status]}</span>
                 {typeof e.data?.reason === "string" && <small>{fmt(t.reasonShown, { r: reason(e.data.reason) })}</small>}
               </>
+            )}
+            {e.kind === "created" && <span>{fmt(t.ev.created, { s: sourceName(String(e.data?.source ?? "")) })}</span>}
+            {e.kind === "comment" && <span className="app-comment">{String(e.data?.text ?? "")}</span>}
+            {e.kind === "assign" && <span>{t.ev.assign}</span>}
+            {e.kind === "call" && <span>{t.ev.noAnswer}</span>}
+            {e.kind === "merge" && <span>{fmt(t.ev.merge, { n: String(e.data?.number ?? "") })}</span>}
+            {e.kind === "edit" && (
+              <span>
+                {t.ev.edit}:{" "}
+                {Object.keys(e.data ?? {}).map((k) => (t.ev.fields as Record<string, string>)[k] ?? k).join(", ")}
+                {(e.data?.items as { to?: string[] } | undefined)?.to && <small> → {(e.data!.items as { to: string[] }).to.join(", ")}</small>}
+              </span>
             )}
             {e.kind === "payment" && (
               <span>
@@ -149,7 +166,7 @@ function History({ events }: { events: Event[] }) {
   );
 }
 
-function OrderDetail({ id, onChanged, shippingOnly, settings, onClose }: { id: string; onChanged: () => void; shippingOnly: boolean; settings: OrderSettings | null; onClose: () => void }) {
+function OrderDetail({ id, onChanged, shippingOnly, settings, meName, onClose }: { id: string; onChanged: () => void; shippingOnly: boolean; settings: OrderSettings | null; meName: string; onClose: () => void }) {
   const d = useDict();
   const t = d.app.orders;
   const lang = useLang();
@@ -163,6 +180,8 @@ function OrderDetail({ id, onChanged, shippingOnly, settings, onClose }: { id: s
   const [cancelling, setCancelling] = useState<{ statusId: string | null } | null>(null);
   const [prepaid, setPrepaid] = useState("");
   const [askPrepaid, setAskPrepaid] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [comment, setComment] = useState("");
   const load = useCallback(async () => {
     const r = await api<OrderFull>(`/shop/orders/${id}`);
     if (r.ok) {
@@ -223,6 +242,32 @@ function OrderDetail({ id, onChanged, shippingOnly, settings, onClose }: { id: s
     void changeStatus(to);
   };
   const current = o.statusId ? `s:${o.statusId}` : `g:${o.status}`;
+  const editable = !shippingOnly && !o.isExample && (o.status === "new" || o.status === "confirmed");
+  const post = async (path: string, body?: object, msg?: string) => {
+    const r = await api(`/shop/orders/${id}/${path}`, { method: "POST", body: body ?? {} });
+    if (!r.ok) {
+      playSound("error");
+      show(d.app.auth.errors.server_error, "warn");
+    } else if (msg) show(msg);
+    refresh();
+    return r.ok;
+  };
+  const draft = (): OrderDraft => ({
+    customer: { name: o.customerName, phone: o.customerPhone, email: o.customerEmail ?? "" },
+    // Free items («довільний товар») have no catalogue id.
+    items: o.items.map((i) => ({ ...(/^[0-9a-f-]{36}$/.test(i.productId) ? { productId: i.productId } : {}), name: i.name, priceKop: i.priceKop ?? 0, qty: i.qty })),
+    delivery: { method: o.delivery.method, city: o.delivery.city ?? "", branch: o.delivery.branch ?? "", address: o.delivery.address ?? "" },
+    payment: o.payment,
+    source: o.source,
+    comment: o.comment ?? "",
+  });
+  if (editing)
+    return (
+      <Panel className="ok-detail" title={<>#{o.number} · {t.editTitle}</>} action={<button type="button" className="btn btn-sm btn-ghost btn-icon" aria-label={d.app.toast.close} onClick={() => setEditing(false)}><Icon name="close" size={16} /></button>}>
+        <OrderForm initial={draft()} edit={o.id} settings={settings} onDone={() => { setEditing(false); show(t.saved); refresh(); }} onCancel={() => setEditing(false)} />
+        {flash}
+      </Panel>
+    );
   const setPayment = (status: Payment) => {
     if (status === "prepaid") return; // the amount comes first (the form below)
     setAskPrepaid(false);
@@ -238,6 +283,22 @@ function OrderDetail({ id, onChanged, shippingOnly, settings, onClose }: { id: s
         {o.paymentStatus && <span className="ok-pill" data-pay={o.paymentStatus}>{t.paymentStates[o.paymentStatus]}</span>}
       </div>
       {o.status === "cancelled" && o.cancelReason && <p className="ok-note">{fmt(t.reasonShown, { r: reasonText(o.cancelReason) })}</p>}
+      {o.duplicates.length > 0 && o.status !== "cancelled" && (
+        <div className="ok-note app-dup" role="status">
+          <span>{fmt(t.duplicate, { list: o.duplicates.map((x) => `№${x.number}`).join(", ") })}</span>
+          {editable && o.duplicates.filter((x) => x.status === "new" || x.status === "confirmed").map((x) => (
+            <button key={x.id} type="button" className="btn btn-sm btn-secondary" onClick={() => post("merge", { other: x.id }, fmt(t.merged, { n: x.number }))}>{fmt(t.mergeWith, { n: x.number })}</button>
+          ))}
+        </div>
+      )}
+      {o.callbackAt && (o.status === "new" || o.status === "confirmed") && <p className="ok-note">{fmt(t.callbackAt, { t: f.dateTime(new Date(o.callbackAt).getTime()) })}</p>}
+      {!shippingOnly && (
+        <p className="app-assignee">
+          <Icon name="person" size={15} />
+          {o.assignee ? fmt(t.assignee, { name: o.assignee }) : t.noAssignee}
+          {o.assignee !== meName && !o.isExample && <button type="button" className="ok-link" onClick={() => post("take", undefined, t.taken)}>{t.take}</button>}
+        </p>
+      )}
       {shippingOnly ? (
         o.status === "confirmed" && <div className="ok-actions"><button type="button" className="btn btn-sm" onClick={() => changeStatus({ status: "shipped", statusId: null })}>{t.markShipped}</button></div>
       ) : (
@@ -253,6 +314,8 @@ function OrderDetail({ id, onChanged, shippingOnly, settings, onClose }: { id: s
               ))}
             </select>
           </label>
+          {editable && <button type="button" className="btn btn-sm btn-secondary" onClick={() => post("no-answer", undefined, t.noAnswerDone)}><Icon name="phone" size={14} />{t.noAnswer}</button>}
+          {editable && <button type="button" className="btn btn-sm btn-secondary" onClick={() => setEditing(true)}>{t.edit}</button>}
           {o.status !== "cancelled" && <button type="button" className="btn btn-sm btn-ghost ok-danger" onClick={() => setCancelling({ statusId: null })}>{t.cancelOrder}</button>}
         </div>
       )}
@@ -310,6 +373,11 @@ function OrderDetail({ id, onChanged, shippingOnly, settings, onClose }: { id: s
         <button className="btn btn-sm btn-secondary" type="submit" style={{ justifySelf: "start" }}>{t.save}</button>
       </form>
       <div className="ok-sub">{t.history}</div>
+      <form className="app-comment-form" onSubmit={async (e) => { e.preventDefault(); if (comment.trim() && (await post("comments", { text: comment.trim() }))) setComment(""); }}>
+        <label className="sr-only" htmlFor={`c-${o.id}`}>{t.commentAdd}</label>
+        <input id={`c-${o.id}`} className="input" maxLength={2000} placeholder={t.commentAdd} value={comment} onChange={(e) => setComment(e.target.value)} />
+        <button type="submit" className="btn btn-sm btn-secondary" disabled={!comment.trim()}>{t.commentSend}</button>
+      </form>
       <History events={o.events} />
       <CancelDialog
         key={cancelling ? "open" : "closed"}
@@ -327,13 +395,14 @@ function OrderDetail({ id, onChanged, shippingOnly, settings, onClose }: { id: s
   );
 }
 
-const FILTERS = ["all", "new", "nowaybill", "confirmed", "shipped", "done", "cancelled", "returned"] as const;
+const FILTERS = ["all", "new", "callback", "nowaybill", "confirmed", "shipped", "done", "cancelled", "returned"] as const;
 /** «Комплектувальник» works only with orders waiting to be sent. */
 const SHIP_FILTERS = ["all", "nowaybill", "confirmed", "shipped"] as const;
 type Filter = (typeof FILTERS)[number];
 
 /** `tab` from the address: a filter ("new", "nowaybill", …) or "o-<id>" to open one order (links from Home). */
-export function OrdersScreen({ tab, shippingOnly = false, finance = true }: { tab?: string | null; shippingOnly?: boolean; finance?: boolean }) {
+/** `tab` "new-order" opens the manual order form (Home, «N», the round «+»). */
+export function OrdersScreen({ tab, shippingOnly = false, finance = true, meName = "" }: { tab?: string | null; shippingOnly?: boolean; finance?: boolean; meName?: string }) {
   const d = useDict();
   const t = d.app.orders;
   const lang = useLang();
@@ -345,7 +414,7 @@ export function OrdersScreen({ tab, shippingOnly = false, finance = true }: { ta
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<OrderRow[] | null>(null);
   const [more, setMore] = useState(false);
-  const [open, setOpen] = useState<string | null>(tab?.startsWith("o-") ? tab.slice(2) : null);
+  const [open, setOpen] = useState<string | null>(tab?.startsWith("o-") ? tab.slice(2) : !shippingOnly && tab === "new-order" ? "new" : null);
   const [next] = useState(latestOnly);
   const load = useCallback(async () => {
     const isLatest = next();
@@ -375,6 +444,12 @@ export function OrdersScreen({ tab, shippingOnly = false, finance = true }: { ta
       },
     });
   };
+  // Phone: swipe to the left — «Не додзвонились», call again in 2 hours.
+  const noAnswer = async (o: OrderRow) => {
+    const r = await api(`/shop/orders/${o.id}/no-answer`, { method: "POST", body: {} });
+    void load();
+    toast.show(r.ok ? fmt(t.noAnswerFor, { n: o.number }) : d.app.auth.errors.server_error, r.ok ? "ok" : "warn");
+  };
   const cols: Col<OrderRow>[] = [
     { key: "number", label: t.colNumber, sort: true, render: (o) => <span className="num ok-muted">#{o.number}</span> },
     {
@@ -402,10 +477,13 @@ export function OrdersScreen({ tab, shippingOnly = false, finance = true }: { ta
   ];
   return (
     <div className="ok-screen">
-      <div className="ok-h"><h3>{t.title}</h3></div>
+      <div className="ok-h">
+        <h3>{t.title}</h3>
+        {!shippingOnly && <button type="button" className="btn btn-sm" onClick={() => setOpen("new")}><Icon name="plus" size={15} />{t.addOrder}</button>}
+      </div>
       <div className="ok-chips" role="group" aria-label={d.ok.orders.state}>
         {(shippingOnly ? SHIP_FILTERS : FILTERS).map((x) => (
-          <button key={x} type="button" className="ok-chip" aria-pressed={filter === x} onClick={() => { setFilter(x); setPage(1); }}>{x === "all" ? t.all : x === "nowaybill" ? t.noWaybill : d.ok.orders.status[x]}</button>
+          <button key={x} type="button" className="ok-chip" aria-pressed={filter === x} onClick={() => { setFilter(x); setPage(1); }}>{x === "all" ? t.all : x === "nowaybill" ? t.noWaybill : x === "callback" ? t.callbackFilter : d.ok.orders.status[x]}</button>
         ))}
         {finance && (
           <label className="ok-select app-filter-select">
@@ -428,10 +506,20 @@ export function OrdersScreen({ tab, shippingOnly = false, finance = true }: { ta
           {rows && rows.length === 0 && page === 1 ? (
             <Empty icon="cart" text={t.empty} />
           ) : (
-            <Table id="orders" label={t.title} rows={rows ?? []} cols={cols} active={open} onOpen={(o) => setOpen(o.id)} sort={sort} onSort={setSort} page={page} onPage={setPage} hasMore={more} onSwipeRight={shippingOnly ? undefined : (o) => { if (o.status === "new") void confirm(o); }} />
+            <Table id="orders" label={t.title} rows={rows ?? []} cols={cols} active={open} onOpen={(o) => setOpen(o.id)} sort={sort} onSort={setSort} page={page} onPage={setPage} hasMore={more} onSwipeRight={shippingOnly ? undefined : (o) => { if (o.status === "new") void confirm(o); }} onSwipeLeft={shippingOnly ? undefined : (o) => { if (o.status === "new" || o.status === "confirmed") void noAnswer(o); }} />
           )}
         </Panel>
-        {open && <OrderDetail id={open} key={open} onChanged={load} shippingOnly={shippingOnly} settings={settings} onClose={() => setOpen(null)} />}
+        {open === "new" && (
+          <Panel className="ok-detail" title={t.addOrder} action={<button type="button" className="btn btn-sm btn-ghost btn-icon" aria-label={d.app.toast.close} onClick={() => setOpen(null)}><Icon name="close" size={16} /></button>}>
+            <OrderForm
+              initial={emptyOrder()}
+              settings={settings}
+              onDone={(id, number) => { toast.show(fmt(t.created, { n: number ?? "" })); setOpen(id); void load(); }}
+              onCancel={() => setOpen(null)}
+            />
+          </Panel>
+        )}
+        {open && open !== "new" && <OrderDetail id={open} key={open} onChanged={load} shippingOnly={shippingOnly} settings={settings} meName={meName} onClose={() => setOpen(null)} />}
       </div>
     </div>
   );

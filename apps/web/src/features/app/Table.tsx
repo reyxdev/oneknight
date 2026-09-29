@@ -44,6 +44,7 @@ export function Table<T extends { id: string }>({
   onPage,
   hasMore,
   onSwipeRight,
+  onSwipeLeft,
 }: {
   id: string;
   label: string;
@@ -59,6 +60,7 @@ export function Table<T extends { id: string }>({
   hasMore?: boolean;
   /** Phone: a row swiped to the right (e.g. confirm a new order); return false where it does not apply. */
   onSwipeRight?: (row: T) => boolean | void;
+  onSwipeLeft?: (row: T) => boolean | void;
 }) {
   const t = useDict().app.table;
   const [hidden, setHidden] = useState<string[]>([]);
@@ -98,14 +100,14 @@ export function Table<T extends { id: string }>({
   // A swipe is not a tap: the click that follows it does not open the row.
   const swiped = useRef(false);
   const swipeProps = (row: T) =>
-    onSwipeRight
+    onSwipeRight || onSwipeLeft
       ? {
           onPointerDown: (e: React.PointerEvent<HTMLTableRowElement>) => {
             if (e.pointerType === "touch") swipe.current = { x: e.clientX, id: row.id, el: e.currentTarget };
           },
           onPointerMove: (e: React.PointerEvent<HTMLTableRowElement>) => {
             const s = swipe.current;
-            if (s?.id === row.id) s.el.style.transform = `translateX(${Math.max(0, Math.min(120, e.clientX - s.x))}px)`;
+            if (s?.id === row.id) s.el.style.transform = `translateX(${Math.max(onSwipeLeft ? -120 : 0, Math.min(onSwipeRight ? 120 : 0, e.clientX - s.x))}px)`;
           },
           onPointerUp: (e: React.PointerEvent<HTMLTableRowElement>) => {
             const s = swipe.current;
@@ -113,7 +115,8 @@ export function Table<T extends { id: string }>({
             if (!s || s.id !== row.id) return;
             s.el.style.transform = "";
             swiped.current = Math.abs(e.clientX - s.x) > 10;
-            if (e.clientX - s.x > 90) onSwipeRight(row);
+            if (e.clientX - s.x > 90) onSwipeRight?.(row);
+            else if (e.clientX - s.x < -90) onSwipeLeft?.(row);
           },
           onPointerCancel: () => {
             if (swipe.current) swipe.current.el.style.transform = "";

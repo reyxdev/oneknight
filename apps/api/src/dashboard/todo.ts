@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gt, inArray, isNull, sql as dsql } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNull, lte, sql as dsql } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { insightDismissals, monitorChecks, orders, products, reviews, sites, subscriptions, tickets } from "../db/schema.ts";
 import type { Permission } from "../auth/access.ts";
@@ -39,6 +39,8 @@ export async function todoFor(orgId: string, perms: Permission[], now = new Date
       })
       .from(orders)
       .where(and(eq(orders.organizationId, orgId), eq(orders.isExample, false)));
+    const [cb] = await db.select({ n: count() }).from(orders).where(and(eq(orders.organizationId, orgId), inArray(orders.status, ["new", "confirmed"]), lte(orders.callbackAt, now)));
+    if (cb && cb.n > 0) out.push({ id: `callback:${cb.n}:${now.toISOString().slice(0, 13)}`, tone: "bad", key: "callback", params: { n: cb.n }, screen: "orders", tab: "callback" });
     if (o && o.n > 0) out.push({ id: `newOrders:${o.n}:${o.urgent}`, tone: o.urgent ? "bad" : "warn", key: o.urgent ? "newOrdersUrgent" : "newOrders", params: { n: o.n, urgent: o.urgent }, screen: "orders", tab: "new" });
   }
   if (can("orders") || can("shipping")) {

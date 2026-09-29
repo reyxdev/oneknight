@@ -40,7 +40,7 @@ ok(await seen(pg.locator(".ok-stat", { hasText: "Замовлення" }).locato
 
 const todo = pg.locator(".ok-todos");
 ok(await seen(todo.getByText(/Нових замовлень: \d+/)), "new orders in «Що треба зробити»");
-ok(await seen(todo.getByText(/Підтверджені без ТТН/)), "confirmed orders without a waybill");
+ok(await seen(todo.getByText(/У роботі без ТТН/)), "confirmed orders without a waybill");
 ok(await seen(todo.getByText(/закінчується|немає в наявності/).first()), "stock problems");
 if (SHOTS) {
   // The panel scrolls inside itself: a tall window shows the whole Home.
@@ -50,7 +50,7 @@ if (SHOTS) {
   await pg.setViewportSize({ width: 1280, height: 900 });
 }
 
-await todo.getByText(/Підтверджені без ТТН/).click();
+await todo.getByText(/У роботі без ТТН/).click();
 ok(await seen(pg.getByRole("button", { name: "Без ТТН", pressed: true })), "the item opens the filtered order list");
 ok((await pg.locator(".app-table tbody tr").count()) > 0, "the filtered list is not empty");
 // The table: sort by a column, hide a column (remembered), ↓ Enter opens, Esc closes the panel.
@@ -154,6 +154,46 @@ await sel.waitFor();
 ok((await sel.locator("option").allInnerTexts()).includes("Чекає оплати"), "own status in the order card");
 await sel.selectOption({ label: "Чекає оплати" });
 ok(await seen(pg.locator(".ok-detail .app-order-top .ok-pill", { hasText: "Чекає оплати" })), "the order gets the own status");
+await pg.locator(".ok-side").getByRole("button", { name: "Головна", exact: true }).click();
+
+// Manual order: catalogue item + a free one, source; then comment, «Не додзвонились», edit, duplicate merge.
+await pg.locator(".ok-side").getByRole("button", { name: "Замовлення", exact: true }).click();
+const newOrder = async (name, phone) => {
+  await pg.locator(".ok-h").getByRole("button", { name: "Замовлення" }).click();
+  const form = pg.locator(".app-order-form");
+  await form.getByLabel("Ім'я та прізвище").fill(name);
+  await form.getByLabel("Телефон").fill(phone);
+  // «Смерека» has enough stock for both orders.
+  await form.getByLabel("Знайти товар у каталозі").fill("Смерека");
+  await form.locator(".app-picker-list button").first().click();
+  await form.getByLabel("Місто").fill("Полтава");
+  await form.getByLabel("Відділення або поштомат").fill("3");
+  await form.getByLabel("Звідки замовлення").selectOption("instagram");
+  return form;
+};
+const form = await newOrder("Вручну Покупець", "0501234567");
+await form.getByLabel("Або довільний товар: назва").fill("Гравіювання");
+await form.getByLabel("Ціна, грн").fill("150");
+await form.getByRole("button", { name: "Додати" }).click();
+await form.getByRole("button", { name: "Створити замовлення" }).click();
+ok(await seen(pg.locator(".app-toast", { hasText: /Замовлення №\d+ створено/ })), "manual order created");
+const card = pg.locator(".ok-detail");
+ok(await seen(card.getByText("Гравіювання × 1")), "free item in the order");
+ok(await card.getByText("Відповідальний: Головна E2E").isVisible(), "the creator is responsible");
+await card.getByPlaceholder("Коментар для команди").fill("Упакувати як подарунок");
+await card.getByRole("button", { name: "Додати", exact: true }).click();
+ok(await seen(card.locator(".app-comment", { hasText: "Упакувати як подарунок" })), "internal comment in the history");
+await card.getByRole("button", { name: "Не додзвонились" }).click();
+ok(await seen(card.getByText(/Не додзвонились\. Передзвонити:/)), "«Не додзвонились» with the time to call back");
+await card.getByRole("button", { name: "Редагувати" }).click();
+await pg.locator(".app-order-form .app-qty").first().getByRole("button", { name: "Більше" }).click();
+await pg.getByRole("button", { name: "Зберегти зміни" }).click();
+ok(await seen(card.locator(".app-timeline", { hasText: "Змінено: товари" })), "the edit is in the history");
+const f2 = await newOrder("Та сама", "+380501234567");
+await f2.getByRole("button", { name: "Створити замовлення" }).click();
+ok(await seen(pg.locator(".app-dup")), "duplicate warning: the same phone within a day");
+await pg.locator(".app-dup").getByRole("button", { name: /Об'єднати з №/ }).click();
+ok(await seen(pg.locator(".app-toast", { hasText: "скасовано як дубль" })), "duplicates merged");
 await pg.locator(".ok-side").getByRole("button", { name: "Головна", exact: true }).click();
 
 // «Приховати суми й телефони»: blurred, remembered; text size from «Мій профіль».

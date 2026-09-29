@@ -95,7 +95,9 @@ export async function setOrderStatus(orderId: string, orgIds: string[], change: 
       }
     }
     const cancelReason = status === "cancelled" ? (reason ?? o.cancelReason) : null;
-    await tx.update(orders).set({ status, statusId, cancelReason, updatedAt: new Date() }).where(eq(orders.id, orderId));
+    // The first person to take the order in work becomes responsible; a status change ends «Не додзвонились».
+    const assign = status === "confirmed" && !o.assigneeId ? { assigneeId: userId } : {};
+    await tx.update(orders).set({ status, statusId, cancelReason, callbackAt: null, ...assign, updatedAt: new Date() }).where(eq(orders.id, orderId));
     await tx.insert(orderEvents).values({ orderId, kind: "status", status, userId, data: { ...(custom ? { name: custom.name } : {}), ...(status === "cancelled" && reason ? { reason } : {}) } });
     return { ok: true as const };
   });
