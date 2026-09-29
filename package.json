@@ -11,6 +11,12 @@
     "build": "npm run build -w @oneknight/web",
     "start:web": "npm start -w @oneknight/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test:e2e": "npm run test:e2e -w @oneknight/web"
+    "test:e2e": "npm run test:e2e -w @oneknight/web",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose stop",
+    "db:generate": "npm run db:generate -w @oneknight/api",
+    "db:migrate": "npm run db:migrate -w @oneknight/api",
+    "dev:api": "npm run dev -w @oneknight/api",
+    "test:api": "npm test -w @oneknight/api"
   }
 }

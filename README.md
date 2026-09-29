@@ -8,7 +8,7 @@ Architecture, design system and decisions: [ARCHITECTURE.md](ARCHITECTURE.md). O
 | Path | What |
 | --- | --- |
 | `apps/web` | Public site oneknight.pro (and later the panel at `/app`) |
-| `apps/api` | ONEKNIGHT server (next step) |
+| `apps/api` | ONEKNIGHT server: Fastify, PostgreSQL, Drizzle (`/api/*`) |
 | `packages/domain` | Domain model shared by web and api (`@oneknight/domain`) |
 
 ## Run
@@ -21,6 +21,18 @@ npm run start:web    # serves apps/web/out/ on http://localhost:4173
 npm run test:e2e     # needs start:web running; CHROMIUM=/path/to/chromium if not /usr/bin/chromium
 npm run typecheck    # all workspaces
 ```
+
+### Server and database (local)
+
+```bash
+cp .env.example .env # then set a real POSTGRES_PASSWORD and the same one in DATABASE_URL
+npm run db:up        # PostgreSQL 17 in Docker on 127.0.0.1:5433 (container oneknight-db)
+npm run db:migrate   # apply migrations from apps/api/drizzle
+npm run dev:api      # http://127.0.0.1:4000/api/health
+npm run test:api
+```
+
+Schema lives in `apps/api/src/db/schema.ts`. After changing it: `npm run db:generate`, review the SQL in `apps/api/drizzle/`, then `npm run db:migrate`.
 
 ## Where things live
 
