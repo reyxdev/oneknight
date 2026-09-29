@@ -1,0 +1,33 @@
+# ONEKNIGHT
+
+> Websites, automation, analytics, advertising and SEO/GEO for Ukrainian businesses, by Ivan.
+> ONEKNIGHT is also a product in development: one system for a business's website, orders, reviews, modules and notifications.
+> The public site shows an interactive ONEKNIGHT demo. All numbers in that demo are made up and labelled as demo data.
+
+## Services
+
+- Websites: business card site, service website, online store, corporate website. Custom-built, not templates.
+- Automation of repetitive business processes.
+- Analytics: traffic sources, customer behaviour, conversion.
+- Advertising: strategy, creative, launch, audit, optimisation, scaling.
+- SEO, GEO and preparation for AI search.
+
+## Prices (starting prices; the exact price depends on the task)
+
+- Business card site: from 7,000 UAH
+- Service website: from 12,000 UAH
+- Online store: from 14,000 UAH
+- Corporate website: from 15,000 UAH
+- ONEKNIGHT: 149 UAH/month. Website customers get the first 3 months free, including up to 5 paid modules.
+- ONEKNIGHT module: 99 UAH/month
+- Technical support: 1,000 UAH/month, response target within 48 hours.
+
+## Work
+
+- Karpatu.shop (https://karpatu.shop): online store for handmade wooden bread boxes. Custom build (React + Node.js), 5 languages, structured data, llms.txt.
+
+## Contact
+
+- Telegram: https://t.me/poulpefounder
+- Phone, Viber, WhatsApp: +380683587559
+- Facebook: https://www.facebook.com/profile.php?id=61592465315317

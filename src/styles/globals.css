@@ -1,0 +1,53 @@
+@import "tailwindcss";
+@import "./tokens.css";
+@import "./base.css";
+@import "./motion.css";
+@import "./header.css";
+@import "./hero.css";
+@import "./chaos.css";
+@import "./funnel.css";
+@import "./services.css";
+@import "./pricing.css";
+@import "./template.css";
+@import "./case.css";
+@import "./oneknight.css";
+@import "./closing.css";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .scheme-dark, .scheme-dark *));
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-soft: var(--bg-soft);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-fg: var(--fg);
+  --color-muted: var(--fg-muted);
+  --color-faint: var(--fg-faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-inverse: var(--inverse-bg);
+  --color-on-inverse: var(--inverse-fg);
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-code);
+
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+
+  --ease-out: var(--ease-out);
+  --ease-inout: var(--ease-inout);
+}

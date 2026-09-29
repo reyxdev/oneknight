@@ -1,0 +1,32 @@
+.ok-header { position: fixed; inset: 0 0 auto 0; z-index: var(--z-header); display: flex; justify-content: center; padding: 0.75rem var(--gutter); pointer-events: none; }
+.ok-header-bar {
+  pointer-events: auto; display: flex; align-items: center; gap: 0.5rem; width: 100%; max-width: var(--max-w);
+  padding: 0.4rem 0.5rem 0.4rem 0.6rem; border-radius: var(--r-pill); border: 1px solid transparent; background: transparent;
+  transition: max-width var(--dur-scene) var(--ease-out), background-color var(--dur-base), border-color var(--dur-base), box-shadow var(--dur-base);
+}
+html[data-scroll="up"] .ok-header-bar, html[data-scroll="down"] .ok-header-bar {
+  max-width: 1080px; background: color-mix(in srgb, var(--bg) 80%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4);
+  border-color: var(--line); box-shadow: var(--shadow-md);
+}
+.ok-logo { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: 10px; color: var(--fg); flex: none; transition: transform var(--dur-base) var(--ease-out); }
+.ok-logo:hover { transform: rotate(-6deg) scale(1.06); }
+.ok-collapsible { display: grid; grid-template-columns: 1fr; opacity: 1; transition: grid-template-columns var(--dur-slow) var(--ease-out), opacity var(--dur-base); min-width: 0; }
+.ok-collapsible > * { min-width: 0; overflow: hidden; display: flex; align-items: center; gap: 0.25rem; white-space: nowrap; }
+.ok-spacer { flex: 1 1 0; }
+.ok-nav-link { display: inline-flex; align-items: center; min-height: 2.5rem; padding: 0 0.85rem; border-radius: var(--r-pill); font-size: 0.9375rem; font-weight: 500; color: var(--fg-muted); transition: color var(--dur-fast), background-color var(--dur-fast); }
+.ok-nav-link:hover { color: var(--fg); background: var(--surface-2); }
+.ok-nav-link[aria-current="true"] { color: var(--fg); }
+
+@media (min-width: 1024px) {
+  html[data-scroll="down"] .ok-header-bar { max-width: 24rem; }
+  html[data-scroll="down"] .ok-header-bar:not(:hover):not(:focus-within) .ok-collapsible { grid-template-columns: 0fr; opacity: 0; }
+}
+.ok-desktop { display: none; }
+.ok-mobile { display: flex; }
+@media (min-width: 1024px) { .ok-desktop { display: grid; } .ok-mobile { display: none; } }
+
+/* Mobile menu sheet */
+.ok-menu { position: fixed; inset: 0; z-index: calc(var(--z-header) + 5); background: var(--bg); padding: 5.5rem var(--gutter) 2rem; display: flex; flex-direction: column; gap: 0.5rem; overflow: auto;
+  clip-path: circle(0% at calc(100% - 2.5rem) 2.5rem); transition: clip-path var(--dur-scene) var(--ease-out); visibility: hidden; }
+.ok-menu[data-open="true"] { clip-path: circle(150% at calc(100% - 2.5rem) 2.5rem); visibility: visible; }
+.ok-menu a.big { display: flex; align-items: center; min-height: 3.75rem; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; border-bottom: 1px solid var(--line); }

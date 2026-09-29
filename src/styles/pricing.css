@@ -1,0 +1,73 @@
+.pricing { display: grid; gap: 1.5rem; }
+.price-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15.5rem), 1fr)); }
+.price-card { position: relative; display: grid; gap: 0.5rem; align-content: start; text-align: left; padding: 1.5rem; border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--surface); cursor: pointer;
+  transition: transform var(--dur-slow) var(--ease-out), border-color var(--dur-base), background-color var(--dur-base), box-shadow var(--dur-slow) var(--ease-out); }
+.price-card:hover { transform: translateY(-4px); border-color: var(--line-strong); box-shadow: var(--shadow-md); }
+.price-card[aria-checked="true"] { background: var(--inverse-bg); color: var(--inverse-fg); border-color: var(--inverse-bg); box-shadow: var(--shadow-lg); }
+.price-name { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; }
+.price-from { font-size: clamp(1.75rem, 3vw, 2.25rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
+.price-for { color: inherit; opacity: 0.72; }
+.price-card ul { display: grid; gap: 0.3rem; margin: 0.5rem 0 0; padding: 0; list-style: none; font-size: 0.9375rem; }
+.price-card li { position: relative; padding-left: 1.2rem; }
+.price-card li::before { content: ""; position: absolute; left: 0; top: 0.6em; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.55; }
+.price-check { position: absolute; right: 1rem; top: 1rem; display: grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: 50%; background: var(--accent); color: var(--on-accent); scale: 0; transition: scale var(--dur-base) var(--ease-spring); }
+.price-card[aria-checked="true"] .price-check { scale: 1; }
+.price-note { margin: 0; font-weight: 600; }
+.price-detail { display: grid; gap: 1rem; padding-top: 1rem; animation: panel-in var(--dur-slow) var(--ease-out); }
+.text-accent { color: var(--accent); }
+.feat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
+.feat-grid li { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-radius: 14px; background: var(--bg-soft); border: 1px solid var(--line); font-weight: 600; font-size: 0.9375rem; animation: panel-in var(--dur-slow) var(--ease-out) backwards; animation-delay: calc(var(--i) * 45ms); }
+.feat-ic { display: grid; place-items: center; flex: none; width: 2.25rem; height: 2.25rem; border-radius: 10px; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent-strong); }
+[data-theme="dark"] .feat-ic { color: var(--accent); }
+.price-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 1.5rem; padding-top: 0.5rem; }
+
+/* Store demo */
+.store { display: grid; gap: 1rem; padding: clamp(1rem, 3vw, 2rem); background: var(--bg-soft); }
+.store-head { display: grid; gap: 0.25rem; }
+.store-body { display: grid; gap: 1rem; }
+@media (min-width: 900px) { .store-body { grid-template-columns: 15rem minmax(0, 1fr); gap: 1.5rem; } }
+.store-tabs { display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 0.25rem; scrollbar-width: none; }
+@media (min-width: 900px) { .store-tabs { flex-direction: column; overflow: visible; } }
+.store-tabs button { display: flex; align-items: center; gap: 0.6rem; flex: none; min-height: 2.75rem; padding: 0 0.9rem; border-radius: 12px; border: 1px solid transparent; font-size: 0.9375rem; font-weight: 600; text-align: left; color: var(--fg-muted); cursor: pointer; white-space: nowrap; transition: background-color var(--dur-fast), color var(--dur-fast), border-color var(--dur-fast); }
+.store-tabs button:hover { background: var(--surface); color: var(--fg); }
+.store-tabs button[aria-selected="true"] { background: var(--surface); border-color: var(--line-strong); color: var(--fg); box-shadow: var(--shadow-sm); }
+.store-panel { display: grid; gap: 0.75rem; align-content: start; min-width: 0; }
+.store-cap { margin: 0; font-weight: 600; }
+.store-screen { min-height: 300px; padding: 1rem; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); animation: panel-in var(--dur-slow) var(--ease-out); overflow: hidden; }
+.store-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.6rem; }
+@media (max-width: 519px) { .store-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.store-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+[data-pop] { animation: pop 0.45s var(--ease-spring) backwards; }
+.store-cart { display: grid; gap: 0.6rem; }
+.store-line { display: grid; grid-template-columns: 3.25rem 1fr auto auto; align-items: center; gap: 0.75rem; padding: 0.5rem; border-radius: 12px; border: 1px solid var(--line); }
+.store-line-thumb .webpage-thumb { aspect-ratio: 1; }
+.store-qty { display: inline-flex; align-items: center; gap: 0.5rem; }
+.store-qty button { width: 2rem; height: 2rem; border-radius: 50%; border: 1px solid var(--line-strong); font-weight: 700; cursor: pointer; transition: background-color var(--dur-fast); }
+.store-qty button:hover { background: var(--surface-2); }
+.store-qty span { min-width: 1.25rem; text-align: center; font-weight: 700; }
+.store-price { min-width: 3.25rem; text-align: right; font-weight: 700; }
+.store-total { display: flex; justify-content: space-between; padding: 0.75rem 0.5rem 0; border-top: 1px solid var(--line); font-size: 1.125rem; }
+.store-form { display: grid; gap: 0.9rem; max-width: 24rem; }
+.store-radios { display: grid; gap: 0.5rem; max-width: 28rem; }
+.store-radios button { display: flex; align-items: center; gap: 0.75rem; min-height: 3.25rem; padding: 0 1rem; border-radius: 14px; border: 1px solid var(--line-strong); font-weight: 600; text-align: left; cursor: pointer; transition: border-color var(--dur-fast), background-color var(--dur-fast); }
+.store-radios button:hover { border-color: var(--fg); }
+.store-radios button[aria-checked="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.store-radios i { width: 1.1rem; height: 1.1rem; border-radius: 50%; border: 2px solid var(--line-strong); flex: none; transition: border-color var(--dur-fast), box-shadow var(--dur-fast); }
+.store-radios button[aria-checked="true"] i { border-color: var(--accent); box-shadow: inset 0 0 0 3px var(--surface), inset 0 0 0 9px var(--accent); }
+.store-an { display: grid; gap: 1.25rem; }
+.store-kpis { display: flex; gap: 2rem; }
+.store-kpis b { display: block; font-size: 2rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+.store-kpis span { font-size: 0.8125rem; color: var(--fg-muted); }
+.store-bars { display: flex; align-items: flex-end; gap: 0.6rem; height: 150px; }
+.store-bars i { flex: 1; height: calc(var(--h) * 100%); border-radius: 8px 8px 3px 3px; background: linear-gradient(var(--accent), color-mix(in srgb, var(--accent) 35%, transparent)); transform-origin: bottom; animation: grow 0.8s var(--ease-out) backwards; animation-delay: calc(var(--i) * 70ms); }
+@keyframes grow { from { transform: scaleY(0); } }
+.store-seo { display: grid; gap: 0.25rem; max-width: 34rem; padding: 1rem; border-radius: 14px; border: 1px solid var(--line); }
+.store-seo-url { font-size: 0.8125rem; color: var(--ok); }
+.store-seo b { font-size: 1.1875rem; color: var(--accent-strong); font-weight: 600; }
+[data-theme="dark"] .store-seo b { color: var(--accent); }
+.store-seo p { margin: 0; font-size: 0.9375rem; color: var(--fg-muted); }
+.store-orders { display: grid; gap: 0.5rem; margin: 0; padding: 0; list-style: none; }
+.store-orders li { display: grid; grid-template-columns: 4rem 1fr auto; align-items: center; gap: 0.75rem; padding: 0.85rem 1rem; border-radius: 14px; border: 1px solid var(--line); }
+.store-orders .pill[data-s="0"] { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent-strong); }
+.store-orders .pill[data-s="1"] { background: color-mix(in srgb, var(--ok) 20%, transparent); color: var(--ok); }
+.store-orders .pill[data-s="2"] { background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--warn); }
