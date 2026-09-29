@@ -20,9 +20,10 @@ import { ReviewsScreen } from "./Reviews";
 import { AnalyticsScreen } from "./Analytics";
 import { HomeScreen } from "./Home";
 import { TeamScreen } from "./Team";
+import { IntegrationsScreen } from "./Integrations";
 import { api } from "@/lib/api";
 
-type Screen = "team" | "home" | "orders" | "products" | "reviews" | "analytics" | "site" | "modules" | "billing" | "support" | "security" | "account" | "admin" | "clients" | "topups" | "tickets";
+type Screen = "integrations" | "team" | "home" | "orders" | "products" | "reviews" | "analytics" | "site" | "modules" | "billing" | "support" | "security" | "account" | "admin" | "clients" | "topups" | "tickets";
 const NAV: { id: Screen; icon: IconName }[] = [
   { id: "home", icon: "home" },
   { id: "orders", icon: "cart" },
@@ -31,6 +32,7 @@ const NAV: { id: Screen; icon: IconName }[] = [
   { id: "analytics", icon: "chart" },
   { id: "site", icon: "globe" },
   { id: "modules", icon: "puzzle" },
+  { id: "integrations", icon: "link" },
   { id: "billing", icon: "card" },
   { id: "support", icon: "chat" },
   { id: "team", icon: "person" },
@@ -38,7 +40,7 @@ const NAV: { id: Screen; icon: IconName }[] = [
   { id: "account", icon: "person" },
 ];
 
-const SCREENS: Screen[] = ["home", "orders", "products", "reviews", "analytics", "site", "modules", "billing", "support", "team", "security", "account"];
+const SCREENS: Screen[] = ["home", "orders", "products", "reviews", "analytics", "site", "modules", "integrations", "billing", "support", "team", "security", "account"];
 const ADMIN_SCREENS: Screen[] = ["admin", "tickets", "clients", "topups"];
 function readHash(isAdmin: boolean): Screen {
   if (typeof window === "undefined") return "home";
@@ -71,13 +73,13 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
     ? [{ id: "admin", icon: "table" }, { id: "tickets", icon: "chat" }, { id: "clients", icon: "layers" }, { id: "topups", icon: "card" }]
     : [];
   // Sections that need a permission in the active business; the API enforces the same rules.
-  const NEEDS: Partial<Record<Screen, string>> = { orders: "orders", products: "products", reviews: "reviews", analytics: "analytics", modules: "modules", billing: "billing", support: "support", team: "team" };
+  const NEEDS: Partial<Record<Screen, string>> = { orders: "orders", products: "products", reviews: "reviews", analytics: "analytics", modules: "modules", integrations: "modules", billing: "billing", support: "support", team: "team" };
   const allowed = (id: Screen) => !NEEDS[id] || me.permissions.includes(NEEDS[id]!);
   const clientNav = NAV.filter((n) => allowed(n.id));
   const nav = [...clientNav, ...adminNav];
   const view: Screen | null = allowed(screen) ? screen : null;
   const label = (id: Screen) =>
-    ({ admin: t.admin.nav, clients: t.clients.nav, topups: t.topupsAdmin.nav, site: t.site.title, modules: t.modulesApp.nav, billing: t.billing.nav, support: t.support.nav, team: t.team.nav, orders: t.orders.nav, products: t.products.nav, reviews: t.reviews.nav, analytics: t.analytics.nav, tickets: t.supportAdmin.nav } as Partial<Record<Screen, string>>)[id] ?? t.nav[id as "home" | "security" | "account"];
+    ({ admin: t.admin.nav, clients: t.clients.nav, topups: t.topupsAdmin.nav, site: t.site.title, modules: t.modulesApp.nav, integrations: t.integrations.nav, billing: t.billing.nav, support: t.support.nav, team: t.team.nav, orders: t.orders.nav, products: t.products.nav, reviews: t.reviews.nav, analytics: t.analytics.nav, tickets: t.supportAdmin.nav } as Partial<Record<Screen, string>>)[id] ?? t.nav[id as "home" | "security" | "account"];
 
   return (
     <div className="app-shell">
@@ -127,6 +129,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             {view === "site" && <SiteScreen canEdit={me.permissions.includes("site")} />}
             {view === "billing" && <BillingScreen />}
             {view === "modules" && <ModulesScreen />}
+            {view === "integrations" && <IntegrationsScreen />}
             {view === "topups" && me.isAdmin && <TopupsAdmin />}
             {view === "support" && <SupportScreen />}
             {view === "team" && <TeamScreen me={me} />}

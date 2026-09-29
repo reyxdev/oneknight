@@ -402,3 +402,11 @@ Each phase ends with a production build, real-browser check at 375/768/1440, and
 
 - `sites.appearance` (button animation, hover effect, click sound, notice style, accent colour) edited in «Сайт → Вигляд сайту» with a live preview and saved with the "site" permission.
 - `GET /api/public/appearance`; ok.js with `data-appearance` applies it to `[data-ok-button]` elements (CSS injected once, WebAudio click sounds on pointerdown) and exposes `oneknight.notify(text)`. Supported options only; not a visual editor.
+
+## 28. Integrations: Nova Poshta
+
+- Table `integrations` (PK organization + provider): credentials AES-256-GCM encrypted with `TOTP_ENC_KEY`, per-provider `settings`, `status`, `lastError`. Keys are never returned by the API.
+- «Інтеграції» screen (permission "modules"): 5-step instructions, `POST /api/integrations/novaposhta/connect` verifies the key against the real Nova Poshta API v2 (sender counterparty + contact person) before storing it; sender city/branch picked from the live NP directory (`/cities`, `/warehouses`), default weight and cargo description.
+- «Створити ТТН» in an order (permission "orders", module `novaposhta` active): the customer's city and branch number are matched exactly from the order text; if that is not unique the API answers 409 `recipient_address_ambiguous` with candidates and the UI shows a picker. Recipient is created as a private person, cash on delivery = order total when payment is `cod`. The waybill number is saved on the order.
+- The NP client takes an injectable `call`, so API tests run on recorded-shape responses without network.
+- Other providers (Ukrposhta, Prom, OLX, Rozetka, Google, Meta, Telegram) are listed as "У розробці" until built.

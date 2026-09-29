@@ -32,11 +32,11 @@ test("trial lasts 3 months and nothing is charged before it ends", async () => {
 });
 
 test("modules: not-live modules cannot be installed; live ones are free in the trial up to the limit", async () => {
-  assert.deepEqual(await installModule(orgId, "novaposhta"), { ok: false, error: "module_not_available" });
-  const m = moduleById("novaposhta")!;
+  assert.deepEqual(await installModule(orgId, "olx"), { ok: false, error: "module_not_available" });
+  const m = moduleById("olx")!;
   m.live = true;
   try {
-    assert.deepEqual(await installModule(orgId, "novaposhta"), { ok: true, free: true });
+    assert.deepEqual(await installModule(orgId, "olx"), { ok: true, free: true });
     assert.equal(await balanceKop(orgId), 0);
   } finally {
     m.live = false;

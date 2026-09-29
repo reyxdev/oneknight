@@ -7,7 +7,7 @@ import { oneknightPricing } from "./pricing";
  * a module can only be installed (and paid for) in the account once it is live.
  */
 export const moduleCatalog: (ModuleDef & { live: boolean })[] = [
-  { id: "novaposhta", price: oneknightPricing.modulePerMonth, paid: true, availability: "available", live: false },
+  { id: "novaposhta", price: oneknightPricing.modulePerMonth, paid: true, availability: "available", live: true },
   { id: "ukrposhta", price: oneknightPricing.modulePerMonth, paid: true, availability: "available", live: false },
   { id: "analytics", price: oneknightPricing.modulePerMonth, paid: true, availability: "available", live: true },
   { id: "reviews", price: oneknightPricing.modulePerMonth, paid: true, availability: "available", live: true },

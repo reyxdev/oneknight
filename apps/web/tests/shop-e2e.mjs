@@ -63,12 +63,22 @@ ok(res.status === 201 && order.total === 2200, `order total comes from the serve
 
 await nav("Замовлення");
 await pg.locator(".ok-row", { hasText: "Олена Покупець" }).click();
+await pg.getByRole("button", { name: "Створити ТТН" }).click();
+ok(await pg.getByText("Підключіть модуль «Нова пошта»").waitFor({ timeout: 5000 }).then(() => true, () => false), "waybill button explains the missing module");
 await pg.getByRole("button", { name: /Далі: Підтверджене/ }).click();
 await pg.locator(".ok-detail .ok-pill", { hasText: "Підтверджене" }).first().waitFor();
 await pg.getByLabel("Номер ТТН").fill("20450012345678");
 await pg.getByRole("button", { name: "Зберегти" }).click();
 await pg.getByText("Збережено").first().waitFor();
 ok(true, "order status and waybill updated");
+// Integrations: instructions, and a key the real Nova Poshta API rejects is not stored.
+await nav("Інтеграції");
+ok(await pg.getByText("Створити ключ").isVisible(), "Nova Poshta key instructions shown");
+ok(await pg.getByText("OLX").isVisible() && (await pg.getByText("У розробці").count()) > 1, "other integrations honestly marked in development");
+await pg.getByLabel("API-ключ Нової пошти").fill("f".repeat(32));
+await pg.getByRole("button", { name: "Перевірити й підключити" }).click();
+ok(await pg.getByText("Нова пошта відхилила ключ").waitFor({ timeout: 15000 }).then(() => true, () => false), "invalid key rejected by Nova Poshta");
+ok(await pg.getByText("Не підключено").isVisible(), "still not connected");
 await nav("Товари");
 ok(await pg.getByText("Залишок: 1").waitFor({ timeout: 5000 }).then(() => true, () => false), "stock decreased by the order");
 

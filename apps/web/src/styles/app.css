@@ -47,3 +47,10 @@
 .app-swatch { width: 0.85rem; height: 0.85rem; border-radius: 50%; display: inline-block; }
 .app-color { cursor: pointer; }
 .app-color input { width: 1.2rem; height: 1.2rem; padding: 0; border: 0; background: none; cursor: pointer; }
+
+/* Nova Poshta address picker */
+.app-picked { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.8125rem; }
+.app-options { max-height: 14rem; overflow-y: auto; overscroll-behavior: contain; }
+.app-options:empty { display: none; }
+.app-options > li { padding: 0.4rem 0.1rem; }
+.app-options button { text-align: left; font-size: 0.875rem; }

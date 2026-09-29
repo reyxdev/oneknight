@@ -438,3 +438,20 @@ export const invites = pgTable("invites", {
   usedAt: timestamp("used_at", { withTimezone: true }),
   createdAt: createdAt(),
 });
+
+/** Connected external services (Nova Poshta, Prom, ...). Credentials are encrypted at rest and never returned. */
+export const integrations = pgTable(
+  "integrations",
+  {
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(),
+    credentialsEnc: text("credentials_enc").notNull(),
+    /** Non-secret settings (sender city/warehouse, defaults...). */
+    settings: jsonb("settings").notNull().default(sql`'{}'::jsonb`).$type<Record<string, unknown>>(),
+    status: text("status").notNull().default("connected"), // connected | error
+    lastError: text("last_error"),
+    connectedAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.organizationId, t.provider] })],
+);
