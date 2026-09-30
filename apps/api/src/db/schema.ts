@@ -45,6 +45,8 @@ export const users = pgTable(
     referredBy: uuid("referred_by"),
     /** When both got their free month (after this person's business paid for the first time). */
     referralRewardedAt: timestamp("referral_rewarded_at", { withTimezone: true }),
+    /** «Що нового» read up to this moment. */
+    newsSeenAt: timestamp("news_seen_at", { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -712,3 +714,36 @@ export const telegramLinks = pgTable("telegram_links", {
   linkedAt: timestamp("linked_at", { withTimezone: true }),
   createdAt: createdAt(),
 });
+
+/**
+ * Messages from ONEKNIGHT to everyone in the panel: a promotion banner (with dates, can be closed) or a «Що нового»
+ * entry (shown at the bottom of the menu until read).
+ */
+export const announcementKindEnum = pgEnum("announcement_kind", ["banner", "news"]);
+export const announcements = pgTable(
+  "announcements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: announcementKindEnum("kind").notNull(),
+    title: text("title").notNull(),
+    text: text("text").notNull().default(""),
+    /** A link inside the panel («#billing») or to the site. */
+    link: text("link"),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull().defaultNow(),
+    endsAt: timestamp("ends_at", { withTimezone: true }),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("announcements_kind_idx").on(t.kind, t.startsAt)],
+);
+
+/** A banner closed by a person does not come back for them. */
+export const announcementDismissals = pgTable(
+  "announcement_dismissals",
+  {
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    announcementId: uuid("announcement_id").notNull().references(() => announcements.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.announcementId] })],
+);

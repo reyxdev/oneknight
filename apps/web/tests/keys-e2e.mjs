@@ -74,6 +74,28 @@ ok(await seen(admin.getByText("Усього 2 · активовано 1 · ви�
 await admin.getByRole("button", { name: "Показати ключі" }).click();
 ok(await seen(admin.getByText("активовано: Клієнт ключа E2E")), "activated by the right business");
 
+// Announcements: the admin publishes a banner and «Що нового»; the client sees both, closes the banner.
+await nav(admin, "Оголошення");
+await admin.getByRole("radio", { name: "Банер акції" }).click();
+await admin.getByLabel("Заголовок").fill("Знижка 20% на рік E2E");
+await admin.getByLabel("Посилання").fill("#billing");
+await admin.getByRole("button", { name: "Опублікувати" }).click();
+await admin.locator(".ok-list li", { hasText: "Знижка 20% на рік E2E" }).waitFor();
+await admin.getByRole("radio", { name: "Що нового" }).click();
+await admin.getByLabel("Заголовок").fill("Нове: дошка замовлень E2E");
+await admin.getByRole("button", { name: "Опублікувати" }).click();
+await admin.locator(".ok-list li", { hasText: "Нове: дошка замовлень E2E" }).waitFor();
+await client.reload({ waitUntil: "networkidle" });
+ok(await seen(client.locator(".app-banner", { hasText: "Знижка 20% на рік E2E" })), "the client sees the banner");
+await client.locator(".app-banner").getByRole("button", { name: "Закрити" }).click();
+await client.reload({ waitUntil: "networkidle" });
+ok(!(await client.locator(".app-banner", { hasText: "Знижка 20% на рік E2E" }).count()), "a closed banner stays closed");
+await client.locator(".ok-side").getByRole("button", { name: /Що нового/ }).click();
+ok(await seen(client.getByRole("dialog", { name: "Що нового" }).getByText("Нове: дошка замовлень E2E")), "«Що нового» from the menu");
+await client.keyboard.press("Escape");
+await nav(admin, "Оголошення");
+for (const li of await admin.locator(".ok-list li", { hasText: "E2E" }).all()) await li.getByRole("button", { name: "Видалити" }).click().catch(() => {});
+
 cleanupTestData();
 const KNOWN_418 = errs.filter((e) => e.includes("React error #418"));
 if (KNOWN_418.length) console.log("warning: known hydration notice", KNOWN_418.length);

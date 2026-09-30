@@ -8,6 +8,7 @@ import { KnightMark } from "@/components/global/Logo";
 import type { Me } from "@/lib/api";
 import { AdminLeads } from "./Leads";
 import { Toasts } from "./Toasts";
+import { AnnouncementsAdmin, Banner, NewsButton, useAnnouncements } from "./Announcements";
 import { applyTextSize } from "./textSize";
 import { NewOrders } from "./NewOrders";
 import { Search } from "./Search";
@@ -32,7 +33,7 @@ import { TeamScreen } from "./Team";
 import { api } from "@/lib/api";
 
 type ClientScreen = "home" | "orders" | "customers" | "products" | "reviews" | "analytics" | "site" | "modules" | "services" | "business" | "billing" | "team" | "profile" | "support";
-type AdminScreen = "admin" | "clients" | "tickets" | "topups" | "keys";
+type AdminScreen = "admin" | "clients" | "tickets" | "topups" | "keys" | "news";
 type Screen = ClientScreen | AdminScreen;
 type Item = { id: Screen; icon: IconName };
 
@@ -44,7 +45,7 @@ const GROUPS: { key: "work" | "site" | "growth" | "settings"; items: Item[] }[] 
   { key: "settings", items: [{ id: "business", icon: "settings" }, { id: "billing", icon: "card" }, { id: "team", icon: "person" }] },
 ];
 const FOOT: Item[] = [{ id: "profile", icon: "person" }, { id: "support", icon: "chat" }];
-const ADMIN: Item[] = [{ id: "admin", icon: "table" }, { id: "clients", icon: "layers" }, { id: "tickets", icon: "chat" }, { id: "topups", icon: "card" }, { id: "keys", icon: "lock" }];
+const ADMIN: Item[] = [{ id: "admin", icon: "table" }, { id: "clients", icon: "layers" }, { id: "tickets", icon: "chat" }, { id: "topups", icon: "card" }, { id: "keys", icon: "lock" }, { id: "news", icon: "megaphone" }];
 /** Phone bottom bar: the daily screens + «Ще». */
 const MOBILE: Screen[] = ["home", "orders", "products"];
 
@@ -90,6 +91,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
   }, [me.isAdmin]);
 
   const [newCount, setNewCount] = useState(0);
+  const news = useAnnouncements();
   const { screen } = route;
   const adminMode = me.isAdmin && ADMIN_SCREENS.has(screen);
   const org = me.organizations.find((o) => o.id === me.activeOrgId) ?? me.organizations[0];
@@ -105,6 +107,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
       tickets: t.supportAdmin.nav,
       topups: t.topupsAdmin.nav,
       keys: t.keysAdmin.nav,
+      news: t.newsAdmin.nav,
       services: t.servicesApp.nav,
       site: t.site.title,
       modules: t.modulesApp.nav,
@@ -218,6 +221,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
           </nav>
           <div className="app-side-foot">
             {!adminMode && foot.map(navBtn)}
+            {!adminMode && news.data && <NewsButton data={news.data} onSeen={() => void news.load()} />}
             <a className="ok-navbtn" href={withLang(lang, "/")}><Icon name="globe" size={19} /><span>{t.nav.site}</span></a>
             <button type="button" className="ok-navbtn" onClick={onLogout}><Icon name="arrow" size={19} style={{ transform: "scaleX(-1)" }} /><span>{t.nav.logout}</span></button>
           </div>
@@ -256,6 +260,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             <span className="app-user"><Icon name="person" size={16} />{me.email}</span>
             <Bell />
           </header>
+          {!adminMode && news.data?.banner && <Banner item={news.data.banner} onClose={() => void news.load()} />}
           <div className="ok-content" key={`${me.activeOrgId}/${screen}/${route.tab ?? ""}`}>
             {!view && <p className="ok-muted">{screen === "business" ? t.business.ownerOnly : t.team.noAccess}</p>}
             {view === "home" && <HomeScreen me={me} go={(id, tab) => go(id as Screen, tab ?? null)} />}
@@ -277,6 +282,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             {adminMode && view === "tickets" && <SupportScreen admin />}
             {adminMode && view === "topups" && <TopupsAdmin />}
             {adminMode && view === "keys" && <KeysAdmin />}
+            {adminMode && view === "news" && <AnnouncementsAdmin />}
           </div>
         </div>
         {!adminMode && (me.permissions.includes("orders") || allowed("products")) && screen !== "products" && (

@@ -22,6 +22,7 @@ import { orderWorkRoutes } from "./shop/work.ts";
 import { businessRoutes } from "./business/routes.ts";
 import { customerRoutes } from "./customers/routes.ts";
 import { referralRoutes } from "./billing/referrals.ts";
+import { announcementRoutes } from "./announcements/routes.ts";
 import { backupRoutes } from "./backups/routes.ts";
 import { telegramRoutes } from "./notify/routes.ts";
 import type { TgCall } from "./notify/bot.ts";
@@ -64,6 +65,7 @@ export async function buildApp(opts: FastifyServerOptions = {}, deps: { npCall?:
   await app.register(businessRoutes, { prefix: "/api/business" });
   await app.register(customerRoutes, { prefix: "/api/customers" });
   await app.register(referralRoutes, { prefix: "/api/referrals" });
+  await app.register(announcementRoutes, { prefix: "/api/announcements" });
   await app.register(publicRoutes, { prefix: "/api/public" });
   await app.register(reviewRoutes, { prefix: "/api/reviews" });
   await app.register(analyticsRoutes, { prefix: "/api/analytics" });

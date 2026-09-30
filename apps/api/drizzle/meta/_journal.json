@@ -218,6 +218,13 @@
       "when": 1790727765290,
       "tag": "0030_referrals",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1790728147101,
+      "tag": "0031_announcements",
+      "breakpoints": true
     }
   ]
 }
