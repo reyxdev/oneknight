@@ -8,7 +8,7 @@ import { requireAuth } from "../auth/routes.ts";
 import { orgScope } from "../auth/access.ts";
 import { audit } from "../audit.ts";
 import { redeem } from "./keys.ts";
-import { billingOverview, createTopup, installModule, paymentsConfigured, requisites, startSelfTrial } from "./service.ts";
+import { billingOverview, createTopup, installModule, payYear, paymentsConfigured, requisites, startSelfTrial, startSubscription } from "./service.ts";
 
 const Topup = z.object({ amountUah: z.number().int().min(50).max(100_000) });
 
@@ -23,6 +23,26 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
     if (!until) return reply.code(409).send({ error: "already_started" });
     await audit(req, "billing.trial_started", req.auth!.user.id, { until: until.toISOString() }, org);
     return { until };
+  });
+
+  /** «Почати підписку» / renew a lapsed one from the balance. */
+  app.post("/subscribe", async (req, reply) => {
+    const [org] = await orgScope(req, "billing");
+    if (!org) return reply.code(403).send({ error: "forbidden" });
+    const r = await startSubscription(org);
+    if (!r.ok) return reply.code(409).send(r);
+    await audit(req, "billing.subscribe", req.auth!.user.id, { until: r.until.toISOString() }, org);
+    return r;
+  });
+
+  /** «Оплатити рік» (2 months as a gift). */
+  app.post("/year", async (req, reply) => {
+    const [org] = await orgScope(req, "billing");
+    if (!org) return reply.code(403).send({ error: "forbidden" });
+    const r = await payYear(org);
+    if (!r.ok) return reply.code(409).send(r);
+    await audit(req, "billing.year", req.auth!.user.id, { until: r.until.toISOString() }, org);
+    return r;
   });
 
   /** Billing of the user's (first) organization. */

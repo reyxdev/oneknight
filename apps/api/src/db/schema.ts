@@ -241,6 +241,10 @@ export const subscriptions = pgTable("subscriptions", {
   coveredUntil: timestamp("covered_until", { withTimezone: true }),
   /** Last trial-end reminder sent (days before the end: 3, then 1), so each goes once. */
   trialReminded: smallint("trial_reminded"),
+  /** The renewal a «top up, 3 days left» reminder was sent for (its period end), so it goes once. */
+  renewRemindedFor: timestamp("renew_reminded_for", { withTimezone: true }),
+  /** The paid year a «14 days left, renew the year» reminder was sent for. */
+  yearRemindedFor: timestamp("year_reminded_for", { withTimezone: true }),
   createdAt: createdAt(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

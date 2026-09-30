@@ -19,6 +19,9 @@ export type BillingData = {
   balanceKop: number;
   monthlyKop: number;
   monthlyFullKop: number;
+  parts: { baseKop: number; modules: number; modulesKop: number; extraSites: number; sitesKop: number };
+  yearKop: number;
+  value: { orders: number; kop: number };
   discount: { percent: number; monthsLeft: number } | null;
   coveredUntil: string | null;
   modules: { id: string; free: boolean; paidUntil: string | null }[];
@@ -78,6 +81,25 @@ export function BillingScreen({ onChange }: { onChange?: () => void }) {
   const [flash, show] = useFlash();
   const [code, setCode] = useState("");
   const [codeErr, setCodeErr] = useState<string | null>(null);
+  const [need, setNeed] = useState<number | null>(null);
+  // «Почати підписку» / «Оплатити рік» from the balance; if it is not enough, the top-up form gets the missing sum.
+  const pay = async (what: "subscribe" | "year") => {
+    const r = await api<{ until: string }>(`/billing/${what}`, { method: "POST" });
+    if (r.ok) {
+      playSound("success");
+      setNeed(null);
+      show(fmt(what === "year" ? t.yearDone : t.subscribed, { date: f.date(new Date(r.data.until).getTime()) }));
+      void load();
+      onChange?.();
+      return;
+    }
+    playSound("error");
+    const missing = (r.body as { needKop?: number } | undefined)?.needKop;
+    if (missing) {
+      setNeed(missing);
+      setAmount(String(Math.max(50, Math.ceil(missing / 100))));
+    } else show(d.app.auth.errors.server_error, "warn");
+  };
 
   const redeem = async (e: FormEvent) => {
     e.preventDefault();
@@ -122,7 +144,7 @@ export function BillingScreen({ onChange }: { onChange?: () => void }) {
   if (error) return <p className="ok-muted">{d.app.leads.loadError} <button type="button" className="ok-link" onClick={load}>{d.app.offline.retry}</button></p>;
   if (!data) return null;
   const s = data.subscription;
-  const reason = (r: string) => (r === "renewal" ? t.reasons.renewal : r.startsWith("promo:") ? `${t.promo} ${r.slice(6)}` : r.startsWith("module:") ? `${t.reasons.module}: ${d.ok.modules.items[r.slice(7) as keyof typeof d.ok.modules.items]?.name ?? r.slice(7)}` : r.startsWith("topup:") ? r.slice(6) : r);
+  const reason = (r: string) => (r === "renewal" ? t.reasons.renewal : r === "year" ? t.reasons.year : r.startsWith("promo:") ? `${t.promo} ${r.slice(6)}` : r.startsWith("module:") ? `${t.reasons.module}: ${d.ok.modules.items[r.slice(7) as keyof typeof d.ok.modules.items]?.name ?? r.slice(7)}` : r.startsWith("topup:") ? r.slice(6) : r);
 
   return (
     <div className="ok-screen">
@@ -144,12 +166,32 @@ export function BillingScreen({ onChange }: { onChange?: () => void }) {
         />
         <Stat label={s?.status === "trial" ? t.monthly : t.monthlyActive} icon="refresh" value={money(data.monthlyKop)} sub={data.discount ? fmt(t.discount, { p: data.discount.percent, n: data.discount.monthsLeft }) : s?.status === "trial" ? fmt(t.freeModules, { n: data.freeModulesLeft }) : undefined} />
       </div>
+      {data.value.orders > 0 && (
+        <p className="app-value"><Icon name="chart" size={16} />{fmt(t.value, { n: data.value.orders, sum: money(data.value.kop) })}</p>
+      )}
       {!s && (
         <Panel>
           <p className="ok-muted">{t.none}</p>
           <button type="button" className="btn btn-sm" style={{ justifySelf: "start" }} onClick={async () => { const r = await api("/billing/trial", { method: "POST" }); if (r.ok) { playSound("success"); void load(); onChange?.(); } }}>{t.startTrial}</button>
         </Panel>
       )}
+      <Panel title={t.planTitle}>
+        <ul className="app-bill-parts">
+          <li><span className="ok-grow">ONEKNIGHT</span><b className="num">{data.parts.baseKop ? money(data.parts.baseKop) : t.covered}</b></li>
+          {data.parts.modules > 0 && <li><span className="ok-grow">{fmt(t.partModules, { n: data.parts.modules })}</span><b className="num">{money(data.parts.modulesKop)}</b></li>}
+          {data.parts.extraSites > 0 && <li><span className="ok-grow">{fmt(t.partSites, { n: data.parts.extraSites })}</span><b className="num">{money(data.parts.sitesKop)}</b></li>}
+          {data.discount && <li><span className="ok-grow">{fmt(t.discount, { p: data.discount.percent, n: data.discount.monthsLeft })}</span><b className="num">−{money(data.monthlyFullKop - data.monthlyKop)}</b></li>}
+          <li className="app-bill-total"><span className="ok-grow">{s ? fmt(t.nextCharge, { date: f.date(new Date(s.periodEnd).getTime()) }) : t.firstCharge}</span><b className="num">{money(data.monthlyKop)}</b></li>
+        </ul>
+        <div className="ok-actions">
+          {(!s || s.status === "cancelled" || s.status === "grace" || s.status === "suspended") && (
+            <button type="button" className="btn btn-sm" onClick={() => pay("subscribe")}>{s && s.status !== "cancelled" ? t.renewNow : t.subscribe}</button>
+          )}
+          <button type="button" className={s?.status === "trial" ? "btn btn-sm" : "btn btn-sm btn-secondary"} onClick={() => pay("year")}>{fmt(t.payYear, { sum: money(data.yearKop) })}</button>
+        </div>
+        <p className="ok-muted">{fmt(t.yearHint, { m: 2 })}</p>
+        {need !== null && <p className="field-error" role="alert">{fmt(t.needMore, { sum: money(need) })}</p>}
+      </Panel>
 
       <Panel title={t.topUpTitle}>
         {!data.paymentsConfigured ? (

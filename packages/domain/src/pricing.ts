@@ -15,6 +15,10 @@ export const oneknightPricing = {
   currency: "UAH",
   perMonth: 149,
   modulePerMonth: 99,
+  /** Every website after the first one. */
+  extraSitePerMonth: 149,
+  /** A year paid ahead: 12 months for the price of 10 (ONEKNIGHT itself; modules stay monthly). */
+  yearGiftMonths: 2,
   supportPerMonth: 1000,
   freeMonths: 3,
   freeModules: 5,

@@ -148,6 +148,10 @@ export function notificationText(key: string, p: Record<string, any>, finance = 
     case "trialStarted": return "🎉 ONEKNIGHT відкрито безкоштовно на 3 місяці";
     case "trialStartedDays": return `🎉 Пробний період ONEKNIGHT: ${p.days} днів безкоштовно`;
     case "trialEnding": return `⏳ Пробний період ONEKNIGHT закінчується через ${p.days} дн. Оплатіть підписку в розділі «Оплата», щоб робота не зупинилась.`;
+    case "subscriptionStarted": return `✅ Підписку ONEKNIGHT почато, списано ${money(p.amount)} грн`;
+    case "yearPaid": return `🎉 ONEKNIGHT оплачено на рік (${money(p.amount)} грн, 2 місяці в подарунок)`;
+    case "renewSoon": return `💳 Через 3 дні продовження ONEKNIGHT, на балансі бракує ${money(p.amount)} грн`;
+    case "yearEnding": return "📅 Оплачений рік ONEKNIGHT закінчується за 14 днів. Продовжте рік у розділі «Оплата», щоб зберегти 2 місяці в подарунок";
     case "firstStepsReward": return "🎁 Перші кроки пройдено: +7 днів ONEKNIGHT безкоштовно";
     default: return null;
   }

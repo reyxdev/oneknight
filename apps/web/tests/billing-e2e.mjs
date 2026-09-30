@@ -50,8 +50,19 @@ await pg.getByText("Зараховано на баланс").waitFor();
 await nav("Оплата");
 await pg.locator(".ok-stat", { hasText: "Баланс" }).getByText(/300/).waitFor({ timeout: 5000 });
 ok(true, "confirmed top-up is credited to the balance");
+// The plan: ONEKNIGHT 149 in the breakdown; a year needs 1 490, the missing sum goes into the top-up form.
+ok((await pg.locator(".app-bill-parts").innerText()).includes("149"), "next charge with the breakdown");
+await pg.getByRole("button", { name: /Оплатити рік — 1\s?490/ }).click();
+ok(await pg.getByText(/На балансі бракує 1\s?190/).waitFor({ timeout: 5000 }).then(() => true, () => false), "not enough for the year: the missing sum is shown");
+ok((await pg.getByLabel("Сума, грн").inputValue()) === "1190", "the top-up form gets the missing sum");
+const orgId = await pg.evaluate(async () => (await (await fetch("/api/auth/me")).json()).activeOrgId);
+execSync(`docker exec oneknight-db psql -U oneknight -d oneknight -qc "insert into ledger_entries (organization_id, kind, amount_kop, reason) values ('${orgId}', 'adjustment', 119000, 'e2e')"`);
+await pg.reload({ waitUntil: "networkidle" });
+await pg.getByRole("button", { name: /Оплатити рік/ }).click();
+ok(await pg.getByText(/ONEKNIGHT оплачено до/).first().waitFor({ timeout: 5000 }).then(() => true, () => false), "a year paid from the balance");
+ok((await pg.locator(".app-bill-parts").innerText()).includes("оплачено наперед"), "ONEKNIGHT is not charged monthly within the year");
 await nav("Модулі");
-ok(await pg.getByText("У розробці").first().waitFor({ timeout: 5000 }).then(() => true, () => false) && (await pg.getByRole("button", { name: "Підключити" }).count()) === 0, "modules that do not work yet cannot be bought");
+ok(await pg.getByText("У розробці").first().waitFor({ timeout: 5000 }).then(() => true, () => false) && (await pg.locator(".ok-module", { hasText: "У розробці" }).getByRole("button", { name: "Підключити" }).count()) === 0, "modules that do not work yet cannot be bought");
 
 cleanupTestData();
 // Known, intermittent React #418 (hydration) seen only after a form sign-up + reloads; tracked in TODO.md.

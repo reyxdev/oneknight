@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { and, count, desc, eq, gt, inArray, isNull, lte, or, sum } from "drizzle-orm";
 import { moduleById, oneknightPricing as P, type ModuleId } from "@oneknight/domain";
 import { db } from "../db/client.ts";
-import { ledgerEntries, moduleInstalls, notifications, promoCodes, promoRedemptions, subscriptions, topups } from "../db/schema.ts";
+import { ledgerEntries, moduleInstalls, notifications, orders, promoCodes, promoRedemptions, sites, subscriptions, topups } from "../db/schema.ts";
 import { env } from "../config.ts";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -45,15 +45,102 @@ async function activeDiscount(orgId: string, x: Exec) {
 }
 
 /**
- * What the renewal starting at `at` costs: ONEKNIGHT (unless covered by a key) + every paid module not
- * covered by a key, minus the best promo discount.
+ * What the renewal starting at `at` costs: ONEKNIGHT (unless covered by a key or a paid year) + every paid module
+ * not covered by a key + every website after the first, minus the best promo discount. `parts` is the breakdown
+ * shown in «Оплата».
  */
-export async function monthlyKop(orgId: string, x: Exec = db, at = new Date()): Promise<{ total: number; full: number; discount: Awaited<ReturnType<typeof activeDiscount>> }> {
+export async function monthlyKop(orgId: string, x: Exec = db, at = new Date()) {
   const [sub] = await x.select({ coveredUntil: subscriptions.coveredUntil }).from(subscriptions).where(eq(subscriptions.organizationId, orgId));
   const base = sub?.coveredUntil && sub.coveredUntil > at ? 0 : P.perMonth;
-  const full = (base + (await paidModules(orgId, x, at)) * P.modulePerMonth) * UAH;
+  const modules = await paidModules(orgId, x, at);
+  const [s] = await x.select({ n: count() }).from(sites).where(eq(sites.organizationId, orgId));
+  const extraSites = Math.max(0, (s?.n ?? 0) - 1);
+  const parts = { baseKop: base * UAH, modules, modulesKop: modules * P.modulePerMonth * UAH, extraSites, sitesKop: extraSites * P.extraSitePerMonth * UAH };
+  const full = parts.baseKop + parts.modulesKop + parts.sitesKop;
   const discount = full > 0 ? await activeDiscount(orgId, x) : null;
-  return { total: discount ? Math.round((full * (100 - discount.percent)) / 100) : full, full, discount };
+  return { total: discount ? Math.round((full * (100 - discount.percent)) / 100) : full, full, discount, parts };
+}
+
+/** A year of ONEKNIGHT paid ahead: 12 months for the price of 10. Promo codes do not apply to it. */
+export const YEAR_KOP = P.perMonth * (12 - P.yearGiftMonths) * UAH;
+
+/**
+ * «Почати підписку»: without a website from us there is no free period — the first month is paid from the balance
+ * right away. A lapsed subscription (grace, suspended) is renewed the same way.
+ */
+export async function startSubscription(orgId: string, now = new Date()): Promise<{ ok: true; until: Date } | { ok: false; error: "already_active" | "insufficient_funds"; needKop?: number }> {
+  const [cur] = await db.select().from(subscriptions).where(eq(subscriptions.organizationId, orgId));
+  if (cur && (cur.status === "active" || cur.status === "trial")) return { ok: false, error: "already_active" };
+  if (cur && (cur.status === "grace" || cur.status === "suspended")) {
+    const r = await settle(orgId, now);
+    if (r === "renewed") return { ok: true, until: (await db.select().from(subscriptions).where(eq(subscriptions.organizationId, orgId)))[0]!.periodEnd };
+    const { total } = await monthlyKop(orgId, db, now);
+    return { ok: false, error: "insufficient_funds", needKop: Math.max(0, total - (await balanceKop(orgId))) };
+  }
+  return db.transaction(async (tx) => {
+    const { total, discount } = await monthlyKop(orgId, tx, now);
+    const bal = await balanceKop(orgId, tx);
+    if (bal < total) return { ok: false as const, error: "insufficient_funds" as const, needKop: total - bal };
+    const periodEnd = addMonths(now, 1);
+    if (total > 0) await tx.insert(ledgerEntries).values({ organizationId: orgId, kind: "charge", amountKop: -total, reason: "renewal", meta: { from: now.toISOString(), to: periodEnd.toISOString(), ...(discount ? { discountPercent: discount.percent } : {}) } });
+    if (discount) await tx.update(promoRedemptions).set({ monthsLeft: discount.monthsLeft - 1 }).where(and(eq(promoRedemptions.promoId, discount.promoId), eq(promoRedemptions.organizationId, orgId)));
+    await tx
+      .insert(subscriptions)
+      .values({ organizationId: orgId, status: "active", periodEnd })
+      .onConflictDoUpdate({ target: subscriptions.organizationId, set: { status: "active", periodEnd, graceUntil: null, updatedAt: now } });
+    await note(tx, orgId, "subscriptionStarted", { amount: total / UAH, until: periodEnd.toISOString() });
+    return { ok: true as const, until: periodEnd };
+  });
+}
+
+/**
+ * «Оплатити рік»: ONEKNIGHT is covered for 12 months after what is already paid (or free); renewals in that time
+ * charge only modules and extra websites.
+ */
+export async function payYear(orgId: string, now = new Date()): Promise<{ ok: true; until: Date } | { ok: false; error: "insufficient_funds"; needKop: number }> {
+  return db.transaction(async (tx) => {
+    const [sub] = await tx.select().from(subscriptions).where(eq(subscriptions.organizationId, orgId)).for("update");
+    const bal = await balanceKop(orgId, tx);
+    if (bal < YEAR_KOP) return { ok: false as const, error: "insufficient_funds" as const, needKop: YEAR_KOP - bal };
+    const paidTo = sub && (sub.status === "trial" || sub.status === "active") && sub.periodEnd > now ? sub.periodEnd : now;
+    const from = sub?.coveredUntil && sub.coveredUntil > paidTo ? sub.coveredUntil : paidTo;
+    const until = addMonths(from, 12);
+    await tx.insert(ledgerEntries).values({ organizationId: orgId, kind: "charge", amountKop: -YEAR_KOP, reason: "year", meta: { from: from.toISOString(), to: until.toISOString() } });
+    if (!sub) await tx.insert(subscriptions).values({ organizationId: orgId, status: "active", periodEnd: now, coveredUntil: until });
+    else
+      await tx
+        .update(subscriptions)
+        .set({ coveredUntil: until, ...(sub.status === "grace" || sub.status === "suspended" || sub.status === "cancelled" ? { status: "active" as const, periodEnd: now, graceUntil: null } : {}), updatedAt: now })
+        .where(eq(subscriptions.organizationId, orgId));
+    await note(tx, orgId, "yearPaid", { amount: YEAR_KOP / UAH, until: until.toISOString() });
+    return { ok: true as const, until };
+  });
+}
+
+/**
+ * Reminders: the renewal is in 3 days and the balance does not cover it; a paid year ends in 14 days. Each once.
+ */
+async function remindRenewals(now: Date) {
+  const subs = await db.select().from(subscriptions).where(inArray(subscriptions.status, ["active", "trial"]));
+  for (const s of subs) {
+    const left = s.periodEnd.getTime() - now.getTime();
+    if (left > 0 && left <= 3 * DAY && s.renewRemindedFor?.getTime() !== s.periodEnd.getTime()) {
+      const { total } = await monthlyKop(s.organizationId, db, s.periodEnd);
+      const bal = await balanceKop(s.organizationId);
+      if (total > bal) {
+        await db.update(subscriptions).set({ renewRemindedFor: s.periodEnd }).where(eq(subscriptions.organizationId, s.organizationId));
+        await note(db, s.organizationId, "renewSoon", { amount: (total - bal) / UAH, until: s.periodEnd.toISOString() });
+      }
+    }
+    if (s.coveredUntil) {
+      const yl = s.coveredUntil.getTime() - now.getTime();
+      const [year] = await db.select({ id: ledgerEntries.id }).from(ledgerEntries).where(and(eq(ledgerEntries.organizationId, s.organizationId), eq(ledgerEntries.reason, "year"))).limit(1);
+      if (year && yl > 0 && yl <= 14 * DAY && s.yearRemindedFor?.getTime() !== s.coveredUntil.getTime()) {
+        await db.update(subscriptions).set({ yearRemindedFor: s.coveredUntil }).where(eq(subscriptions.organizationId, s.organizationId));
+        await note(db, s.organizationId, "yearEnding", { until: s.coveredUntil.toISOString() });
+      }
+    }
+  }
 }
 
 async function note(x: Exec, orgId: string, key: string, params: Record<string, string | number> = {}) {
@@ -135,6 +222,7 @@ export async function settle(orgId: string, now = new Date()): Promise<"renewed"
 /** Hourly: every subscription that reached its period end or waits in grace/suspension. */
 export async function runBilling(now = new Date()) {
   await remindTrials(now);
+  await remindRenewals(now);
   const due = await db
     .select({ org: subscriptions.organizationId })
     .from(subscriptions)
@@ -205,12 +293,21 @@ export async function billingOverview(orgId: string) {
     ...(await (async () => {
       // The next renewal: its price with key coverage and discounts applied.
       const m = await monthlyKop(orgId, db, sub && sub.periodEnd > new Date() ? sub.periodEnd : new Date());
-      return { monthlyKop: m.total, monthlyFullKop: m.full, discount: m.discount ? { percent: m.discount.percent, monthsLeft: m.discount.monthsLeft } : null };
+      return { monthlyKop: m.total, monthlyFullKop: m.full, parts: m.parts, discount: m.discount ? { percent: m.discount.percent, monthsLeft: m.discount.monthsLeft } : null };
     })()),
     coveredUntil: sub?.coveredUntil ?? null,
     modules: mods.map((m) => ({ id: m.moduleId, free: m.free, paidUntil: m.paidUntil, installedAt: m.installedAt })),
     freeModulesLeft: sub?.status === "trial" ? Math.max(0, P.freeModules - mods.filter((m) => m.free).length) : 0,
     paymentsConfigured: paymentsConfigured(),
+    yearKop: YEAR_KOP,
+    // «Через ONEKNIGHT пройшло N замовлень на X грн»: what the panel did for the business.
+    value: await (async () => {
+      const [v] = await db
+        .select({ n: count(), kop: sum(orders.totalKop) })
+        .from(orders)
+        .where(and(eq(orders.organizationId, orgId), eq(orders.isExample, false), inArray(orders.status, ["new", "confirmed", "shipped", "done"])));
+      return { orders: v?.n ?? 0, kop: Number(v?.kop ?? 0) };
+    })(),
     ledger,
     topups: tops,
   };

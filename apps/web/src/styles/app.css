@@ -303,3 +303,7 @@ dialog.modal:has(.app-dialog) { max-width: min(520px, calc(100vw - 1.5rem)); }
 .app-filter-search .input { height: 2.1rem; max-width: 16rem; }
 .app-colors { display: flex; gap: 0.35rem; align-items: center; } .app-colors button { width: 1.5rem; height: 1.5rem; border-radius: 50%; cursor: pointer; border: 2px solid transparent; } .app-colors button[aria-checked="true"] { border-color: var(--fg); }
 .app-picker-list.app-inline { position: static; box-shadow: none; margin: 0; }
+.app-value { display: flex; align-items: center; gap: 0.5rem; margin: 0; padding: 0.7rem 0.9rem; border-radius: 14px; background: color-mix(in srgb, var(--ok) 10%, transparent); color: var(--ok); font-weight: 600; }
+.app-bill-parts { display: grid; gap: 0.2rem; margin: 0 0 0.75rem; padding: 0; list-style: none; }
+.app-bill-parts > li { display: flex; align-items: center; gap: 0.75rem; padding: 0.35rem 0; border-bottom: 1px solid var(--line); }
+.app-bill-total { border-bottom: 0 !important; font-weight: 700; }
