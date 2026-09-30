@@ -1,11 +1,12 @@
 import { and, count, desc, eq, gt, inArray, isNull, lte, sql as dsql } from "drizzle-orm";
 import { db } from "../db/client.ts";
-import { carts, insightDismissals, monitorChecks, orders, products, reviews, sites, subscriptions, tickets } from "../db/schema.ts";
+import { carts, insightDismissals, monitorChecks, orders, reviews, sites, subscriptions, tickets } from "../db/schema.ts";
 import type { Permission } from "../auth/access.ts";
 import { hasModule } from "../billing/service.ts";
 import { orderSettingsOf } from "../shop/settings.ts";
 import { WAITING_DAYS } from "../integrations/tracking.ts";
 import { dueCarts } from "../carts/routes.ts";
+import { stockAlerts } from "../products/routes.ts";
 
 /**
  * «Що треба зробити»: things that need a person, each counted from real data and leading to the filtered list.
@@ -17,7 +18,6 @@ const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 
 export const CARRIERS = ["novaposhta", "ukrposhta"];
-export const LOW_STOCK = 2;
 
 /** Orders in work going by a carrier that still have no waybill. */
 export const needsWaybill = () => and(eq(orders.status, "confirmed"), isNull(orders.waybill), inArray(dsql`${orders.delivery}->>'method'`, CARRIERS));
@@ -65,15 +65,10 @@ export async function todoFor(orgId: string, perms: Permission[], now = new Date
     }
   }
   if (can("products")) {
-    const [p] = await db
-      .select({
-        out: dsql<number>`count(*) filter (where ${products.stock} = 0)`.mapWith(Number),
-        low: dsql<number>`count(*) filter (where ${products.stock} between 1 and ${LOW_STOCK})`.mapWith(Number),
-      })
-      .from(products)
-      .where(and(eq(products.organizationId, orgId), eq(products.active, true)));
-    if (p && p.out > 0) out.push({ id: `outOfStock:${p.out}`, tone: "warn", key: "outOfStock", params: { n: p.out }, screen: "products" });
-    if (p && p.low > 0) out.push({ id: `lowStock:${p.low}`, tone: "warn", key: "lowStock", params: { n: p.low, max: LOW_STOCK }, screen: "products" });
+    // «Закінчується» by each product's own threshold.
+    const p = await stockAlerts(orgId);
+    if (p.out > 0) out.push({ id: `outOfStock:${p.out}`, tone: "warn", key: "outOfStock", params: { n: p.out }, screen: "products", tab: "out" });
+    if (p.low > 0) out.push({ id: `lowStock:${p.low}`, tone: "warn", key: "lowStock", params: { n: p.low }, screen: "products", tab: "low" });
   }
   if (can("reviews") && (await hasModule(orgId, "reviews"))) {
     const [r] = await db.select({ n: count() }).from(reviews).where(and(eq(reviews.organizationId, orgId), eq(reviews.status, "pending")));

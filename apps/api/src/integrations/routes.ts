@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { and, eq, inArray, sql as dsql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client.ts";
-import { integrations, orders } from "../db/schema.ts";
+import { integrations, orders, products } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
 import { SHIPPING_STATUSES, orderAccess, orgScope } from "../auth/access.ts";
 import { hasModule } from "../billing/service.ts";
@@ -42,6 +42,30 @@ export const fetchPdf: PrintPdf = async (url) => {
  * Cash on delivery of an order: nothing when it is paid, otherwise the sum minus the prepayment
  * («передоплата при накладеному»).
  */
+/**
+ * Weight and size of the parcel from the products (when every item has its weight): weights add up, the box is
+ * as long and wide as the largest item and as high as all of them stacked. Null: use the business's defaults.
+ */
+export async function parcelOf(o: { items: { productId: string; qty: number }[] }) {
+  const ids = o.items.map((i) => i.productId).filter((id) => /^[0-9a-f-]{36}$/.test(id));
+  if (!ids.length || ids.length !== o.items.length) return null;
+  const rows = await db.select().from(products).where(inArray(products.id, ids));
+  const of = (id: string) => rows.find((r) => r.id === id);
+  if (o.items.some((i) => !of(i.productId)?.weightG)) return null;
+  const grams = o.items.reduce((s, i) => s + of(i.productId)!.weightG! * i.qty, 0);
+  const sized = o.items.every((i) => of(i.productId)!.lengthCm && of(i.productId)!.widthCm && of(i.productId)!.heightCm);
+  return {
+    weight: Math.max(0.1, Math.round(grams / 100) / 10),
+    size: sized
+      ? {
+          length: Math.max(...o.items.map((i) => of(i.productId)!.lengthCm!)),
+          width: Math.max(...o.items.map((i) => of(i.productId)!.widthCm!)),
+          height: o.items.reduce((s, i) => s + of(i.productId)!.heightCm! * i.qty, 0),
+        }
+      : null,
+  };
+}
+
 export function codOf(o: { payment: string; paymentStatus: string; totalKop: number; prepaidKop: number }) {
   const cod = o.payment === "cod" && o.paymentStatus !== "paid" && o.paymentStatus !== "refunded";
   return { cod, codUah: (o.totalKop - (o.paymentStatus === "prepaid" ? o.prepaidKop : 0)) / 100 };
@@ -219,6 +243,7 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
       const o = await orderOf(acc!, req.params.orderId);
       if (!o) return reply.code(404).send({ error: "not_found" });
       const s = u.settings;
+      const parcel = await parcelOf(o);
       // A 5-digit postcode in the branch or address points at the exact office; otherwise suggest cities by name.
       const code = `${o.delivery.branch ?? ""} ${o.delivery.address ?? ""}`.match(/\b\d{5}\b/)?.[0];
       const exact = code ? await upOfficeByPostcode(u.creds.bearer, code, up) : null;
@@ -228,8 +253,9 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
         connected: true,
         sender: s.cityRef && s.warehouseRef ? { city: { ref: s.cityRef, name: s.cityName ?? "", area: "" }, warehouse: { ref: s.warehouseRef, name: s.warehouseName ?? "", number: s.warehouseRef } } : null,
         recipient: { city: exact?.city ?? null, warehouse: exact?.office ?? null, cities, warehouses: [] },
-        weight: s.weight ?? 1,
-        size: { length: s.length ?? 30, width: s.width ?? 20, height: s.height ?? 10 },
+        weight: parcel?.weight ?? s.weight ?? 1,
+        size: parcel?.size ?? { length: s.length ?? 30, width: s.width ?? 20, height: s.height ?? 10 },
+        fromProducts: !!parcel,
         description: s.description ?? "",
         // Without `finance` the amount stays hidden (null); the waybill still gets it from the order on the server.
         cod: codOf(o).cod ? (acc!.finance ? codOf(o).codUah : null) : 0,
@@ -326,12 +352,14 @@ export function integrationRoutes(call: NpCall = npCall, prom: PromFetch = promF
       const o = await orderOf(acc!, req.params.orderId);
       if (!o) return reply.code(404).send({ error: "not_found" });
       const s = n.settings;
+      const parcel = await parcelOf(o);
       return {
         moduleActive,
         connected: true,
         sender: s.cityRef && s.warehouseRef ? { city: { ref: s.cityRef, name: s.cityName ?? "", area: "" }, warehouse: { ref: s.warehouseRef, name: s.warehouseName ?? "", number: "" } } : null,
         recipient: await resolveRecipient(n.creds.apiKey, o),
-        weight: s.weight ?? 1,
+        weight: parcel?.weight ?? s.weight ?? 1,
+        fromProducts: !!parcel,
         description: s.description ?? "",
         cod: codOf(o).cod ? (acc!.finance ? codOf(o).codUah : null) : 0,
       };

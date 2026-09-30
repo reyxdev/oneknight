@@ -20,6 +20,8 @@ type Draft =
       recipient: { city: NpCity | null; warehouse: NpWarehouse | null; cities: NpCity[]; warehouses: NpWarehouse[] };
       weight: number;
       size?: { length: number; width: number; height: number };
+      /** Weight (and size) came from the products of the order. */
+      fromProducts: boolean;
       description: string;
       /** null: cash on delivery, the sum is hidden (no «Фінанси»). */
       cod: number | null;
@@ -123,7 +125,7 @@ export function WaybillForm({ provider, orderId, onCreated, notify }: { provider
       {ambiguous && <p className="ok-note">{t.pickRecipient}</p>}
       <NpPicker provider={provider} labels={{ city: t.recipientCity, branch: t.recipientBranch }} value={recipient} onChange={setRecipient} initialCities={draft.recipient.cities} initialWarehouses={draft.recipient.warehouses} />
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label={t.weight}>{(p) => <input {...p} className="input" inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} />}</Field>
+        <Field label={t.weight} hint={draft && "fromProducts" in draft && draft.fromProducts ? t.weightFromProducts : undefined}>{(p) => <input {...p} className="input" inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} />}</Field>
         <Field label={t.cargo}>{(p) => <input {...p} className="input" maxLength={100} value={cargo} onChange={(e) => setCargo(e.target.value)} />}</Field>
       </div>
       {up && (

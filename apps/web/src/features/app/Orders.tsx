@@ -441,7 +441,7 @@ function OrderDetail({ id, onChanged, shippingOnly, settings, meName, onClose }:
 }
 
 /** Opens a file the API makes (PDF in a new tab, CSV downloaded); the tab opens on the click so pop-up blockers allow it. */
-async function openFile(url: string, name: string, pdf: boolean) {
+export async function openFile(url: string, name: string, pdf: boolean) {
   const w = pdf ? window.open("", "_blank") : null;
   const res = await fetch(url, { credentials: "same-origin" }).catch(() => null);
   if (!res?.ok) {

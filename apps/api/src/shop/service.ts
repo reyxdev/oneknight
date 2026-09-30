@@ -1,6 +1,7 @@
-import { and, eq, inArray, sql as dsql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql as dsql } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { notifications, orderEvents, orderStatuses, orders, products } from "../db/schema.ts";
+import { orderable } from "../products/routes.ts";
 
 export type OrderStatus = (typeof orders.$inferSelect)["status"];
 export type PaymentStatus = (typeof orders.$inferSelect)["paymentStatus"];
@@ -19,14 +20,16 @@ export type NewOrder = {
 export async function placeOrder(site: { id: string; organizationId: string }, input: NewOrder, ip: string) {
   const ids = [...new Set(input.items.map((i) => i.productId))];
   return db.transaction(async (tx) => {
-    const rows = await tx.select().from(products).where(and(inArray(products.id, ids), eq(products.siteId, site.id), eq(products.active, true))).for("update");
+    const rows = await tx.select().from(products).where(and(inArray(products.id, ids), eq(products.siteId, site.id), eq(products.active, true), isNull(products.archivedAt))).for("update");
     if (rows.length !== ids.length) return { ok: false as const, error: "unknown_product" };
     const byId = new Map(rows.map((r) => [r.id, r]));
     const qty = new Map<string, number>();
     for (const i of input.items) qty.set(i.productId, (qty.get(i.productId) ?? 0) + i.qty);
     for (const [id, q] of qty) {
       const p = byId.get(id)!;
-      if (p.stock !== null && p.stock < q) return { ok: false as const, error: "out_of_stock", productId: id };
+      if (p.stock !== null && p.availability === "in_stock" && p.stock < q) return { ok: false as const, error: "out_of_stock", productId: id };
+      // «Очікується» and «Немає» are only shown (owner's decision); «Під замовлення» is not counted in stock.
+      if (!orderable(p)) return { ok: false as const, error: "unavailable", productId: id };
     }
     const items = [...qty].map(([id, q]) => ({ productId: id, name: byId.get(id)!.name, qty: q, priceKop: byId.get(id)!.priceKop }));
     const totalKop = items.reduce((s, i) => s + i.priceKop * i.qty, 0);
@@ -98,7 +101,19 @@ export async function setOrderStatus(orderId: string, orgIds: string[], change: 
     const cancelReason = status === "cancelled" ? (reason ?? o.cancelReason) : null;
     // The first person to take the order in work becomes responsible; a status change ends «Не додзвонились».
     const assign = status === "confirmed" && !o.assigneeId ? { assigneeId: userId } : {};
-    await tx.update(orders).set({ status, statusId, cancelReason, callbackAt: null, ...assign, updatedAt: new Date() }).where(eq(orders.id, orderId));
+    // Received: the warranty of the products (the longest one) starts today, unless the team set it by hand.
+    let warranty = {};
+    if (status === "done" && o.status !== "done" && !o.warranty.enabled) {
+      const ids = o.items.map((i) => i.productId).filter((id) => /^[0-9a-f-]{36}$/.test(id));
+      const rows = ids.length ? await tx.select({ m: products.warrantyMonths }).from(products).where(inArray(products.id, ids)) : [];
+      const months = Math.max(0, ...rows.map((r) => r.m ?? 0));
+      if (months) {
+        const until = new Date();
+        until.setMonth(until.getMonth() + months);
+        warranty = { warranty: { enabled: true, until: until.toLocaleDateString("sv-SE", { timeZone: "Europe/Kyiv" }), note: o.warranty.note } };
+      }
+    }
+    await tx.update(orders).set({ status, statusId, cancelReason, callbackAt: null, ...assign, ...warranty, updatedAt: new Date() }).where(eq(orders.id, orderId));
     await tx.insert(orderEvents).values({ orderId, kind: "status", status, userId, data: { ...(custom ? { name: custom.name } : {}), ...(status === "cancelled" && reason ? { reason } : {}) } });
     return { ok: true as const };
   });

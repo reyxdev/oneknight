@@ -12,6 +12,7 @@ import { trackParcels } from "./integrations/tracking.ts";
 import { purgeTrash } from "./reviews/routes.ts";
 import { purgeAnalytics } from "./analytics/routes.ts";
 import { purgeCarts } from "./carts/routes.ts";
+import { downloadPendingPhotos } from "./products/photos.ts";
 
 const app = await buildApp();
 const stopMonitor = startMonitor(app.log, env.MONITOR_INTERVAL_MIN);
@@ -26,6 +27,8 @@ const trackTimer = setInterval(() => void trackParcels({ skipTestAccounts: true 
 const promTimer = setInterval(() => {
   void syncAllProm(app.log).catch((e) => app.log.error(e));
   void syncAllRozetka(app.log).catch((e) => app.log.error(e));
+  // Pictures left by product imports (normally done right after the import).
+  void downloadPendingPhotos().catch((e) => app.log.error(e));
 }, 10 * 60_000);
 const sweepTimer = setInterval(() => {
   void sweepOrphans().catch((e) => app.log.error(e));

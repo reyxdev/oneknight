@@ -253,8 +253,15 @@ export function CustomersScreen({ tab, finance, go }: { tab?: string | null; fin
   useEscClose(open ? () => setOpen(null) : null);
   const toast = useToast();
   // Excel → «Зберегти як CSV»; the answer says how many were added, updated and which rows were skipped.
-  const importCsv = async (csv: string) => {
-    const r = await api<{ created: number; updated: number; skipped: number[] }>("/customers/import", { method: "POST", body: { csv } });
+  // Excel as it is (.xlsx) or CSV: the file goes to the server as it was chosen.
+  const importFile = async (file: File) => {
+    const data = await new Promise<string>((res, rej) => {
+      const fr = new FileReader();
+      fr.onload = () => res(String(fr.result));
+      fr.onerror = () => rej(fr.error);
+      fr.readAsDataURL(file);
+    });
+    const r = await api<{ created: number; updated: number; skipped: number[] }>("/customers/import", { method: "POST", body: { file: { name: file.name, data } } });
     if (!r.ok) return toast.show(r.error === "no_phone_column" ? t.importNoPhone : t.importFailed, "warn");
     toast.show(fmt(t.imported, { created: r.data.created, updated: r.data.updated }));
     if (r.data.skipped.length) toast.show(fmt(t.importSkipped, { rows: r.data.skipped.join(", ") }), "warn");
@@ -293,7 +300,7 @@ export function CustomersScreen({ tab, finance, go }: { tab?: string | null; fin
         <div className="ok-actions">
           <label className="btn btn-sm btn-ghost">
             <Icon name="doc" size={15} />{t.import}
-            <input type="file" accept=".csv,text/csv" className="sr-only" onChange={async (e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) await importCsv(await file.text()); }} />
+            <input type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={async (e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) await importFile(file); }} />
           </label>
           <button type="button" className="ok-link" onClick={downloadTemplate}>{t.template}</button>
           {settings?.canEdit && <a className="btn btn-sm btn-ghost" href="/api/customers/export" download><Icon name="doc" size={15} />{t.export}</a>}

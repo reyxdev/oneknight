@@ -239,6 +239,13 @@
       "when": 1790730886929,
       "tag": "0033_carts",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790732196804,
+      "tag": "0034_products",
+      "breakpoints": true
     }
   ]
 }

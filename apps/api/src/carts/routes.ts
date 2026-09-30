@@ -67,7 +67,7 @@ export const cartPublicRoutes: FastifyPluginAsync = async (app) => {
     // Finished or closed by the team: later changes of the same visit are not collected again.
     if (known && (known.orderId || known.closedAt)) return reply.code(204).send();
     const ids = [...new Set(p.data.items.map((i) => i.id))];
-    const rows = ids.length ? await db.select().from(products).where(and(inArray(products.id, ids), eq(products.siteId, site.id), eq(products.active, true))) : [];
+    const rows = ids.length ? await db.select().from(products).where(and(inArray(products.id, ids), eq(products.siteId, site.id), eq(products.active, true), isNull(products.archivedAt))) : [];
     const qty = new Map<string, number>();
     for (const i of p.data.items) if (rows.some((r) => r.id === i.id)) qty.set(i.id, (qty.get(i.id) ?? 0) + i.qty);
     const items = [...qty].map(([id, q]) => {

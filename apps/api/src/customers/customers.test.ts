@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { eq } from "drizzle-orm";
 import { buildApp } from "../app.ts";
 import { cleanupTestUsers } from "../test-utils.ts";
+import { writeXlsx } from "../files/table.ts";
 import { db, sql } from "../db/client.ts";
 import { orders } from "../db/schema.ts";
 
@@ -115,6 +116,9 @@ test("customers: merge, anonymize, import from Excel (CSV), export for the owner
   assert.deepEqual([after[0].tags, after[0].email, after[0].firstSource], [["vip"], "oks@example.com", "import"]);
   const iryna = (await app.inject({ url: `/api/customers/${a!.id}`, headers: { cookie: o.cookie } })).json();
   assert.deepEqual([iryna.email, iryna.company, iryna.tags], ["iryna@example.com", "ТОВ Квітка", ["wholesale"]]);
+  // The same from an .xlsx file as Excel saves it.
+  const xlsx = writeXlsx([["Ім'я", "Телефон"], ["Тарас", "0501231231"]]).toString("base64");
+  assert.deepEqual((await app.inject({ method: "POST", url: "/api/customers/import", payload: { file: { name: "base.xlsx", data: xlsx } }, headers: H })).json(), { created: 1, updated: 0, skipped: [] });
 
   const exp = await app.inject({ url: "/api/customers/export", headers: { cookie: o.cookie } });
   assert.match(exp.body, /Оксана;067 555 44 33;oks@example\.com/);

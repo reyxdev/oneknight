@@ -1,8 +1,9 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client.ts";
-import { products, sites } from "../db/schema.ts";
+import { productCategories, products, sites } from "../db/schema.ts";
+import { isLow, orderable, stateOf } from "../products/routes.ts";
 import { env } from "../config.ts";
 import { placeOrder } from "../shop/service.ts";
 import { reviewPublicRoutes } from "../reviews/routes.ts";
@@ -78,16 +79,36 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get("/products", { preHandler: siteByKey }, async (req) => {
-    const rows = await db.select().from(products).where(and(eq(products.siteId, req.site!.id), eq(products.active, true))).orderBy(asc(products.sort), asc(products.createdAt));
+    const rows = await db.select().from(products).where(and(eq(products.siteId, req.site!.id), eq(products.active, true), isNull(products.archivedAt))).orderBy(asc(products.sort), asc(products.createdAt));
+    // Cost, thresholds and the history never leave the account.
     return rows.map((p) => ({
       id: p.id,
+      sku: p.sku,
       name: p.name,
       description: p.description,
+      categoryId: p.categoryId,
       price: p.priceKop / 100,
-      inStock: p.stock === null || p.stock > 0,
+      oldPrice: p.oldPriceKop !== null && p.oldPriceKop > p.priceKop ? p.oldPriceKop / 100 : null,
+      discountPercent: p.oldPriceKop !== null && p.oldPriceKop > p.priceKop ? Math.round((1 - p.priceKop / p.oldPriceKop) * 100) : null,
+      /** in_stock · to_order · expected · out; only in_stock and to_order can be ordered. */
+      availability: stateOf(p),
+      orderDays: p.availability === "to_order" ? p.orderDays : null,
+      inStock: orderable(p),
       stock: p.stock,
+      /** «Залишилось N шт.». */
+      fewLeft: isLow(p),
       photo: p.photoFileId ? `/api/files/${p.photoFileId}` : null,
+      photos: p.photos.map((id) => `/api/files/${id}`),
+      attributes: p.attributes,
+      warrantyMonths: p.warrantyMonths,
+      weightG: p.weightG,
     }));
+  });
+
+  /** Categories of the catalogue (a tree by `parentId`). */
+  app.get("/categories", { preHandler: siteByKey }, async (req) => {
+    const rows = await db.select().from(productCategories).where(eq(productCategories.siteId, req.site!.id)).orderBy(asc(productCategories.sort), asc(productCategories.name));
+    return rows.map((c) => ({ id: c.id, name: c.name, parentId: c.parentId }));
   });
 
   app.post("/orders", { preHandler: siteByKey, config: { rateLimit: { max: 10, timeWindow: "10 minutes" } } }, async (req, reply) => {

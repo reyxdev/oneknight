@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, inet, integer, jsonb, pgEnum, pgTable, primaryKey, smallint, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { type AnyPgColumn, boolean, index, inet, integer, jsonb, pgEnum, pgTable, primaryKey, smallint, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 /*
  * First slice of the ONEKNIGHT schema: accounts, organizations, sessions, login history, audit log.
@@ -371,13 +371,73 @@ export const products = pgTable(
     priceKop: integer("price_kop").notNull(),
     /** Null = not tracked (made to order). */
     stock: integer("stock"),
+    /** The main photo: always the first of `photos`. */
     photoFileId: uuid("photo_file_id").references(() => files.id, { onDelete: "set null" }),
+    /** Gallery in the order set by the team (files). */
+    photos: uuid("photos").array().notNull().default(sql`'{}'::uuid[]`),
+    /** Picture links from an import (Prom YML, Excel) still to be downloaded. */
+    pendingPhotos: text("pending_photos").array().notNull().default(sql`'{}'::text[]`),
+    /** Shown on the site («Показувати на сайті»). */
     active: boolean("active").notNull().default(true),
+    /** «В архів»: out of the lists and the site, kept for the orders that have it. */
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
     sort: integer("sort").notNull().default(0),
+    /** Артикул: unique within the site's catalogue, the key of imports. */
+    sku: text("sku"),
+    categoryId: uuid("category_id").references(() => productCategories.id, { onDelete: "set null" }),
+    /** «Стара ціна» (crossed out, «−X%» on the site) and «Собівартість» (profit; seen with «Фінанси» only). */
+    oldPriceKop: integer("old_price_kop"),
+    costKop: integer("cost_kop"),
+    /** in_stock · to_order (made in `orderDays`) · expected · out. Only in_stock and to_order can be ordered. */
+    availability: text("availability").notNull().default("in_stock"),
+    orderDays: integer("order_days"),
+    /** «Закінчується» at this stock or less (null: 2). */
+    lowStock: integer("low_stock"),
+    /** For the waybill: grams and centimetres. */
+    weightG: integer("weight_g"),
+    lengthCm: integer("length_cm"),
+    widthCm: integer("width_cm"),
+    heightCm: integer("height_cm"),
+    /** Warranty in months, counted from the day the buyer received the order. */
+    warrantyMonths: integer("warranty_months"),
+    /** Характеристики: name and value pairs. */
+    attributes: jsonb("attributes").notNull().default(sql`'[]'::jsonb`).$type<{ name: string; value: string }[]>(),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("products_site_idx").on(t.siteId, t.sort)],
+  (t) => [
+    index("products_site_idx").on(t.siteId, t.sort),
+    uniqueIndex("products_site_sku_uq").on(t.siteId, t.sku).where(sql`${t.sku} is not null`),
+  ],
+);
+
+/** Categories of a site's catalogue, with subcategories (`parentId`). */
+export const productCategories = pgTable(
+  "product_categories",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    siteId: uuid("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+    parentId: uuid("parent_id").references((): AnyPgColumn => productCategories.id, { onDelete: "set null" }),
+    name: text("name").notNull(),
+    sort: integer("sort").notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [index("product_categories_site_idx").on(t.siteId, t.sort)],
+);
+
+/** History of a product: what changed, from what to what, and who did it (null: an import or ONEKNIGHT). */
+export const productEvents = pgTable(
+  "product_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productId: uuid("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    kind: text("kind").notNull(), // created | edit | import | bulk | archive | restore | duplicate
+    changes: jsonb("changes").notNull().default(sql`'[]'::jsonb`).$type<{ field: string; from: unknown; to: unknown }[]>(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("product_events_product_idx").on(t.productId, t.createdAt)],
 );
 
 /**

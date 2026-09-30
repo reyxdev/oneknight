@@ -125,7 +125,7 @@ await pg.keyboard.press("Escape");
 await pg.locator(".ok-side").getByRole("button", { name: "Товари", exact: true }).click();
 await pg.locator("body").click({ position: { x: 5, y: 300 } });
 await pg.keyboard.press("n");
-ok(await seen(pg.getByLabel("Назва")), "«N» opens a new product");
+ok(await seen(pg.getByLabel("Назва", { exact: true })), "«N» opens a new product");
 await pg.locator(".ok-side").getByRole("button", { name: "Головна", exact: true }).click();
 
 // A customer orders on the website while the panel is open: window with the order, the tab shows the count.
@@ -194,7 +194,7 @@ const newOrder = async (name, phone) => {
 };
 const form = await newOrder("Вручну Покупець", "0501234567");
 await form.getByLabel("Або довільний товар: назва").fill("Гравіювання");
-await form.getByLabel("Ціна, грн").fill("150");
+await form.getByLabel("Ціна, грн", { exact: true }).fill("150");
 await form.getByRole("button", { name: "Додати" }).click();
 await form.getByRole("button", { name: "Створити замовлення" }).click();
 ok(await seen(pg.locator(".app-toast", { hasText: /Замовлення №\d+ створено/ })), "manual order created");
@@ -327,7 +327,7 @@ await pg.locator(".app-table tbody tr").first().evaluate((tr) => {
 });
 ok(await seen(pg.locator(".app-toast", { hasText: "В роботі" })), `swipe right confirms a new order (${swipedName})`);
 await pg.locator(".app-fab").click();
-ok(await seen(pg.getByLabel("Назва")), "the round «+» opens a new product");
+ok(await seen(pg.getByRole("button", { name: "Створити замовлення" })), "the round «+» opens a new order");
 await pg.locator(".ok-bottom").getByRole("button", { name: "Головна" }).click();
 if (SHOTS) {
   await pg.locator(".ok-bottom").getByRole("button", { name: "Замовлення" }).click();

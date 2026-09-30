@@ -5,7 +5,7 @@ import { promisify } from "node:util";
 import { gzip } from "node:zlib";
 import { and, asc, desc, eq, gt, inArray, notInArray } from "drizzle-orm";
 import { db } from "../db/client.ts";
-import { backups, files, integrations, ledgerEntries, memberships, moduleInstalls, orderEvents, orders, organizations, products, reviews, sites, subscriptions, ticketMessages, tickets, users } from "../db/schema.ts";
+import { backups, files, productCategories, integrations, ledgerEntries, memberships, moduleInstalls, orderEvents, orders, organizations, products, reviews, sites, subscriptions, ticketMessages, tickets, users } from "../db/schema.ts";
 import { env } from "../config.ts";
 import { readStored } from "../files/store.ts";
 
@@ -29,6 +29,7 @@ async function collect(orgId: string) {
     .innerJoin(users, eq(users.id, memberships.userId))
     .where(eq(memberships.organizationId, orgId));
   const siteRows = await db.select().from(sites).where(eq(sites.organizationId, orgId));
+  const categoryRows = await db.select().from(productCategories).where(eq(productCategories.organizationId, orgId));
   const productRows = await db.select().from(products).where(eq(products.organizationId, orgId)).orderBy(asc(products.createdAt));
   const orderRows = await db.select().from(orders).where(and(eq(orders.organizationId, orgId), eq(orders.isExample, false))).orderBy(asc(orders.createdAt));
   const events = orderRows.length ? await db.select().from(orderEvents).where(inArray(orderEvents.orderId, orderRows.map((o) => o.id))).orderBy(asc(orderEvents.createdAt)) : [];
@@ -61,6 +62,7 @@ async function collect(orgId: string) {
     organization: org,
     team,
     sites: siteRows,
+    categories: categoryRows,
     products: productRows,
     orders: orderRows.map(strip),
     orderEvents: events,

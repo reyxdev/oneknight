@@ -7,6 +7,8 @@ const paths = {
   table: "M3 5h18v14H3V5zM3 10h18M3 15h18M9 5v14M15 5v14",
   megaphone: "M4 10v4h3l7 4V6L7 10H4zM17 9a4 4 0 010 6",
   doc: "M6 3h9l4 4v14H6V3zM14 3v5h5M9 13h7M9 17h7",
+  copy: "M9 9h11v11H9V9zM5 15H4V4h11v1",
+  upload: "M12 16V4M7 9l5-5 5 5M4 20h16",
   person: "M12 12a4 4 0 100-8 4 4 0 000 8zM4 21c0-4 3.5-6 8-6s8 2 8 6",
   box: "M3 7l9-4 9 4v10l-9 4-9-4V7zM3 7l9 4 9-4M12 11v10",
   bell: "M6 16V11a6 6 0 1112 0v5l2 2H4l2-2zM10 21h4",

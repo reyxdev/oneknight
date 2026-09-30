@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
-import { and, asc, count, desc, eq, gt, ilike, inArray, lte, or, sql as dsql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, ilike, inArray, isNull, lte, or, sql as dsql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client.ts";
 import { customers, orderEvents, orders, products, sites, users } from "../db/schema.ts";
@@ -7,21 +7,11 @@ import { autoTags } from "../customers/routes.ts";
 import { requireAuth } from "../auth/routes.ts";
 import { SHIPPING_STATUSES, orderAccess, orgScope, type Permission } from "../auth/access.ts";
 import { audit } from "../audit.ts";
-import { Upload, saveImage } from "../files/store.ts";
 import { setOrderStatus, setPayment } from "./service.ts";
 import { duplicatesOf } from "./work.ts";
 import { needsWaybill } from "../dashboard/todo.ts";
 
 const uuid = z.string().uuid();
-const ProductIn = z.object({
-  name: z.string().trim().min(1).max(200),
-  description: z.string().max(5000).optional(),
-  price: z.number().min(0).max(10_000_000),
-  stock: z.number().int().min(0).max(1_000_000).nullable().optional(),
-  active: z.boolean().optional(),
-  sort: z.number().int().optional(),
-  photo: Upload.optional(),
-});
 const GROUPS = ["new", "confirmed", "shipped", "done", "cancelled", "returned"] as const;
 const OrderPatch = z.object({
   status: z.enum(GROUPS).optional(),
@@ -40,8 +30,6 @@ export function maskPhone(p: string) {
   return d.length < 7 ? "***" : `+${d.slice(0, 5)} *** ** ${d.slice(-2)}`;
 }
 
-const view = (p: typeof products.$inferSelect) => ({ ...p, price: p.priceKop / 100, photo: p.photoFileId ? `/api/files/${p.photoFileId}` : null });
-
 /** Account shop: /api/shop. Every query is limited to the user's organizations. */
 export const shopRoutes: FastifyPluginAsync = async (app) => {
   app.addHook("preHandler", requireAuth);
@@ -53,76 +41,6 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
     const [s] = await db.select().from(sites).where(and(eq(sites.id, siteId), inArray(sites.organizationId, orgs))).limit(1);
     return s ?? null;
   }
-  async function ownProduct(req: FastifyRequest, id: string) {
-    if (!uuid.safeParse(id).success) return null;
-    const orgs = await orgScope(req, "products");
-    if (!orgs.length) return null;
-    const [p] = await db.select().from(products).where(and(eq(products.id, id), inArray(products.organizationId, orgs))).limit(1);
-    return p ?? null;
-  }
-
-  app.get<{ Params: { siteId: string } }>("/sites/:siteId/products", async (req, reply) => {
-    const site = await ownSite(req, req.params.siteId, "products");
-    if (!site) return reply.code(404).send({ error: "not_found" });
-    const rows = await db.select().from(products).where(eq(products.siteId, site.id)).orderBy(asc(products.sort), desc(products.createdAt));
-    return rows.map(view);
-  });
-
-  app.post<{ Params: { siteId: string } }>("/sites/:siteId/products", { bodyLimit: 7 * 1024 * 1024 }, async (req, reply) => {
-    const site = await ownSite(req, req.params.siteId, "products");
-    if (!site) return reply.code(404).send({ error: "not_found" });
-    const p = ProductIn.safeParse(req.body);
-    if (!p.success) return reply.code(400).send({ error: "invalid_input" });
-    let photoFileId: string | null = null;
-    if (p.data.photo) {
-      const f = await saveImage(p.data.photo, { organizationId: site.organizationId, uploaderId: req.auth!.user.id, isPublic: true });
-      if (!f.ok) return reply.code(400).send({ error: f.error });
-      photoFileId = f.file.id;
-    }
-    const [row] = await db
-      .insert(products)
-      .values({ organizationId: site.organizationId, siteId: site.id, name: p.data.name, description: p.data.description ?? "", priceKop: Math.round(p.data.price * 100), stock: p.data.stock ?? null, active: p.data.active ?? true, sort: p.data.sort ?? 0, photoFileId })
-      .returning();
-    await audit(req, "product.create", req.auth!.user.id, { product: row!.id }, site.organizationId);
-    return reply.code(201).send(view(row!));
-  });
-
-  app.patch<{ Params: { id: string } }>("/products/:id", { bodyLimit: 7 * 1024 * 1024 }, async (req, reply) => {
-    const cur = await ownProduct(req, req.params.id);
-    if (!cur) return reply.code(404).send({ error: "not_found" });
-    const p = ProductIn.partial().safeParse(req.body);
-    if (!p.success) return reply.code(400).send({ error: "invalid_input" });
-    let photoFileId = cur.photoFileId;
-    if (p.data.photo) {
-      const f = await saveImage(p.data.photo, { organizationId: cur.organizationId, uploaderId: req.auth!.user.id, isPublic: true });
-      if (!f.ok) return reply.code(400).send({ error: f.error });
-      photoFileId = f.file.id;
-    }
-    const [row] = await db
-      .update(products)
-      .set({
-        ...(p.data.name !== undefined ? { name: p.data.name } : {}),
-        ...(p.data.description !== undefined ? { description: p.data.description } : {}),
-        ...(p.data.price !== undefined ? { priceKop: Math.round(p.data.price * 100) } : {}),
-        ...(p.data.stock !== undefined ? { stock: p.data.stock } : {}),
-        ...(p.data.active !== undefined ? { active: p.data.active } : {}),
-        ...(p.data.sort !== undefined ? { sort: p.data.sort } : {}),
-        photoFileId,
-        updatedAt: new Date(),
-      })
-      .where(eq(products.id, cur.id))
-      .returning();
-    return view(row!);
-  });
-
-  app.delete<{ Params: { id: string } }>("/products/:id", async (req, reply) => {
-    const cur = await ownProduct(req, req.params.id);
-    if (!cur) return reply.code(404).send({ error: "not_found" });
-    await db.delete(products).where(eq(products.id, cur.id));
-    await audit(req, "product.delete", req.auth!.user.id, { product: cur.id }, cur.organizationId);
-    return { ok: true };
-  });
-
   /**
    * Orders list: filter, sort by column (newest first by default) and pages (`limit` up to 200, `page` from 1).
    * The panel asks for 51 to know whether there is a next page of 50. Sorting by sum needs `finance`.
@@ -210,7 +128,7 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
       : [];
     const [prodOrg] = await orgScope(req, "products");
     const prods = prodOrg
-      ? await db.select({ id: products.id, name: products.name, stock: products.stock, active: products.active, priceKop: products.priceKop }).from(products).where(and(eq(products.organizationId, prodOrg), ilike(products.name, like))).orderBy(asc(products.name)).limit(5)
+      ? await db.select({ id: products.id, name: products.name, sku: products.sku, stock: products.stock, active: products.active, priceKop: products.priceKop }).from(products).where(and(eq(products.organizationId, prodOrg), isNull(products.archivedAt), or(ilike(products.name, like), ilike(products.sku, like)))).orderBy(asc(products.name)).limit(5)
       : [];
     // Customers by name or phone (the base needs `orders`, not shipping only).
     const people = acc?.full

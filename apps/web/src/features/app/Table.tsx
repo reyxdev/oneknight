@@ -159,6 +159,8 @@ export function Table<T extends { id: string }>({
           )}
         </div>
       </div>
+      {/* A narrow list next to an open card scrolls sideways instead of running under it. */}
+      <div className="app-table-scroll">
       <table className="app-table" aria-label={label}>
         <thead>
           <tr>
@@ -215,6 +217,7 @@ export function Table<T extends { id: string }>({
           ))}
         </tbody>
       </table>
+      </div>
       {(page > 1 || next) && (
         <nav className="app-pages" aria-label={t.pages}>
           <button type="button" className="btn btn-sm btn-ghost" disabled={page <= 1} onClick={() => onPage(page - 1)}>{t.prev}</button>

@@ -23,7 +23,7 @@ import { PROFILE_TABS, ProfileScreen, type ProfileTab } from "./Profile";
 import { BUSINESS_TABS, BusinessScreen, type BusinessTab } from "./Business";
 import { ServicesScreen } from "./Services";
 import { SupportScreen } from "./Support";
-import { ProductsScreen } from "./Shop";
+import { ProductsScreen } from "./Products";
 import { OrdersScreen } from "./Orders";
 import { CustomersScreen } from "./Customers";
 import { ReviewsScreen } from "./Reviews";
@@ -281,7 +281,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             {view === "home" && <HomeScreen me={me} go={(id, tab) => go(id as Screen, tab ?? null)} />}
             {view === "orders" && <OrdersScreen tab={route.tab} shippingOnly={!me.permissions.includes("orders")} finance={me.permissions.includes("finance")} meName={me.name} />}
             {view === "customers" && <CustomersScreen tab={route.tab} finance={me.permissions.includes("finance")} go={(id, tab) => go(id as Screen, tab ?? null)} />}
-            {view === "products" && <ProductsScreen tab={route.tab} />}
+            {view === "products" && <ProductsScreen tab={route.tab} finance={me.permissions.includes("finance")} />}
             {view === "reviews" && <ReviewsScreen goModules={() => go("modules")} />}
             {view === "analytics" && <AnalyticsScreen goModules={() => go("modules")} />}
             {view === "site" && <SiteScreen canEdit={me.permissions.includes("site")} />}

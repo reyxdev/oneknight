@@ -6,6 +6,7 @@ import { customerNotes, customers, orders, organizations, users } from "../db/sc
 import { requireAuth } from "../auth/routes.ts";
 import { activeMembership } from "../auth/access.ts";
 import { audit } from "../audit.ts";
+import { readCsv, readTable } from "../files/table.ts";
 
 export const DEFAULT_SLEEP_DAYS = 90;
 /** «Постійний» after this many completed orders; «Проблемний» after one refused parcel. */
@@ -250,35 +251,22 @@ export const customerRoutes: FastifyPluginAsync = async (app) => {
   });
 
   /**
-   * Import from Excel (saved as CSV, «;» or «,»): Ім'я, Телефон, Пошта, Компанія, Мітки, Нотатка. A known phone
+   * Import from Excel (.xlsx, or CSV with «;» or «,»): Ім'я, Телефон, Пошта, Компанія, Мітки, Нотатка. A known phone
    * fills empty fields of that customer; a new one is created. Rows without a proper phone are listed back.
    */
-  app.post("/import", { bodyLimit: 2 * 1024 * 1024, config: { rateLimit: { max: 10, timeWindow: "10 minutes" } } }, async (req, reply) => {
+  app.post("/import", { bodyLimit: 5 * 1024 * 1024, config: { rateLimit: { max: 10, timeWindow: "10 minutes" } } }, async (req, reply) => {
     const a = await access(req);
-    const p = z.object({ csv: z.string().max(1_500_000) }).safeParse(req.body);
+    const p = z.object({ csv: z.string().max(1_500_000).optional(), file: z.object({ name: z.string().max(200).optional(), data: z.string().max(4_000_000) }).optional() }).refine((x) => !!x.csv !== !!x.file).safeParse(req.body);
     if (!a) return reply.code(403).send({ error: "forbidden" });
     if (!p.success) return reply.code(400).send({ error: "invalid_input" });
-    const lines = p.data.csv.replace(/^\uFEFF/, "").split(/\r?\n/).filter((l) => l.trim());
-    if (lines.length < 2) return reply.code(400).send({ error: "empty" });
-    const sep = (lines[0]!.match(/;/g)?.length ?? 0) >= (lines[0]!.match(/,/g)?.length ?? 0) ? ";" : ",";
-    const parse = (l: string) => {
-      const out: string[] = [];
-      let cur = "";
-      let q = false;
-      for (let i = 0; i < l.length; i++) {
-        const ch = l[i]!;
-        if (q) {
-          if (ch === '"' && l[i + 1] === '"') (cur += '"'), i++;
-          else if (ch === '"') q = false;
-          else cur += ch;
-        } else if (ch === '"') q = true;
-        else if (ch === sep) out.push(cur.trim()), (cur = "");
-        else cur += ch;
-      }
-      out.push(cur.trim());
-      return out;
-    };
-    const head = parse(lines[0]!).map((h) => h.toLowerCase());
+    let table: string[][];
+    try {
+      table = p.data.file ? readTable(Buffer.from(p.data.file.data.replace(/^data:[^;]*;base64,/, ""), "base64")) : readCsv(p.data.csv!);
+    } catch {
+      return reply.code(400).send({ error: "unreadable" });
+    }
+    if (table.length < 2) return reply.code(400).send({ error: "empty" });
+    const head = table[0]!.map((h) => h.toLowerCase());
     const col = (...names: string[]) => head.findIndex((h) => names.some((n) => h.startsWith(n)));
     const iName = col("ім", "им", "name", "піб");
     const iPhone = col("тел", "phone");
@@ -292,8 +280,7 @@ export const customerRoutes: FastifyPluginAsync = async (app) => {
     let created = 0;
     let updated = 0;
     const skipped: number[] = [];
-    for (const [n, line] of lines.slice(1, 5001).entries()) {
-      const v = parse(line);
+    for (const [n, v] of table.slice(1, 5001).entries()) {
       const phone = v[iPhone] ?? "";
       let key = phone.replace(/\D/g, "");
       if (key.length === 10 && key.startsWith("0")) key = `38${key}`;
