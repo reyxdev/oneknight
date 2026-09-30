@@ -7,6 +7,8 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { KnightMark } from "@/components/global/Logo";
 import type { Me } from "@/lib/api";
 import { AdminLeads } from "./Leads";
+import { AdminOverview } from "./AdminOverview";
+import { AdminProjects } from "./Projects";
 import { Toasts } from "./Toasts";
 import { AnnouncementsAdmin, Banner, NewsButton, useAnnouncements } from "./Announcements";
 import { applyTextSize } from "./textSize";
@@ -33,7 +35,7 @@ import { TeamScreen } from "./Team";
 import { READ_ONLY, api } from "@/lib/api";
 
 type ClientScreen = "home" | "orders" | "customers" | "products" | "reviews" | "analytics" | "site" | "modules" | "services" | "business" | "billing" | "team" | "profile" | "support";
-type AdminScreen = "admin" | "clients" | "tickets" | "topups" | "keys" | "news";
+type AdminScreen = "overview" | "admin" | "projects" | "clients" | "tickets" | "topups" | "keys" | "news";
 type Screen = ClientScreen | AdminScreen;
 type Item = { id: Screen; icon: IconName };
 
@@ -45,7 +47,7 @@ const GROUPS: { key: "work" | "site" | "growth" | "settings"; items: Item[] }[] 
   { key: "settings", items: [{ id: "business", icon: "settings" }, { id: "billing", icon: "card" }, { id: "team", icon: "person" }] },
 ];
 const FOOT: Item[] = [{ id: "profile", icon: "person" }, { id: "support", icon: "chat" }];
-const ADMIN: Item[] = [{ id: "admin", icon: "table" }, { id: "clients", icon: "layers" }, { id: "tickets", icon: "chat" }, { id: "topups", icon: "card" }, { id: "keys", icon: "lock" }, { id: "news", icon: "megaphone" }];
+const ADMIN: Item[] = [{ id: "overview", icon: "chart" }, { id: "admin", icon: "table" }, { id: "projects", icon: "doc" }, { id: "clients", icon: "layers" }, { id: "tickets", icon: "chat" }, { id: "topups", icon: "card" }, { id: "keys", icon: "lock" }, { id: "news", icon: "megaphone" }];
 /** Phone bottom bar: the daily screens + «Ще». */
 const MOBILE: Screen[] = ["home", "orders", "products"];
 
@@ -110,7 +112,9 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
   const label = (id: Screen) =>
     ({
       home: t.nav.home,
+      overview: t.adminOverview.nav,
       admin: t.admin.nav,
+      projects: t.projects.nav,
       clients: t.clients.nav,
       tickets: t.supportAdmin.nav,
       topups: t.topupsAdmin.nav,
@@ -260,7 +264,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             )}
             <button type="button" className="btn btn-sm btn-ghost btn-icon app-keys-btn" aria-label={t.keys.title} title={t.keys.title} onClick={() => setKeysOpen(true)}>?</button>
             {me.isAdmin && (
-              <button type="button" className="btn btn-sm btn-secondary app-mode" data-mode-switch data-admin={adminMode} onClick={() => go(adminMode ? "home" : "admin")}>
+              <button type="button" className="btn btn-sm btn-secondary app-mode" data-mode-switch data-admin={adminMode} onClick={() => go(adminMode ? "home" : "overview")}>
                 <Icon name={adminMode ? "home" : "settings"} size={15} />
                 {adminMode ? t.nav.modeBusiness : t.nav.modeAdmin}
               </button>
@@ -292,7 +296,9 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             {view === "team" && <TeamScreen me={me} />}
             {view === "profile" && <ProfileScreen me={me} tab={profileTab} setTab={(tab) => go("profile", tab)} onChange={onChange} />}
             {view === "support" && <SupportScreen />}
-            {adminMode && view === "admin" && <AdminLeads />}
+            {adminMode && view === "overview" && <AdminOverview go={(id, tab) => go(id as Screen, tab ?? null)} />}
+            {adminMode && view === "admin" && <AdminLeads openProject={(id) => go("projects", `p-${id}`)} />}
+            {adminMode && view === "projects" && <AdminProjects tab={route.tab} />}
             {adminMode && view === "clients" && <Clients />}
             {adminMode && view === "tickets" && <SupportScreen admin />}
             {adminMode && view === "topups" && <TopupsAdmin />}

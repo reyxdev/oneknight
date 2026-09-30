@@ -2,7 +2,7 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { count, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client.ts";
-import { analyticsEvents, customers, integrations, leads, memberships, moduleInstalls, orderStatuses, orders, organizations, products, reviews, sites, subscriptions, users } from "../db/schema.ts";
+import { analyticsEvents, customers, integrations, memberships, moduleInstalls, orderStatuses, orders, organizations, products, reviews, sites, subscriptions, users } from "../db/schema.ts";
 import { normalizeDomain } from "../monitor/probe.ts";
 import { checkSite } from "../monitor/scheduler.ts";
 import { DELETE_AFTER_DAYS, billingOverview, confirmTopup, startTrial } from "../billing/service.ts";
@@ -12,6 +12,8 @@ import { createReset } from "../auth/reset.ts";
 import { topups } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
 import { audit } from "../audit.ts";
+import { overview } from "./overview.ts";
+import { projectAdminRoutes } from "../projects/routes.ts";
 
 async function requireAdmin(req: FastifyRequest, reply: FastifyReply) {
   await requireAuth(req, reply);
@@ -19,7 +21,6 @@ async function requireAdmin(req: FastifyRequest, reply: FastifyReply) {
   if (!req.auth?.user.isAdmin) return reply.code(403).send({ error: "forbidden" });
 }
 
-const Status = z.object({ status: z.enum(["new", "in_progress", "won", "lost"]) });
 const NewSite = z.object({ organizationId: z.string().uuid(), domain: z.string().max(260), name: z.string().trim().max(100).optional() });
 const SiteStatus = z.object({ status: z.enum(["building", "live", "paused"]) });
 const uuid = z.string().uuid();
@@ -29,10 +30,10 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
   app.addHook("preHandler", requireAdmin);
   await app.register(supportAdminRoutes, { prefix: "/tickets" });
   await app.register(keyAdminRoutes);
+  await app.register(projectAdminRoutes);
 
-  app.get("/leads", async () => {
-    return db.select().from(leads).orderBy(desc(leads.createdAt)).limit(200);
-  });
+  /** «Огляд»: Ivan's to-do first, then the numbers and «Ризик відтоку». */
+  app.get("/overview", async () => overview());
 
   /** Clients: organizations with their owner and number of sites. */
   app.get("/organizations", async () => {
@@ -160,14 +161,5 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     const r = await confirmTopup(req.params.id, req.auth!.user.id);
     await audit(req, "topup.confirm", req.auth!.user.id, { topup: req.params.id, result: r });
     return r === "confirmed" ? { ok: true } : reply.code(r === "not_found" ? 404 : 409).send({ error: r });
-  });
-
-  app.patch<{ Params: { id: string } }>("/leads/:id", async (req, reply) => {
-    const p = Status.safeParse(req.body);
-    if (!p.success || !z.string().uuid().safeParse(req.params.id).success) return reply.code(400).send({ error: "invalid_input" });
-    const [row] = await db.update(leads).set({ status: p.data.status, updatedAt: new Date() }).where(eq(leads.id, req.params.id)).returning({ id: leads.id, status: leads.status });
-    if (!row) return reply.code(404).send({ error: "not_found" });
-    await audit(req, "lead.status", req.auth!.user.id, { lead: row.id, status: row.status });
-    return row;
   });
 };

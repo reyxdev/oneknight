@@ -50,6 +50,6 @@ test("signed-in lead uses the account contact and is listed in /mine; admin rout
   await db.update(users).set({ isAdmin: true }).where(eq(users.email, mail));
   const all = await app.inject({ method: "GET", url: "/api/admin/leads", headers: { cookie } });
   assert.equal(all.statusCode, 200);
-  const upd = await app.inject({ method: "PATCH", url: `/api/admin/leads/${mine[0].id}`, payload: { status: "in_progress" }, headers: { cookie, origin: ORIGIN } });
-  assert.equal(upd.json().status, "in_progress");
+  const upd = await app.inject({ method: "PATCH", url: `/api/admin/leads/${mine[0].id}`, payload: { status: "contacted" }, headers: { cookie, origin: ORIGIN } });
+  assert.equal(upd.json().status, "contacted");
 });

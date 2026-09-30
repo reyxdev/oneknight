@@ -19,7 +19,8 @@ export const orderStatusEnum = pgEnum("order_status", ["new", "confirmed", "ship
 export const paymentStatusEnum = pgEnum("payment_status", ["unpaid", "prepaid", "paid", "refunded"]);
 export const reviewStatusEnum = pgEnum("review_status", ["pending", "published", "trash"]);
 export const moderationEnum = pgEnum("review_moderation", ["off", "manual"]);
-export const leadStatusEnum = pgEnum("lead_status", ["new", "in_progress", "won", "lost"]);
+/** Sales funnel of a lead: new → contacted → proposal → prepaid → in_work → done / lost. */
+export const leadStatusEnum = pgEnum("lead_status", ["new", "contacted", "proposal", "prepaid", "in_work", "done", "lost"]);
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 
@@ -173,6 +174,13 @@ export const leads = pgTable(
     /** Brief answers as submitted (business, audience, logo, photos, features, references, special...). */
     brief: jsonb("brief").notNull(),
     status: leadStatusEnum("status").notNull().default("new"),
+    /** Ivan's reminder: when, and about what; sent to his Telegram once. */
+    remindAt: timestamp("remind_at", { withTimezone: true }),
+    remindText: text("remind_text"),
+    remindSent: boolean("remind_sent").notNull().default(false),
+    /** «Без відповіді 4 робочі години» already reported to Telegram. */
+    lateNotified: boolean("late_notified").notNull().default(false),
+    lostReason: text("lost_reason"),
     source: text("source").notNull(),
     locale: text("locale").notNull(),
     ip: inet("ip"),
@@ -843,4 +851,89 @@ export const announcementDismissals = pgTable(
     createdAt: createdAt(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.announcementId] })],
+);
+
+/** Small platform-wide facts kept between restarts (e.g. the day the morning report was sent). */
+export const platformState = pgTable("platform_state", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Ivan's notes on a lead. */
+export const leadNotes = pgTable(
+  "lead_notes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    text: text("text").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("lead_notes_lead_idx").on(t.leadId, t.createdAt)],
+);
+
+export const projectStageEnum = pgEnum("project_stage", ["brief", "design", "development", "content", "launch", "done"]);
+
+/**
+ * A website we build for a client: stages the client approves one by one, a checklist of what we need from them,
+ * comments. Amounts and payments are Ivan's manual marks (no payment details in the panel before the ФОП).
+ */
+export const projects = pgTable(
+  "projects",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    number: integer("number").generatedAlwaysAsIdentity({ startWith: 101 }).notNull().unique(),
+    leadId: uuid("lead_id").references(() => leads.id, { onDelete: "set null" }),
+    /** The client's business; null until the client joins by the invitation link. */
+    organizationId: uuid("organization_id").references(() => organizations.id, { onDelete: "set null" }),
+    title: text("title").notNull(),
+    /** The future website's domain: added to the client's «Сайт» at launch. */
+    domain: text("domain"),
+    stage: projectStageEnum("stage").notNull().default("brief"),
+    /** The current stage is ready and waits for the client's approval. */
+    awaiting: boolean("awaiting").notNull().default(false),
+    /** Per stage: when the client approved it and how many rounds of changes they asked for. */
+    approvals: jsonb("approvals").notNull().default(sql`'{}'::jsonb`).$type<Record<string, { approvedAt?: string; revisions?: number }>>(),
+    deadline: text("deadline"),
+    /** Last deadline reminder to Ivan: 3 (three days before) or 0 (overdue). */
+    deadlineNotified: smallint("deadline_notified"),
+    amountKop: integer("amount_kop"),
+    payments: jsonb("payments").notNull().default(sql`'[]'::jsonb`).$type<{ id: string; label: string; amountKop: number; paidAt: string | null }[]>(),
+    inviteTokenHash: text("invite_token_hash"),
+    launchedAt: timestamp("launched_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("projects_org_idx").on(t.organizationId)],
+);
+
+/** «Що потрібно від вас»: texts, photos, access — the client marks done and attaches files. */
+export const projectItems = pgTable(
+  "project_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+    text: text("text").notNull(),
+    done: boolean("done").notNull().default(false),
+    files: uuid("files").array().notNull().default(sql`'{}'::uuid[]`),
+    createdAt: createdAt(),
+  },
+  (t) => [index("project_items_project_idx").on(t.projectId)],
+);
+
+/** Comments on a project, from Ivan or the client; also stage events (`kind`). */
+export const projectComments = pgTable(
+  "project_comments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    fromAdmin: boolean("from_admin").notNull().default(false),
+    kind: text("kind").notNull().default("comment"), // comment | ready | approved | changes | stage | launched
+    text: text("text").notNull().default(""),
+    fileId: uuid("file_id").references(() => files.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("project_comments_project_idx").on(t.projectId, t.createdAt)],
 );

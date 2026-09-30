@@ -1,6 +1,6 @@
 // Navigation in the ONEKNIGHT panel for browser tests: grouped menu, «Мій профіль» at the bottom,
 // tabs inside «Бізнес» / «Мій профіль», and the separate admin mode.
-const ADMIN = new Set(["Заявки", "Бізнеси", "Звернення", "Поповнення", "Ключі й промокоди", "Оголошення"]);
+const ADMIN = new Set(["Огляд", "Заявки", "Проєкти", "Бізнеси", "Звернення", "Поповнення", "Ключі й промокоди", "Оголошення"]);
 const TABS = {
   "Інтеграції": ["Бізнес", "Інтеграції"],
   "Резервні копії": ["Бізнес", "Резервні копії"],

@@ -13,12 +13,22 @@ import { purgeTrash } from "./reviews/routes.ts";
 import { purgeAnalytics } from "./analytics/routes.ts";
 import { purgeCarts } from "./carts/routes.ts";
 import { downloadPendingPhotos } from "./products/photos.ts";
+import { runMorningReport } from "./admin/overview.ts";
+import { runAdminReminders } from "./projects/routes.ts";
+import { notifyOwner } from "./notify/telegram.ts";
 
 const app = await buildApp();
 const stopMonitor = startMonitor(app.log, env.MONITOR_INTERVAL_MIN);
 // Billing: renewals, grace periods and suspensions, hourly (idempotent, row-locked).
-const billingTimer = setInterval(() => void runBilling().catch((e) => app.log.error(e)), 3600_000);
+const billingTimer = setInterval(() => {
+  void runBilling().catch((e) => app.log.error(e));
+  // «Ранковий звіт» to Ivan's Telegram at 09:00 Kyiv.
+  void runMorningReport((text) => notifyOwner(text, app.log)).catch((e) => app.log.error(e));
+  // Leads without an answer, lead reminders, project deadlines.
+  void runAdminReminders(app.log).catch((e) => app.log.error(e));
+}, 3600_000);
 void runBilling().catch((e) => app.log.error(e));
+void runMorningReport((text) => notifyOwner(text, app.log)).catch((e) => app.log.error(e));
 const stopBot = startBotPolling(app.log);
 const tgTimer = setInterval(() => void deliverTelegram(undefined, { skipTestAccounts: true }).catch((e) => app.log.error(e)), 15_000);
 const backupTimer = setInterval(() => void runBackups(app.log).catch((e) => app.log.error(e)), 3600_000);

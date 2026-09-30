@@ -91,7 +91,10 @@ test("customers: merge, anonymize, import from Excel (CSV), export for the owner
     { ...base, customerName: "Ірина робочий", customerPhone: "+380661234567", totalKop: 20000, status: "done" as const, comment: "Ірина, під'їзд 2" },
   ]);
   const list = async (q = "") => (await app.inject({ url: `/api/customers${q}`, headers: { cookie: o.cookie } })).json();
-  const [a, b] = (await list("?sort=createdAt&dir=asc")) as { id: string }[];
+  // Both come from one insert (same moment): pick them by name, not by order.
+  const both = (await list()) as { id: string; name: string }[];
+  const a = both.find((c) => c.name === "Ірина")!;
+  const b = both.find((c) => c.name === "Ірина робочий")!;
   await app.inject({ method: "POST", url: `/api/customers/${b!.id}/notes`, payload: { text: "Робочий телефон" }, headers: H });
   assert.equal((await app.inject({ method: "POST", url: `/api/customers/${a!.id}/merge`, payload: { other: b!.id }, headers: H })).statusCode, 200);
   const merged = await list();

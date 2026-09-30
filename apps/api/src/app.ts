@@ -26,6 +26,7 @@ import { businessRoutes } from "./business/routes.ts";
 import { customerRoutes } from "./customers/routes.ts";
 import { cartRoutes } from "./carts/routes.ts";
 import { productRoutes } from "./products/routes.ts";
+import { projectRoutes } from "./projects/routes.ts";
 import { referralRoutes } from "./billing/referrals.ts";
 import { announcementRoutes } from "./announcements/routes.ts";
 import { backupRoutes } from "./backups/routes.ts";
@@ -82,6 +83,7 @@ export async function buildApp(opts: FastifyServerOptions = {}, deps: { npCall?:
   await app.register(orderWorkRoutes, { prefix: "/api/shop" });
   await app.register(cartRoutes, { prefix: "/api/shop" });
   await app.register(productRoutes, { prefix: "/api/shop" });
+  await app.register(projectRoutes, { prefix: "/api/projects" });
   await app.register(businessRoutes, { prefix: "/api/business" });
   await app.register(customerRoutes, { prefix: "/api/customers" });
   await app.register(referralRoutes, { prefix: "/api/referrals" });

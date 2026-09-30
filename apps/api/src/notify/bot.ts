@@ -154,6 +154,9 @@ export function notificationText(key: string, p: Record<string, any>, finance = 
     case "yearEnding": return "📅 Оплачений рік ONEKNIGHT закінчується за 14 днів. Продовжте рік у розділі «Оплата», щоб зберегти 2 місяці в подарунок";
     case "dataDeletionSoon": return `⚠️ Підписку ONEKNIGHT призупинено. Через ${p.days} дн. дані бізнесу можуть бути видалені. Поповніть баланс, щоб зберегти їх`;
     case "referralReward": return "🎁 Місяць ONEKNIGHT безкоштовно за запрошення";
+    case "projectReady": return `🧩 Проєкт №${p.n}: етап «${p.stage}» готовий. Погодьте його або попросіть правки в «Послугах»`;
+    case "projectComment": return `💬 Нове повідомлення в проєкті №${p.n}`;
+    case "projectLaunched": return `🚀 Сайт ${p.domain} запущено! ONEKNIGHT відкрито безкоштовно на 3 місяці`;
     case "firstStepsReward": return "🎁 Перші кроки пройдено: +7 днів ONEKNIGHT безкоштовно";
     default: return null;
   }

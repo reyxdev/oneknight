@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/Icon";
 import { useModal, type OrderOptions } from "@/components/global/ModalProvider";
 import { Panel } from "@/features/oneknight/ui/kit";
 import { MyLeads } from "./Leads";
+import { MyProjects } from "./Projects";
 
 /** Ordering work from inside ONEKNIGHT: the same brief as on the site, sent with the account's contacts. */
 export function ServicesScreen() {
@@ -18,6 +19,7 @@ export function ServicesScreen() {
   return (
     <div className="ok-screen">
       <div className="ok-h"><h3>{t.title}</h3></div>
+      <MyProjects />
       <p className="ok-muted">{t.lead}</p>
       <div className="ok-modules">
         {dict.services.cards.map((c) => {

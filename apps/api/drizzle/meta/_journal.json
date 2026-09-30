@@ -246,6 +246,20 @@
       "when": 1790732196804,
       "tag": "0034_products",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1790735667608,
+      "tag": "0035_platform_state",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790735832290,
+      "tag": "0036_projects",
+      "breakpoints": true
     }
   ]
 }

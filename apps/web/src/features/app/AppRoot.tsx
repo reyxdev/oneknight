@@ -64,6 +64,24 @@ export function AppRoot() {
       history.replaceState(null, "", location.pathname + location.hash);
     }
   }, []);
+  // A website project link from Ivan («?project=»): joined after sign-up and the first questions, shown in «Послуги».
+  useEffect(() => {
+    const token = new URLSearchParams(location.search).get("project");
+    if (token) {
+      sessionStorage.setItem("ok_project", token);
+      history.replaceState(null, "", location.pathname + (new URLSearchParams(location.search).get("start") ? "?start=register" : "") + location.hash);
+    }
+  }, []);
+  const onboarded = st.s === "ready" && st.me.onboarded;
+  useEffect(() => {
+    const token = onboarded ? sessionStorage.getItem("ok_project") : null;
+    if (!token) return;
+    sessionStorage.removeItem("ok_project");
+    void api("/projects/claim", { method: "POST", body: { token } }).then((r) => {
+      setInviteMsg(r.ok ? t.projects.joined : t.projects.joinFailed);
+      if (r.ok) location.hash = "services";
+    });
+  }, [onboarded, t.projects.joined, t.projects.joinFailed]);
   useEffect(() => {
     if (st.s !== "ready") return;
     const token = sessionStorage.getItem("ok_invite");
