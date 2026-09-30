@@ -32,14 +32,14 @@ async function account(n: string) {
   return { H: { cookie: `ok_session=${reg.cookies.find((c) => c.name === "ok_session")!.value}`, origin: ORIGIN }, org: reg.json().organizations[0].id as string, id: reg.json().id as string };
 }
 
-// Other test files create notifications at the same time; one run takes 50, so a few runs empty the queue.
-const drain = async () => {
-  for (let i = 0; i < 6; i++) await deliverTelegram(fake);
-};
+// Other test files create notifications at the same time: delivery here looks at this test's business only.
+let only: string[] = [];
+const drain = () => deliverTelegram(fake, { orgIds: only });
 
 test("Telegram: link with a one-time /start token, receive allowed notifications, unlink", async () => {
   const owner = await account("owner");
   const staff = await account("staff");
+  only = [owner.org, staff.org];
   // staff joins the owner's business as a marketer without the "orders" permission
   await db.insert(memberships).values({ organizationId: owner.org, userId: staff.id, role: "marketer", permissions: ["reviews"] });
 
