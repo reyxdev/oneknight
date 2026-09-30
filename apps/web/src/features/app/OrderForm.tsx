@@ -23,6 +23,8 @@ export type OrderDraft = {
   payment: string;
   source: string;
   comment: string;
+  /** «Оформити замовлення» from an unfinished cart: the source is the cart. */
+  cartId?: string;
 };
 export const emptyOrder = (): OrderDraft => ({
   customer: { name: "", phone: "+380 ", email: "" },
@@ -133,7 +135,7 @@ export function OrderForm({ initial, edit, settings, onDone, onCancel }: { initi
       customer: { name: f.customer.name.trim(), phone: f.customer.phone.replace(/\s/g, ""), ...(f.customer.email.trim() ? { email: f.customer.email.trim() } : {}) },
       items: f.items.map((i) => (i.productId ? { productId: i.productId, qty: i.qty } : { name: i.name, price: i.priceKop / 100, qty: i.qty })),
       delivery: { method: f.delivery.method, ...Object.fromEntries((["city", "branch", "address"] as const).filter((k) => f.delivery[k].trim()).map((k) => [k, f.delivery[k].trim()])) },
-      ...(edit ? { comment: f.comment.trim() || null } : { payment: f.payment, source: f.source, ...(f.comment.trim() ? { comment: f.comment.trim() } : {}) }),
+      ...(edit ? { comment: f.comment.trim() || null } : { payment: f.payment, source: f.source, ...(f.cartId ? { cart: f.cartId } : {}), ...(f.comment.trim() ? { comment: f.comment.trim() } : {}) }),
     };
     setBusy(true);
     const r = edit ? await api(`/shop/orders/${edit}/edit`, { method: "PATCH", body }) : await api<{ id: string; number: number }>("/shop/orders", { method: "POST", body });
@@ -216,13 +218,17 @@ export function OrderForm({ initial, edit, settings, onDone, onCancel }: { initi
               </select>
             )}
           </Field>
-          <Field label={t.source}>
-            {(p) => (
-              <select {...p} className="input" value={f.source} onChange={(e) => setF({ ...f, source: e.target.value })}>
-                {sources.map((x) => <option key={x} value={x}>{sourceName(x)}</option>)}
-              </select>
-            )}
-          </Field>
+          {f.cartId ? (
+            <div className="ok-kv"><div><span>{t.source}</span><b>{o.sources.cart}</b></div></div>
+          ) : (
+            <Field label={t.source}>
+              {(p) => (
+                <select {...p} className="input" value={f.source} onChange={(e) => setF({ ...f, source: e.target.value })}>
+                  {sources.map((x) => <option key={x} value={x}>{sourceName(x)}</option>)}
+                </select>
+              )}
+            </Field>
+          )}
         </div>
       )}
       <Field label={o.comment} optionalLabel={t.optional}>{(p) => <textarea {...p} className="input" rows={2} maxLength={1000} value={f.comment} onChange={(e) => setF({ ...f, comment: e.target.value })} />}</Field>

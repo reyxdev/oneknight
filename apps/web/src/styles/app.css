@@ -317,3 +317,11 @@ dialog.modal:has(.app-dialog) { max-width: min(520px, calc(100vw - 1.5rem)); }
 .app-news p { margin: 0; }
 .app-news .btn { justify-self: start; }
 .app-readonly { background: color-mix(in srgb, var(--bad) 10%, var(--surface)); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
+
+/* Unfinished carts */
+.app-carts-stats { margin: 0; font-size: 0.9rem; color: var(--fg-muted); }
+.app-carts-setup { display: grid; gap: 0.25rem; }
+.app-carts-setup > summary { cursor: pointer; font-weight: 600; }
+.app-cell-clip { display: block; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-tab-count { display: inline-grid; place-items: center; min-width: 1.25rem; height: 1.25rem; margin-inline-start: 0.4rem; padding: 0 0.3rem; border-radius: 999px; background: var(--bad); color: #fff; font-size: 0.7rem; font-weight: 700; }
+.ok-chip .app-tab-count { opacity: 1; }

@@ -484,6 +484,37 @@ export const orders = pgTable(
   ],
 );
 
+/**
+ * Unfinished cart from the client's site (ok.js, `data-ok-phone` + `data-ok-cart`): one per browsing session.
+ * Shown for a call 2 hours after the last change if no order came from the same session or phone; kept 30 days.
+ */
+export const carts = pgTable(
+  "carts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    siteId: uuid("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+    session: text("session").notNull(),
+    phone: text("phone").notNull(),
+    name: text("name"),
+    /** Prices from the catalogue at the moment of the last change, never from the site. */
+    items: jsonb("items").notNull().$type<{ productId: string; name: string; qty: number; priceKop: number }[]>(),
+    totalKop: integer("total_kop").notNull(),
+    /** The order that finished the cart: placed by the buyer later, or by the team from the cart (`recovered`). */
+    orderId: uuid("order_id").references(() => orders.id, { onDelete: "set null" }),
+    recovered: boolean("recovered").notNull().default(false),
+    /** «Не цікаво»: closed by the team. */
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    /** «Не додзвонились»: how many times, and when to call again. */
+    calls: integer("calls").notNull().default(0),
+    callbackAt: timestamp("callback_at", { withTimezone: true }),
+    note: text("note"),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("carts_site_session_uq").on(t.siteId, t.session), index("carts_org_idx").on(t.organizationId, t.updatedAt)],
+);
+
 /** The business's own order statuses, each inside a base group; automation works by group. */
 export const orderStatuses = pgTable(
   "order_statuses",

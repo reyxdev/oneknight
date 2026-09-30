@@ -34,7 +34,7 @@ await pg.reload({ waitUntil: "networkidle" });
 const demo = await pg.locator(".ok-site select option", { hasText: "Демо-магазин" }).getAttribute("value");
 await pg.locator(".ok-site select").selectOption(demo);
 await pg.locator(".ok-home-stats").waitFor();
-ok(await seen(steps.getByText("2 з 6")), "demo business: website and products are done, checked from data");
+ok(await seen(steps.getByText("3 з 6")), "demo business: website, products and the covered subscription are done, checked from data");
 ok((await pg.locator(".ok-stat", { hasText: "Виручка" }).innerText()).includes("₴") || (await pg.locator(".ok-stat", { hasText: "Виручка" }).innerText()).includes("грн"), "revenue for the period");
 ok(await seen(pg.locator(".ok-stat", { hasText: "Замовлення" }).locator(".ok-delta")), "comparison with the previous period");
 

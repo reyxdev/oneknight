@@ -1,10 +1,11 @@
 import { and, count, desc, eq, gt, inArray, isNull, lte, sql as dsql } from "drizzle-orm";
 import { db } from "../db/client.ts";
-import { insightDismissals, monitorChecks, orders, products, reviews, sites, subscriptions, tickets } from "../db/schema.ts";
+import { carts, insightDismissals, monitorChecks, orders, products, reviews, sites, subscriptions, tickets } from "../db/schema.ts";
 import type { Permission } from "../auth/access.ts";
 import { hasModule } from "../billing/service.ts";
 import { orderSettingsOf } from "../shop/settings.ts";
 import { WAITING_DAYS } from "../integrations/tracking.ts";
+import { dueCarts } from "../carts/routes.ts";
 
 /**
  * «Що треба зробити»: things that need a person, each counted from real data and leading to the filtered list.
@@ -43,6 +44,9 @@ export async function todoFor(orgId: string, perms: Permission[], now = new Date
     const [cb] = await db.select({ n: count() }).from(orders).where(and(eq(orders.organizationId, orgId), inArray(orders.status, ["new", "confirmed"]), lte(orders.callbackAt, now)));
     if (cb && cb.n > 0) out.push({ id: `callback:${cb.n}:${now.toISOString().slice(0, 13)}`, tone: "bad", key: "callback", params: { n: cb.n }, screen: "orders", tab: "callback" });
     if (o && o.n > 0) out.push({ id: `newOrders:${o.n}:${o.urgent}`, tone: o.urgent ? "bad" : "warn", key: o.urgent ? "newOrdersUrgent" : "newOrders", params: { n: o.n, urgent: o.urgent }, screen: "orders", tab: "new" });
+    // Unfinished carts from the site: 2 hours without an order → a call.
+    const [c] = await db.select({ n: count() }).from(carts).where(dueCarts(orgId, now));
+    if (c && c.n > 0) out.push({ id: `carts:${c.n}`, tone: "warn", key: "carts", params: { n: c.n }, screen: "orders", tab: "carts" });
   }
   if (can("orders") || can("shipping")) {
     const [pw] = await db.select({ n: count() }).from(orders).where(and(eq(orders.organizationId, orgId), eq(orders.status, "shipped"), lte(orders.arrivedAt, new Date(now.getTime() - WAITING_DAYS * 24 * HOUR))));

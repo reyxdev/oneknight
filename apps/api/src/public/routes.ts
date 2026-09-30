@@ -8,6 +8,7 @@ import { placeOrder } from "../shop/service.ts";
 import { reviewPublicRoutes } from "../reviews/routes.ts";
 import { Context, analyticsPublicRoutes, recordEvent } from "../analytics/routes.ts";
 import { hasModule } from "../billing/service.ts";
+import { cartPublicRoutes, finishCarts } from "../carts/routes.ts";
 
 type Site = typeof sites.$inferSelect;
 declare module "fastify" {
@@ -73,6 +74,7 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
     scoped.addHook("preHandler", siteByKey);
     await scoped.register(reviewPublicRoutes);
     await scoped.register(analyticsPublicRoutes);
+    await scoped.register(cartPublicRoutes);
   });
 
   app.get("/products", { preHandler: siteByKey }, async (req) => {
@@ -93,6 +95,7 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
     if (!p.success) return reply.code(400).send({ error: "invalid_input" });
     const r = await placeOrder(req.site!, p.data, req.ip);
     if (!r.ok) return reply.code(409).send(r);
+    await finishCarts(req.site!.organizationId, r.order.id, p.data.customer.phone, p.data.analytics?.session);
     if (p.data.analytics && (await hasModule(req.site!.organizationId, "analytics"))) await recordEvent(req.site!, "order", p.data.analytics, { valueKop: r.order.totalKop });
     return reply.code(201).send({ number: r.order.number, total: r.order.totalKop / 100, status: r.order.status });
   });

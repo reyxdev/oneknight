@@ -15,6 +15,8 @@ import { WaybillForm, WaybillPrint } from "./Waybill";
 import { useToast } from "./Toasts";
 import { PAGE, Table, useEscClose, type Col, type Sort } from "./Table";
 import { OrderForm, emptyOrder, type OrderDraft } from "./OrderForm";
+import { CartsView } from "./Carts";
+import { Tabs } from "./Tabs";
 import { formatPhone } from "./AuthScreen";
 import { printDocument, renderDocument, type DocKind } from "./documents";
 import { useRequisites } from "./Requisites";
@@ -513,6 +515,12 @@ export function OrdersScreen({ tab, shippingOnly = false, finance = true, meName
   const lang = useLang();
   const f = useFormat();
   const { settings } = useOrderSettings();
+  // «Замовлення» and «Незавершені кошики» (not for a shipping-only member).
+  const [mode, setMode] = useState<"orders" | "carts">(!shippingOnly && tab === "carts" ? "carts" : "orders");
+  const [cartsDue, setCartsDue] = useState(0);
+  useEffect(() => {
+    if (!shippingOnly) void api<{ waiting: number }>("/shop/carts/count").then((r) => r.ok && setCartsDue(r.data.waiting));
+  }, [shippingOnly, mode]);
   const [filter, setFilter] = useState<Filter>((FILTERS as readonly string[]).includes(tab ?? "") ? (tab as Filter) : "all");
   const [pay, setPay] = useState<Payment | "all">("all");
   const [sort, setSort] = useState<Sort>({ key: "createdAt", dir: "desc" });
@@ -654,6 +662,17 @@ export function OrdersScreen({ tab, shippingOnly = false, finance = true, meName
     { key: "waybill", label: t.waybill, render: (o) => (o.waybill ? <span className="app-cell-main"><span className="num">{o.waybill}</span>{o.trackText && <small>{o.trackText}</small>}</span> : null) },
     { key: "status", label: d.ok.orders.state, sort: true, render: (o) => <StatusBadge status={o.status} statusId={o.statusId} settings={settings} /> },
   ];
+  const modeTabs = shippingOnly ? null : (
+    <Tabs label={t.title} value={mode} onChange={setMode} tabs={[{ id: "orders", label: d.app.carts.tabOrders }, { id: "carts", label: <>{d.app.carts.tabCarts}{cartsDue > 0 && <span className="app-tab-count">{cartsDue}</span>}</> }]} />
+  );
+  if (mode === "carts")
+    return (
+      <div className="ok-screen">
+        <div className="ok-h"><h3>{t.title}</h3></div>
+        {modeTabs}
+        <CartsView finance={finance} settings={settings} onOrder={(id, number) => { if (number) toast.show(fmt(t.created, { n: number })); setMode("orders"); setOpen(id); void load(); }} />
+      </div>
+    );
   return (
     <div className="ok-screen">
       <div className="ok-h">
@@ -668,6 +687,7 @@ export function OrdersScreen({ tab, shippingOnly = false, finance = true, meName
           {!shippingOnly && <button type="button" className="btn btn-sm" onClick={() => setOpen("new")}><Icon name="plus" size={15} />{t.addOrder}</button>}
         </div>
       </div>
+      {modeTabs}
       <div className="ok-chips" role="group" aria-label={d.ok.orders.state}>
         {/* The board shows every group side by side: status chips only in the list. */}
         {(view === "board" && !shippingOnly ? [] : shippingOnly ? SHIP_FILTERS : FILTERS).map((x) => (

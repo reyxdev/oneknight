@@ -2,12 +2,13 @@ import type { FastifyPluginAsync } from "fastify";
 import { and, desc, eq, gt, inArray, lt, ne, sql as dsql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client.ts";
-import { orderEvents, orderStatuses, orders, products } from "../db/schema.ts";
+import { carts, orderEvents, orderStatuses, orders, products } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
 import { SHIPPING_STATUSES, orderAccess } from "../auth/access.ts";
 import { audit } from "../audit.ts";
 import { dropExamples } from "../onboarding/routes.ts";
 import { setOrderStatus } from "./service.ts";
+import { finishCarts, recoverCart } from "../carts/routes.ts";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Item = { productId: string; name: string; qty: number; priceKop: number };
@@ -61,6 +62,8 @@ const Manual = z.object({
   payment: z.enum(["cod", "iban", "card"]),
   source: z.string().trim().min(1).max(40),
   comment: z.string().trim().max(1000).optional(),
+  /** «Оформити замовлення» from an unfinished cart: the order counts as won back. */
+  cart: z.string().uuid().optional(),
 });
 const Edit = z.object({ customer: Customer.optional(), items: z.array(ItemIn).min(1).max(50).optional(), delivery: Delivery.optional(), comment: z.string().trim().max(1000).nullable().optional() });
 
@@ -99,6 +102,9 @@ export const orderWorkRoutes: FastifyPluginAsync = async (app) => {
     const items = await buildItems(acc.org, p.data.items);
     if (!items) return reply.code(400).send({ error: "unknown_product" });
     const userId = req.auth!.user.id;
+    const [cart] = p.data.cart ? await db.select({ id: carts.id, siteId: carts.siteId }).from(carts).where(and(eq(carts.id, p.data.cart), eq(carts.organizationId, acc.org))) : [];
+    if (p.data.cart && !cart) return reply.code(404).send({ error: "not_found" });
+    const source = cart ? "cart" : p.data.source;
     const r = await db.transaction(async (tx) => {
       const s = await moveStock(tx, acc.org, qtyMap(items));
       if (!s.ok) return s;
@@ -106,7 +112,8 @@ export const orderWorkRoutes: FastifyPluginAsync = async (app) => {
         .insert(orders)
         .values({
           organizationId: acc.org,
-          source: p.data.source,
+          siteId: cart?.siteId ?? null,
+          source,
           customerName: p.data.customer.name,
           customerPhone: p.data.customer.phone.replace(/\s/g, ""),
           customerEmail: p.data.customer.email || null,
@@ -118,10 +125,12 @@ export const orderWorkRoutes: FastifyPluginAsync = async (app) => {
           assigneeId: userId,
         })
         .returning({ id: orders.id, number: orders.number });
-      await tx.insert(orderEvents).values({ orderId: o!.id, kind: "created", status: "new", userId, data: { source: p.data.source } });
+      await tx.insert(orderEvents).values({ orderId: o!.id, kind: "created", status: "new", userId, data: { source } });
       return { ok: true as const, order: o! };
     });
     if (!r.ok) return reply.code(409).send(r);
+    if (cart) await recoverCart(acc.org, cart.id, r.order.id);
+    await finishCarts(acc.org, r.order.id, p.data.customer.phone);
     await dropExamples(acc.org);
     await audit(req, "order.manual", userId, { order: r.order.id }, acc.org);
     return reply.code(201).send(r.order);
