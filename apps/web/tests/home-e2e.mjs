@@ -186,7 +186,7 @@ const newOrder = async (name, phone) => {
   await form.getByLabel("Телефон").fill(phone);
   // «Смерека» has enough stock for both orders.
   await form.getByLabel("Знайти товар у каталозі").fill("Смерека");
-  await form.locator(".app-picker-list button").first().click();
+  await form.locator(".app-picker .app-picker-list button").first().click();
   await form.getByLabel("Місто").fill("Полтава");
   await form.getByLabel("Відділення або поштомат").fill("3");
   await form.getByLabel("Звідки замовлення").selectOption("instagram");
@@ -265,7 +265,34 @@ ok(await seen(cc.locator(".app-comment", { hasText: "Бере на подару�
 await cc.getByRole("button", { name: "Нове замовлення" }).click();
 ok(await seen(pg.locator(".app-order-form").getByLabel("Ім'я та прізвище")), "order form opened");
 ok(await pg.waitForFunction(() => [...document.querySelectorAll(".app-order-form input")].some((i) => i.value === "Олена Коваль"), null, { timeout: 5000 }).then(() => true, () => false), "the order starts with the customer's details");
+// The manual order suggests customers from the base by phone.
+await pg.locator(".app-order-form").getByLabel("Ім'я та прізвище").fill("");
+await pg.locator(".app-order-form").getByLabel("Телефон").fill("+380503334455");
+await pg.locator(".app-order-form .app-picker-list button", { hasText: "Андрій Мельник" }).click();
+ok(await pg.waitForFunction(() => [...document.querySelectorAll(".app-order-form input")].some((i) => i.value === "Андрій Мельник"), null, { timeout: 5000 }).then(() => true, () => false), "picked from the base with the last delivery");
 await pg.locator(".app-order-form").getByRole("button", { name: "Скасувати" }).click();
+// Import from Excel (CSV): new customers, a bad row reported; merge; anonymise.
+await pg.locator(".ok-side").getByRole("button", { name: "Клієнти", exact: true }).click();
+await pg.locator(".ok-h input[type=file]").setInputFiles({ name: "base.csv", mimeType: "text/csv", buffer: Buffer.from("\uFEFFІм'я;Телефон;Пошта;Мітки\nІмпорт Перший;0931110001;a@example.com;VIP\nІмпорт Другий;0931110002;;\nБез;12;;\n") });
+ok(await seen(pg.locator(".app-toast", { hasText: "Імпорт: нових 2" })), "customers imported");
+ok(await seen(pg.locator(".app-toast", { hasText: "Пропущено рядки" })), "bad rows reported");
+await pg.getByPlaceholder("Ім'я або телефон").fill("Імпорт Перший");
+await pg.locator(".app-table tbody tr", { hasText: "Імпорт Перший" }).click();
+await pg.locator(".ok-detail").getByRole("button", { name: "Об'єднати" }).click();
+const mdlg = pg.getByRole("dialog", { name: /Об'єднати з/ });
+await mdlg.getByLabel("Ім'я або телефон").fill("Імпорт Другий");
+await mdlg.locator("button", { hasText: "Імпорт Другий" }).click();
+ok(await seen(pg.locator(".app-toast", { hasText: "Записи об'єднано" })), "customers merged");
+await pg.locator(".ok-detail").getByRole("button", { name: "Знеособити" }).click();
+await pg.getByRole("button", { name: "Знеособити назавжди" }).click();
+ok(await seen(pg.locator(".ok-detail").getByText("Дані клієнта знеособлено на його прохання")), "customer anonymised");
+// Global search finds customers.
+await pg.getByPlaceholder("Ім'я або телефон").fill("");
+await pg.locator("body").click({ position: { x: 5, y: 300 } });
+await pg.keyboard.press("/");
+await pg.keyboard.type("Тарас");
+ok(await seen(pg.locator(".app-search-group", { hasText: "Клієнти" })), "global search shows customers");
+await pg.keyboard.press("Escape");
 await pg.locator(".ok-side").getByRole("button", { name: "Головна", exact: true }).click();
 
 // «Приховати суми й телефони»: blurred, remembered; text size from «Мій профіль».

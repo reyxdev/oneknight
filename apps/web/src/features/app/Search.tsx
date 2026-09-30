@@ -9,6 +9,7 @@ import { StatusPill } from "@/features/oneknight/ui/kit";
 type Result = {
   orders: { id: string; number: number; customerName: string; status: "new" | "confirmed" | "shipped" | "done" | "cancelled" | "returned" }[];
   products: { id: string; name: string; stock: number | null; active: boolean }[];
+  customers?: { id: string; name: string; phone: string | null }[];
 };
 type Hit = { key: string; go: [string, string] };
 
@@ -43,7 +44,13 @@ export function Search({ go, inputRef }: { go: (screen: string, tab?: string) =>
     return () => document.removeEventListener("pointerdown", out);
   }, []);
 
-  const hits: Hit[] = res ? [...res.orders.map((o) => ({ key: o.id, go: ["orders", `o-${o.id}`] as [string, string] })), ...res.products.map((p) => ({ key: p.id, go: ["products", `p-${p.id}`] as [string, string] }))] : [];
+  const hits: Hit[] = res
+    ? [
+        ...res.orders.map((o) => ({ key: o.id, go: ["orders", `o-${o.id}`] as [string, string] })),
+        ...(res.customers ?? []).map((c) => ({ key: c.id, go: ["customers", `c-${c.id}`] as [string, string] })),
+        ...res.products.map((p) => ({ key: p.id, go: ["products", `p-${p.id}`] as [string, string] })),
+      ]
+    : [];
   const pick = (h: Hit) => {
     setOpen(false);
     setQ("");
@@ -109,6 +116,8 @@ export function Search({ go, inputRef }: { go: (screen: string, tab?: string) =>
             <ul id={`${id}-list`} role="listbox" aria-label={t.label}>
               {res!.orders.length > 0 && <li role="presentation" className="app-search-group">{t.orders}</li>}
               {res!.orders.map((o) => option({ key: o.id, go: ["orders", `o-${o.id}`] }, <><span className="num ok-muted">№{o.number}</span><span className="ok-grow">{o.customerName}</span><StatusPill status={o.status} /></>))}
+              {(res!.customers ?? []).length > 0 && <li role="presentation" className="app-search-group">{t.customers}</li>}
+              {(res!.customers ?? []).map((c) => option({ key: c.id, go: ["customers", `c-${c.id}`] }, <><Icon name="person" size={15} /><span className="ok-grow">{c.name}</span><span className="num ok-muted app-secret">{c.phone}</span></>))}
               {res!.products.length > 0 && <li role="presentation" className="app-search-group">{t.products}</li>}
               {res!.products.map((p) => option({ key: p.id, go: ["products", `p-${p.id}`] }, <><Icon name="box" size={15} /><span className="ok-grow">{p.name}</span>{!p.active && <small className="ok-muted">{t.hidden}</small>}</>))}
             </ul>

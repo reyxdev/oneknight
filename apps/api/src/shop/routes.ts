@@ -212,7 +212,16 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
     const prods = prodOrg
       ? await db.select({ id: products.id, name: products.name, stock: products.stock, active: products.active, priceKop: products.priceKop }).from(products).where(and(eq(products.organizationId, prodOrg), ilike(products.name, like))).orderBy(asc(products.name)).limit(5)
       : [];
-    return { orders: found, products: prods };
+    // Customers by name or phone (the base needs `orders`, not shipping only).
+    const people = acc?.full
+      ? await db
+          .select({ id: customers.id, name: customers.name, phone: customers.phone })
+          .from(customers)
+          .where(and(eq(customers.organizationId, acc.org), dsql`${customers.anonymizedAt} is null`, or(ilike(customers.name, like), digits.length >= 3 ? dsql`(${customers.phoneKey} || ',' || array_to_string(${customers.extraPhones}, ',')) like ${`%${digits}%`}` : undefined)))
+          .orderBy(desc(customers.updatedAt))
+          .limit(5)
+      : [];
+    return { orders: found, products: prods, customers: people };
   });
 
   // Orders the team entered by hand are not «new» for the window: whoever entered it already knows.

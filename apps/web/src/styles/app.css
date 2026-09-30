@@ -302,3 +302,4 @@ dialog.modal:has(.app-dialog) { max-width: min(520px, calc(100vw - 1.5rem)); }
 .app-warn { border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); color: var(--bad); }
 .app-filter-search .input { height: 2.1rem; max-width: 16rem; }
 .app-colors { display: flex; gap: 0.35rem; align-items: center; } .app-colors button { width: 1.5rem; height: 1.5rem; border-radius: 50%; cursor: pointer; border: 2px solid transparent; } .app-colors button[aria-checked="true"] { border-color: var(--fg); }
+.app-picker-list.app-inline { position: static; box-shadow: none; margin: 0; }

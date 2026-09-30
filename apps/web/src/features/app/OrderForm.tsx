@@ -33,6 +33,45 @@ export const emptyOrder = (): OrderDraft => ({
   comment: "",
 });
 
+/** The base: typing a name or phone suggests known customers; picking one fills the details and the last delivery. */
+function CustomerSuggest({ q, onPick }: { q: string; onPick: (c: { name: string; phone: string | null; email: string | null; delivery: OrderDraft["delivery"] | null }) => void }) {
+  const t = useDict().app.orderForm;
+  const [found, setFound] = useState<{ id: string; name: string; phone: string | null; email: string | null; city: string | null; orders: number }[]>([]);
+  const [closed, setClosed] = useState("");
+  useEffect(() => {
+    const s = q.trim();
+    if (s.length < 3 || s === closed) return setFound([]);
+    const timer = setTimeout(async () => {
+      const r = await api<typeof found>(`/customers?q=${encodeURIComponent(s)}&limit=5`);
+      if (r.ok) setFound(r.data);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [q, closed]);
+  if (!found.length) return null;
+  return (
+    <ul className="app-picker-list app-inline" aria-label={t.fromBase}>
+      {found.map((c) => (
+        <li key={c.id}>
+          <button
+            type="button"
+            onClick={async () => {
+              const r = await api<{ name: string; phone: string | null; email: string | null; delivery: OrderDraft["delivery"] | null }>(`/customers/${c.id}`);
+              setClosed(q.trim());
+              setFound([]);
+              if (r.ok) onPick(r.data);
+            }}
+          >
+            <Icon name="person" size={14} />
+            <span className="ok-grow">{c.name}</span>
+            <span className="num ok-muted">{c.phone}</span>
+            {c.city && <small className="ok-muted">{c.city}</small>}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** Catalogue search for the order: name → product with its price and stock. */
 function ProductPicker({ onPick }: { onPick: (p: { id: string; name: string; priceKop: number }) => void }) {
   const t = useDict().app.orderForm;
@@ -116,6 +155,12 @@ export function OrderForm({ initial, edit, settings, onDone, onCancel }: { initi
           <Field label={t.name}>{(p) => <input {...p} className="input" autoComplete="off" value={f.customer.name} onChange={(e) => setF({ ...f, customer: { ...f.customer, name: e.target.value } })} />}</Field>
           <Field label={o.phone}>{(p) => <input {...p} className="input" type="tel" inputMode="tel" autoComplete="off" value={f.customer.phone} onChange={(e) => setF({ ...f, customer: { ...f.customer, phone: formatPhone(e.target.value) } })} />}</Field>
         </div>
+        {!edit && (
+          <CustomerSuggest
+            q={f.customer.phone.replace(/\D/g, "").length > 5 ? f.customer.phone.replace(/\D/g, "").slice(3) : f.customer.name}
+            onPick={(c) => setF((x) => ({ ...x, customer: { name: c.name, phone: c.phone ? formatPhone(c.phone) : x.customer.phone, email: c.email ?? "" }, delivery: c.delivery ? { method: c.delivery.method, city: c.delivery.city ?? "", branch: c.delivery.branch ?? "", address: c.delivery.address ?? "" } : x.delivery }))}
+          />
+        )}
         <Field label={t.email} optionalLabel={t.optional}>{(p) => <input {...p} className="input" type="email" autoComplete="off" value={f.customer.email} onChange={(e) => setF({ ...f, customer: { ...f.customer, email: e.target.value } })} />}</Field>
       </fieldset>
 

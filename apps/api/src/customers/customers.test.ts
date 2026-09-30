@@ -80,3 +80,50 @@ test("customers: one per phone from orders, numbers, automatic tags, segments, o
   const pack = await invite("packer", ["shipping"], "p");
   assert.equal((await app.inject({ url: "/api/customers", headers: { cookie: pack.cookie } })).statusCode, 403);
 });
+
+test("customers: merge, anonymize, import from Excel (CSV), export for the owner, search", async () => {
+  const o = await register("o2");
+  const H = { cookie: o.cookie, origin: ORIGIN };
+  const base = { organizationId: o.org, items: [], payment: "cod", delivery: { method: "novaposhta", city: "Київ", branch: "1" } };
+  await db.insert(orders).values([
+    { ...base, customerName: "Ірина", customerPhone: "+380931234567", totalKop: 10000, status: "done" as const },
+    { ...base, customerName: "Ірина робочий", customerPhone: "+380661234567", totalKop: 20000, status: "done" as const, comment: "Ірина, під'їзд 2" },
+  ]);
+  const list = async (q = "") => (await app.inject({ url: `/api/customers${q}`, headers: { cookie: o.cookie } })).json();
+  const [a, b] = (await list("?sort=createdAt&dir=asc")) as { id: string }[];
+  await app.inject({ method: "POST", url: `/api/customers/${b!.id}/notes`, payload: { text: "Робочий телефон" }, headers: H });
+  assert.equal((await app.inject({ method: "POST", url: `/api/customers/${a!.id}/merge`, payload: { other: b!.id }, headers: H })).statusCode, 200);
+  const merged = await list();
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].orders, 2);
+  // A new order from the second phone comes to the same customer.
+  await db.insert(orders).values({ ...base, customerName: "І.", customerPhone: "0661234567", totalKop: 5000 });
+  const card = (await app.inject({ url: `/api/customers/${a!.id}`, headers: { cookie: o.cookie } })).json();
+  assert.equal(card.orders.length, 3);
+  assert.equal(card.notes[0].text, "Робочий телефон");
+  assert.deepEqual(card.extraPhones, ["380661234567"]);
+
+  // Search finds customers too.
+  const found = (await app.inject({ url: "/api/shop/search?q=0661234", headers: { cookie: o.cookie } })).json();
+  assert.deepEqual(found.customers.map((c: { id: string }) => c.id), [a!.id]);
+
+  // Import: a new customer, a known phone fills gaps, a bad row is reported.
+  const csv = "﻿Ім'я;Телефон;Пошта;Компанія;Мітки;Нотатка\nОксана;067 555 44 33;oks@example.com;;VIP;З ярмарку\nІрина;+380931234567;iryna@example.com;ТОВ Квітка;Опт;\nБез телефону;12;;;;\n";
+  const imp = (await app.inject({ method: "POST", url: "/api/customers/import", payload: { csv }, headers: H })).json();
+  assert.deepEqual(imp, { created: 1, updated: 1, skipped: [4] });
+  const after = await list("?q=Оксана");
+  assert.deepEqual([after[0].tags, after[0].email, after[0].firstSource], [["vip"], "oks@example.com", "import"]);
+  const iryna = (await app.inject({ url: `/api/customers/${a!.id}`, headers: { cookie: o.cookie } })).json();
+  assert.deepEqual([iryna.email, iryna.company, iryna.tags], ["iryna@example.com", "ТОВ Квітка", ["wholesale"]]);
+
+  const exp = await app.inject({ url: "/api/customers/export", headers: { cookie: o.cookie } });
+  assert.match(exp.body, /Оксана;067 555 44 33;oks@example\.com/);
+
+  // Anonymize: data gone from the customer and the orders, numbers stay.
+  assert.equal((await app.inject({ method: "POST", url: `/api/customers/${a!.id}/anonymize`, headers: H })).statusCode, 200);
+  const gone = (await app.inject({ url: `/api/customers/${a!.id}`, headers: { cookie: o.cookie } })).json();
+  assert.deepEqual([gone.name, gone.phone, gone.email, gone.notes.length, gone.orders.length], ["Знеособлено", null, null, 0, 3]);
+  const [ord] = await db.select().from(orders).where(eq(orders.customerId, a!.id)).limit(1);
+  assert.deepEqual([ord!.customerName, ord!.customerPhone, ord!.comment, ord!.delivery], ["Знеособлено", "", null, { method: "novaposhta" }]);
+  assert.doesNotMatch((await app.inject({ url: "/api/customers/export", headers: { cookie: o.cookie } })).body, /Ірина|0931234567/);
+});

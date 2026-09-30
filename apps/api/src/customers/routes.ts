@@ -58,7 +58,7 @@ export const customerRoutes: FastifyPluginAsync = async (app) => {
     const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 51));
     const page = Math.max(1, Math.min(10_000, Number(req.query.page) || 1));
     const where = [dsql`c.organization_id = ${a.org}`];
-    if (q.length >= 2) where.push(digits.length >= 3 ? dsql`(c.name ilike ${`%${q}%`} or c.phone_key like ${`%${digits}%`})` : dsql`c.name ilike ${`%${q.replace(/[\\%_]/g, (x) => `\\${x}`)}%`}`);
+    if (q.length >= 2) where.push(digits.length >= 3 ? dsql`(c.name ilike ${`%${q}%`} or (coalesce(c.phone_key, '') || ',' || array_to_string(c.extra_phones, ',')) like ${`%${digits}%`})` : dsql`c.name ilike ${`%${q.replace(/[\\%_]/g, (x) => `\\${x}`)}%`}`);
     if (seg === "new") where.push(dsql`c.created_at >= now() - interval '30 days'`);
     if (seg === "regular") where.push(dsql`coalesce(s.done, 0) >= ${REGULAR_AFTER}`);
     if (seg === "sleeping") where.push(dsql`s.last_at < now() - make_interval(days => ${sleepDays})`);
@@ -182,5 +182,169 @@ export const customerRoutes: FastifyPluginAsync = async (app) => {
     if (!c) return reply.code(404).send({ error: "not_found" });
     await db.insert(customerNotes).values({ customerId: c.id, userId: a.userId, text: p.data.text });
     return reply.code(201).send({ ok: true });
+  });
+
+  /**
+   * Two records of one person: orders, notes, tags and phones of the other move here; the other is removed.
+   * Future orders from either phone come here.
+   */
+  app.post<{ Params: { id: string } }>("/:id/merge", async (req, reply) => {
+    const a = await access(req);
+    const p = z.object({ other: z.string().uuid() }).safeParse(req.body);
+    if (!a || !p.success || !z.string().uuid().safeParse(req.params.id).success || p.data.other === req.params.id) return reply.code(400).send({ error: "invalid_input" });
+    const r = await db.transaction(async (tx) => {
+      const both = await tx.select().from(customers).where(and(eq(customers.organizationId, a.org), dsql`${customers.id} in (${req.params.id}, ${p.data.other})`)).for("update");
+      const main = both.find((x) => x.id === req.params.id);
+      const other = both.find((x) => x.id === p.data.other);
+      if (!main || !other) return false;
+      if (main.anonymizedAt || other.anonymizedAt) return null;
+      const phones = [...new Set([...main.extraPhones, ...(other.phoneKey ? [other.phoneKey] : []), ...other.extraPhones])].filter((x) => x !== main.phoneKey);
+      await tx.update(orders).set({ customerId: main.id }).where(eq(orders.customerId, other.id));
+      await tx.update(customerNotes).set({ customerId: main.id }).where(eq(customerNotes.customerId, other.id));
+      await tx.delete(customers).where(eq(customers.id, other.id));
+      await tx
+        .update(customers)
+        .set({
+          extraPhones: phones,
+          tags: [...new Set([...main.tags, ...other.tags])],
+          email: main.email ?? other.email,
+          company: main.company ?? other.company,
+          edrpou: main.edrpou ?? other.edrpou,
+          createdAt: main.createdAt < other.createdAt ? main.createdAt : other.createdAt,
+          updatedAt: new Date(),
+        })
+        .where(eq(customers.id, main.id));
+      return true;
+    });
+    if (r === false) return reply.code(404).send({ error: "not_found" });
+    if (r === null) return reply.code(409).send({ error: "anonymized" });
+    await audit(req, "customer.merge", a.userId, { customer: req.params.id, other: p.data.other }, a.org);
+    return { ok: true };
+  });
+
+  /**
+   * The customer asked to delete their data: name, phones, email, company, address and notes are wiped from
+   * the customer and all their orders; the orders stay as numbers. Cannot be undone; owner only.
+   */
+  app.post<{ Params: { id: string } }>("/:id/anonymize", async (req, reply) => {
+    const a = await access(req);
+    if (!a?.owner || !z.string().uuid().safeParse(req.params.id).success) return reply.code(403).send({ error: "forbidden" });
+    const done = await db.transaction(async (tx) => {
+      const [c] = await tx.select().from(customers).where(and(eq(customers.id, req.params.id), eq(customers.organizationId, a.org))).for("update");
+      if (!c) return false;
+      const gone = "Знеособлено";
+      await tx
+        .update(orders)
+        .set({ customerName: gone, customerPhone: "", customerEmail: null, comment: null, delivery: dsql`jsonb_build_object('method', ${orders.delivery}->>'method')`, ip: null, updatedAt: new Date() })
+        .where(eq(orders.customerId, c.id));
+      await tx.delete(customerNotes).where(eq(customerNotes.customerId, c.id));
+      await tx
+        .update(customers)
+        .set({ name: gone, phone: null, phoneKey: null, extraPhones: [], email: null, company: null, edrpou: null, delivery: null, tags: [], anonymizedAt: new Date(), updatedAt: new Date() })
+        .where(eq(customers.id, c.id));
+      return true;
+    });
+    if (!done) return reply.code(404).send({ error: "not_found" });
+    await audit(req, "customer.anonymize", a.userId, { customer: req.params.id }, a.org);
+    return { ok: true };
+  });
+
+  /**
+   * Import from Excel (saved as CSV, «;» or «,»): Ім'я, Телефон, Пошта, Компанія, Мітки, Нотатка. A known phone
+   * fills empty fields of that customer; a new one is created. Rows without a proper phone are listed back.
+   */
+  app.post("/import", { bodyLimit: 2 * 1024 * 1024, config: { rateLimit: { max: 10, timeWindow: "10 minutes" } } }, async (req, reply) => {
+    const a = await access(req);
+    const p = z.object({ csv: z.string().max(1_500_000) }).safeParse(req.body);
+    if (!a) return reply.code(403).send({ error: "forbidden" });
+    if (!p.success) return reply.code(400).send({ error: "invalid_input" });
+    const lines = p.data.csv.replace(/^\uFEFF/, "").split(/\r?\n/).filter((l) => l.trim());
+    if (lines.length < 2) return reply.code(400).send({ error: "empty" });
+    const sep = (lines[0]!.match(/;/g)?.length ?? 0) >= (lines[0]!.match(/,/g)?.length ?? 0) ? ";" : ",";
+    const parse = (l: string) => {
+      const out: string[] = [];
+      let cur = "";
+      let q = false;
+      for (let i = 0; i < l.length; i++) {
+        const ch = l[i]!;
+        if (q) {
+          if (ch === '"' && l[i + 1] === '"') (cur += '"'), i++;
+          else if (ch === '"') q = false;
+          else cur += ch;
+        } else if (ch === '"') q = true;
+        else if (ch === sep) out.push(cur.trim()), (cur = "");
+        else cur += ch;
+      }
+      out.push(cur.trim());
+      return out;
+    };
+    const head = parse(lines[0]!).map((h) => h.toLowerCase());
+    const col = (...names: string[]) => head.findIndex((h) => names.some((n) => h.startsWith(n)));
+    const iName = col("ім", "им", "name", "піб");
+    const iPhone = col("тел", "phone");
+    const iEmail = col("пошт", "email", "e-mail");
+    const iCompany = col("компан", "company");
+    const iTags = col("міт", "tag");
+    const iNote = col("нотат", "комент", "note");
+    if (iPhone < 0) return reply.code(400).send({ error: "no_phone_column" });
+    const { tags: own } = await customerSettingsOf(a.org);
+    const tagIds = new Map<string, string>([["vip", "vip"], ["опт", "wholesale"], ["wholesale", "wholesale"], ...own.map((t) => [t.name.toLowerCase(), t.id] as [string, string])]);
+    let created = 0;
+    let updated = 0;
+    const skipped: number[] = [];
+    for (const [n, line] of lines.slice(1, 5001).entries()) {
+      const v = parse(line);
+      const phone = v[iPhone] ?? "";
+      let key = phone.replace(/\D/g, "");
+      if (key.length === 10 && key.startsWith("0")) key = `38${key}`;
+      else if (key.length === 9) key = `380${key}`;
+      if (key.length < 11 || key.length > 15) {
+        skipped.push(n + 2);
+        continue;
+      }
+      const tags = (iTags >= 0 ? (v[iTags] ?? "").split(/[,|]/) : []).map((t) => tagIds.get(t.trim().toLowerCase())).filter((x): x is string => !!x);
+      const [known] = await db.select().from(customers).where(and(eq(customers.organizationId, a.org), dsql`(${customers.phoneKey} = ${key} or ${key} = any(${customers.extraPhones}))`));
+      let id = known?.id;
+      if (known) {
+        await db
+          .update(customers)
+          .set({ email: known.email ?? (v[iEmail] || null), company: known.company ?? (v[iCompany] || null), tags: [...new Set([...known.tags, ...tags])], updatedAt: new Date() })
+          .where(eq(customers.id, known.id));
+        updated++;
+      } else {
+        const [c] = await db
+          .insert(customers)
+          .values({ organizationId: a.org, name: (iName >= 0 && v[iName]) || phone, phoneKey: key, phone, email: (iEmail >= 0 && v[iEmail]) || null, company: (iCompany >= 0 && v[iCompany]) || null, tags, firstSource: "import" })
+          .returning({ id: customers.id });
+        id = c!.id;
+        created++;
+      }
+      if (iNote >= 0 && v[iNote]) await db.insert(customerNotes).values({ customerId: id!, userId: a.userId, text: v[iNote]!.slice(0, 2000) });
+    }
+    await audit(req, "customer.import", a.userId, { created, updated, skipped: skipped.length }, a.org);
+    return { created, updated, skipped };
+  });
+
+  /** The whole base as a CSV for Excel: owner only (protecting the base). */
+  app.get("/export", async (req, reply) => {
+    const a = await access(req);
+    if (!a?.owner) return reply.code(403).send({ error: "forbidden" });
+    const { tags: own } = await customerSettingsOf(a.org);
+    const tagName = (t: string) => own.find((x) => x.id === t)?.name ?? ({ vip: "VIP", wholesale: "Опт" } as Record<string, string>)[t] ?? t;
+    const rows = await db.execute<{ name: string; phone: string | null; email: string | null; company: string | null; tags: string[]; city: string | null; orders: number | null; sum_kop: number | null; last_at: string | null }>(dsql`
+      with s as (${statsSql(a.org)})
+      select c.name, c.phone, c.email, c.company, c.tags, c.delivery->>'city' as city, s.orders, s.sum_kop, s.last_at
+      from customers c left join s on s.customer_id = c.id
+      where c.organization_id = ${a.org} and c.anonymized_at is null order by c.created_at`);
+    const cell = (v: unknown) => {
+      const x = String(v ?? "");
+      return /[;"\n]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x;
+    };
+    const lines = rows.map((r) => [r.name, r.phone, r.email, r.company, r.tags.map(tagName).join(", "), r.city, r.orders ?? 0, ((r.sum_kop ?? 0) / 100).toFixed(2).replace(".", ","), r.last_at ? new Date(r.last_at).toLocaleDateString("uk-UA", { timeZone: "Europe/Kyiv" }) : ""].map(cell).join(";"));
+    await audit(req, "customer.export", a.userId, { n: rows.length }, a.org);
+    return reply
+      .header("content-type", "text/csv; charset=utf-8")
+      .header("content-disposition", `attachment; filename="customers-${new Date().toISOString().slice(0, 10)}.csv"`)
+      .send(`\uFEFF${["Ім'я;Телефон;Пошта;Компанія;Мітки;Місто;Замовлень;Сума, грн;Останнє замовлення", ...lines].join("\r\n")}`);
   });
 };

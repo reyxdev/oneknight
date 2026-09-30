@@ -6,6 +6,7 @@ import { fmt } from "@/i18n";
 import { formatUAH } from "@/data/pricing";
 import { Icon } from "@/components/ui/Icon";
 import { Field } from "@/components/ui/Field";
+import { Modal } from "@/components/ui/Modal";
 import { api, latestOnly } from "@/lib/api";
 import { playSound } from "@/lib/sound";
 import { Empty, Panel, useFlash, useFormat } from "@/features/oneknight/ui/kit";
@@ -80,6 +81,19 @@ function CustomerCard({ id, settings, finance, onChanged, onClose, go }: { id: s
   const [c, setC] = useState<Card | null>(null);
   const [edit, setEdit] = useState<{ name: string; email: string; company: string; edrpou: string } | null>(null);
   const [note, setNote] = useState("");
+  const [merging, setMerging] = useState(false);
+  const [mergeQ, setMergeQ] = useState("");
+  const [mergeFound, setMergeFound] = useState<Row[]>([]);
+  const [anon, setAnon] = useState(false);
+  const toast = useToast();
+  useEffect(() => {
+    if (mergeQ.trim().length < 2) return setMergeFound([]);
+    const timer = setTimeout(async () => {
+      const r = await api<Row[]>(`/customers?q=${encodeURIComponent(mergeQ.trim())}&limit=8`);
+      if (r.ok) setMergeFound(r.data.filter((x) => x.id !== id && !x.anonymized));
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [mergeQ, id]);
   const load = useCallback(async () => {
     const r = await api<Card>(`/customers/${id}`);
     if (r.ok) setC(r.data);
@@ -118,8 +132,36 @@ function CustomerCard({ id, settings, finance, onChanged, onClose, go }: { id: s
         <div className="ok-actions">
           <button type="button" className="btn btn-sm" onClick={() => go("orders", `new-order:${c.id}`)}><Icon name="plus" size={14} />{t.newOrder}</button>
           <button type="button" className="btn btn-sm btn-secondary" onClick={() => setEdit({ name: c.name, email: c.email ?? "", company: c.company ?? "", edrpou: c.edrpou ?? "" })}>{t.edit}</button>
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => setMerging(true)}>{t.merge}</button>
+          {settings?.canEdit && <button type="button" className="btn btn-sm btn-ghost ok-danger" onClick={() => setAnon(true)}>{t.anonymize}</button>}
         </div>
       )}
+      <Modal open={merging} onClose={() => { setMerging(false); setMergeQ(""); }} labelledBy="ok-merge">
+        <div className="app-dialog grid gap-3">
+          <h2 id="ok-merge" className="app-neworders-title">{fmt(t.mergeTitle, { name: c.name })}</h2>
+          <p className="ok-muted">{t.mergeLead}</p>
+          <Field label={t.search}>{(p) => <input {...p} className="input" autoFocus value={mergeQ} onChange={(e) => setMergeQ(e.target.value)} />}</Field>
+          <ul className="app-picker-list app-inline">
+            {mergeFound.map((x) => (
+              <li key={x.id}>
+                <button type="button" onClick={async () => { const r = await api(`/customers/${id}/merge`, { method: "POST", body: { other: x.id } }); setMerging(false); setMergeQ(""); if (r.ok) { toast.show(fmt(t.merged, { name: x.name })); void load(); onChanged(); } else toast.show(d.app.auth.errors.server_error, "warn"); }}>
+                  <span className="ok-grow">{x.name}</span><span className="num ok-muted">{x.phone}</span><small className="ok-muted">{fmt(t.ordersCount, { n: x.orders })}</small>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </Modal>
+      <Modal open={anon} onClose={() => setAnon(false)} labelledBy="ok-anon">
+        <div className="app-dialog grid gap-3">
+          <h2 id="ok-anon" className="app-neworders-title">{t.anonTitle}</h2>
+          <p>{t.anonLead}</p>
+          <div className="ok-actions">
+            <button type="button" className="btn btn-sm" onClick={async () => { const r = await api(`/customers/${id}/anonymize`, { method: "POST", body: {} }); setAnon(false); if (r.ok) { toast.show(t.anonDone); void load(); onChanged(); } }}>{t.anonYes}</button>
+            <button type="button" className="btn btn-sm btn-ghost" onClick={() => setAnon(false)}>{t.cancel}</button>
+          </div>
+        </div>
+      </Modal>
       {edit ? (
         <form className="grid gap-3" onSubmit={(e) => { e.preventDefault(); void patch({ name: edit.name, email: edit.email, company: edit.company || null, edrpou: edit.edrpou }).then(() => setEdit(null)); }}>
           <Field label={t.name}>{(p) => <input {...p} className="input" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} />}</Field>
@@ -209,6 +251,21 @@ export function CustomersScreen({ tab, finance, go }: { tab?: string | null; fin
     return () => clearTimeout(timer);
   }, [load, q]);
   useEscClose(open ? () => setOpen(null) : null);
+  const toast = useToast();
+  // Excel → «Зберегти як CSV»; the answer says how many were added, updated and which rows were skipped.
+  const importCsv = async (csv: string) => {
+    const r = await api<{ created: number; updated: number; skipped: number[] }>("/customers/import", { method: "POST", body: { csv } });
+    if (!r.ok) return toast.show(r.error === "no_phone_column" ? t.importNoPhone : t.importFailed, "warn");
+    toast.show(fmt(t.imported, { created: r.data.created, updated: r.data.updated }));
+    if (r.data.skipped.length) toast.show(fmt(t.importSkipped, { rows: r.data.skipped.join(", ") }), "warn");
+    void load();
+  };
+  const downloadTemplate = () => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([`\uFEFF${t.templateCsv}`], { type: "text/csv;charset=utf-8" }));
+    a.download = "customers-template.csv";
+    a.click();
+  };
   const cols: Col<Row>[] = [
     {
       key: "name",
@@ -231,7 +288,17 @@ export function CustomersScreen({ tab, finance, go }: { tab?: string | null; fin
   ];
   return (
     <div className="ok-screen">
-      <div className="ok-h"><h3>{t.title}</h3></div>
+      <div className="ok-h">
+        <h3>{t.title}</h3>
+        <div className="ok-actions">
+          <label className="btn btn-sm btn-ghost">
+            <Icon name="doc" size={15} />{t.import}
+            <input type="file" accept=".csv,text/csv" className="sr-only" onChange={async (e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) await importCsv(await file.text()); }} />
+          </label>
+          <button type="button" className="ok-link" onClick={downloadTemplate}>{t.template}</button>
+          {settings?.canEdit && <a className="btn btn-sm btn-ghost" href="/api/customers/export" download><Icon name="doc" size={15} />{t.export}</a>}
+        </div>
+      </div>
       <div className="ok-chips" role="group" aria-label={t.segments}>
         {SEGMENTS.map((s) => (
           <button key={s} type="button" className="ok-chip" aria-pressed={segment === s} onClick={() => { setSegment(s); setPage(1); }}>{s === "sleeping" && settings ? fmt(t.segs.sleeping, { n: settings.sleepDays }) : t.segs[s]}</button>
