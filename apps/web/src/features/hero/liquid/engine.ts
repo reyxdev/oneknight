@@ -99,7 +99,10 @@ export function createLiquid(o: Opts): LiquidController | null {
 
   let layout: Layout = "one";
   let calm = false;
-  let quality = 1;
+  // Weak phones (few cores, little memory, «Економія трафіку») start simpler instead of waiting for slow frames.
+  const nav = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
+  const weak = (nav.hardwareConcurrency ?? 8) <= 4 || (nav.deviceMemory ?? 8) <= 4 || !!nav.connection?.saveData;
+  let quality = weak ? 0.6 : 1;
   let tokens = readTokens();
   let W = 0, H = 0, cssW = 1, cssH = 1;
   let visible = true;

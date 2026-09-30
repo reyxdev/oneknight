@@ -260,8 +260,9 @@ test("content plan, part 2: the team (assign, comments with @, own photos), repe
   const gen = (await db.select().from(contentIdeas).where(and(eq(contentIdeas.organizationId, o.org), gte(contentIdeas.day, "2027-03-01")))).sort((x, y) => x.day.localeCompare(y.day)).find((i) => i.templateId);
   await patch(gen!.id, { feedback: -1 });
   await generatePlan(o.org, { from: addDays(gen!.day, 1), days: 28 });
-  const again = await db.select().from(contentIdeas).where(and(eq(contentIdeas.organizationId, o.org), eq(contentIdeas.templateId, gen!.templateId!)));
-  assert.deepEqual(again.map((i) => i.id), [gen!.id]);
+  // (The same template may sit in last autumn's plan, more than 90 days earlier — only the new window counts.)
+  const again = await db.select().from(contentIdeas).where(and(eq(contentIdeas.organizationId, o.org), eq(contentIdeas.templateId, gen!.templateId!), gte(contentIdeas.day, addDays(gen!.day, 1))));
+  assert.deepEqual(again.map((i) => i.id), []);
 
   // History: 12 months; an idea with 👎 stays.
   const old = await own(addDays(today, -400), "Давня");

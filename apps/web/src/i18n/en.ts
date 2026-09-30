@@ -6,7 +6,7 @@ import { karpatu } from "./en/karpatu";
 import { ok } from "./en/ok";
 import { offer, trust, process, supportPlan, about, final } from "./en/rest";
 import { app } from "./en/app";
-import { faq, siteBits, panelPage } from "./en/site";
+import { faq, siteBits, panelPage, statusPage, casesPage, docsPage } from "./en/site";
 
 export const en: Dict = {
   services,
@@ -23,6 +23,9 @@ export const en: Dict = {
   faq,
   siteBits,
   panelPage,
+  statusPage,
+  casesPage,
+  docsPage,
   app,
   meta: {
     title: "ONEKNIGHT: websites and a system to run your business",
@@ -330,6 +333,8 @@ export const en: Dict = {
     tagline: "Your business. In one place.",
     contacts: "Contact",
     legal: "Documents",
+    product: "ONEKNIGHT",
+    links: { panel: "ONEKNIGHT for business", login: "Sign in", status: "Service status", docs: "API documentation", cases: "Work" },
     rights: "All rights reserved.",
     telegram: "Telegram",
     viber: "Viber",
@@ -365,5 +370,6 @@ export const en: Dict = {
     title: "You got lost.",
     text: "But a business is better off not losing customers.",
     cta: "Back to ONEKNIGHT",
+    links: { services: "Services", panel: "ONEKNIGHT for business", login: "Sign in" },
   },
 };

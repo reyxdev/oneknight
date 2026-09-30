@@ -1197,3 +1197,30 @@ export const contentComments = pgTable(
   },
   (t) => [index("content_comments_idea_idx").on(t.ideaId, t.createdAt)],
 );
+
+/** The public status page: one row per check of a service every 5 minutes (kept 90 days). */
+export const statusChecks = pgTable(
+  "status_checks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    service: text("service").notNull(), // panel | api | bot | novaposhta | ukrposhta
+    ok: boolean("ok").notNull(),
+    ms: integer("ms"),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("status_checks_service_at_idx").on(t.service, t.at)],
+);
+
+/** A failure of a service: opened after 2 failed checks in a row, closed by the next good one; the owner adds a note. */
+export const statusIncidents = pgTable(
+  "status_incidents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    service: text("service").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    note: text("note"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("status_incidents_started_idx").on(t.startedAt)],
+);

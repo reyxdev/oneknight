@@ -5,6 +5,7 @@ import { db } from "../db/client.ts";
 import { contentHolidays, contentTemplates, platformState } from "../db/schema.ts";
 import { CHANNELS, rhythmBase } from "../content/engine.ts";
 import { calculatorConfig } from "../site/landing.ts";
+import { incidentsForAdmin, noteIncident } from "../site/status.ts";
 import { audit } from "../audit.ts";
 import { holidayDate } from "../content/holidays.ts";
 
@@ -54,6 +55,15 @@ export const contentAdminRoutes: FastifyPluginAsync = async (app) => {
     const p = Template.partial().safeParse(req.body);
     if (!p.success || !uuid.safeParse(req.params.id).success) return reply.code(400).send({ error: "invalid_input" });
     const [row] = await db.update(contentTemplates).set(p.data).where(and(eq(contentTemplates.id, req.params.id), isNull(contentTemplates.organizationId))).returning();
+    return row ?? reply.code(404).send({ error: "not_found" });
+  });
+
+  /** Status page: incidents and the owner's explanation shown on /status. */
+  app.get("/site/incidents", async () => incidentsForAdmin());
+  app.patch<{ Params: { id: string } }>("/site/incidents/:id", async (req, reply) => {
+    const p = z.object({ note: z.string().trim().max(1000).nullable() }).safeParse(req.body);
+    if (!p.success || !uuid.safeParse(req.params.id).success) return reply.code(400).send({ error: "invalid_input" });
+    const row = await noteIncident(req.params.id, p.data.note || null);
     return row ?? reply.code(404).send({ error: "not_found" });
   });
 

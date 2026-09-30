@@ -1,5 +1,7 @@
 # ONEKNIGHT public API for client websites
 
+> Outdated summary. The current, checked documentation is the page `/docs/api` (source: `apps/web/src/data/api-docs.ts`).
+
 Base URL: `https://oneknight.pro/api/public`. Authentication: header `x-site-key: sk_…` (shown in the account, section «Сайт»). No cookies.
 Browsers may call the API only from the site's own domain (`https://domain` or `https://www.domain`); server-to-server calls send no `Origin` and are allowed.
 

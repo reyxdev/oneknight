@@ -60,6 +60,13 @@ const Order = z.object({
  * no cookies. Browsers may call it only from the site's own domain (CORS).
  */
 export const publicRoutes: FastifyPluginAsync = async (app) => {
+  // Error answers (401, 403 bad_origin, 415, 429) carry the CORS header too, so the site's fetch reads the error code
+  // instead of failing with a network error. Data itself never leaves: a foreign origin gets only 403.
+  app.addHook("onSend", async (req, reply, payload) => {
+    const origin = req.headers.origin;
+    if (origin && !reply.getHeader("access-control-allow-origin")) reply.header("access-control-allow-origin", origin).header("vary", "origin");
+    return payload;
+  });
   app.options("/*", async (req, reply) => {
     const origin = req.headers.origin;
     if (origin) reply.header("access-control-allow-origin", origin).header("vary", "origin");

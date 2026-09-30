@@ -134,3 +134,39 @@ export const panelPage: Dict["panelPage"] = {
     lead: "Signing up takes a minute, 30 days are free. Questions — in Telegram.",
   },
 };
+
+export const statusPage: Dict["statusPage"] = {
+  meta: { title: "Service status | ONEKNIGHT", description: "Whether the ONEKNIGHT panel, the website API, the Telegram bot and the carriers work — now and over 90 days." },
+  title: "Service status",
+  lead: "Checked every 5 minutes. A failure is two failed checks in a row.",
+  services: { panel: "ONEKNIGHT panel", api: "Website API", bot: "Telegram bot", novaposhta: "Nova Poshta", ukrposhta: "Ukrposhta" },
+  states: { up: "Operational", degraded: "Checking", down: "Outage", unknown: "No data yet" },
+  checked: "Checked {ago}",
+  days90: "90 days ago",
+  today: "Today",
+  noData: "no data",
+  uptime: "{day}: {p}%",
+  incidents: "Outages in 90 days",
+  noIncidents: "No outages.",
+  ongoing: "ongoing",
+  carriersNote: "Nova Poshta and Ukrposhta are the carriers' services: when they are down, waybills and tracking wait, the rest of ONEKNIGHT works.",
+  loadError: "Could not load the status. If the panel does not open either, write to Telegram.",
+};
+
+export const casesPage: Dict["casesPage"] = {
+  meta: { title: "Work | ONEKNIGHT", description: "Websites and systems made by ONEKNIGHT: what was there, what we did and what it gave the business." },
+  eyebrow: "Work",
+  title: "What we have made",
+  lead: "Only real projects here. New ones appear as soon as clients allow showing them.",
+  cta: "Order yours",
+};
+
+export const docsPage: Dict["docsPage"] = {
+  meta: { title: "API documentation | ONEKNIGHT", description: "The ONEKNIGHT public API for websites: products, orders, reviews, ok.js. Examples in JavaScript, curl and PHP." },
+  title: "API documentation",
+  lead: "How to connect your website to ONEKNIGHT: products and orders, reviews, analytics and widgets with ok.js.",
+  contents: "Contents",
+  examples: "Examples",
+  fields: "Fields",
+  tabs: { js: "JavaScript", curl: "curl", php: "PHP" },
+};

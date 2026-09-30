@@ -8,6 +8,8 @@ const Env = z.object({
   API_HOST: z.string().default("127.0.0.1"),
   TOTP_ENC_KEY: z.string().refine((v) => Buffer.from(v, "base64").length === 32, "TOTP_ENC_KEY must be 32 bytes, base64"),
   APP_ORIGINS: z.string().transform((v) => v.split(",").map((s) => s.trim()).filter(Boolean)),
+  /** The public address of the site and panel (the status page checks it); defaults to the first APP_ORIGINS. */
+  SITE_URL: z.string().url().optional(),
   /** Optional. When both are set, new leads are announced in this Telegram chat. */
   TELEGRAM_BOT_TOKEN: z.string().optional().transform((v) => v || undefined),
   TELEGRAM_CHAT_ID: z.string().optional().transform((v) => v || undefined),

@@ -9,7 +9,7 @@ import { karpatu } from "./uk/karpatu";
 import { ok } from "./uk/ok";
 import { offer, trust, process, supportPlan, about, final } from "./uk/rest";
 import { app } from "./uk/app";
-import { faq, siteBits, panelPage } from "./uk/site";
+import { faq, siteBits, panelPage, statusPage, casesPage, docsPage } from "./uk/site";
 
 export const uk = {
   services,
@@ -26,6 +26,9 @@ export const uk = {
   faq,
   siteBits,
   panelPage,
+  statusPage,
+  casesPage,
+  docsPage,
   app,
   meta: {
     title: "ONEKNIGHT: сайти та система для керування бізнесом",
@@ -333,6 +336,8 @@ export const uk = {
     tagline: "Ваш бізнес. В одному місці.",
     contacts: "Контакти",
     legal: "Документи",
+    product: "ONEKNIGHT",
+    links: { panel: "ONEKNIGHT для бізнесу", login: "Увійти в кабінет", status: "Статус сервісів", docs: "Документація API", cases: "Роботи" },
     rights: "Усі права захищено.",
     telegram: "Telegram",
     viber: "Viber",
@@ -368,6 +373,7 @@ export const uk = {
     title: "Ви заблукали.",
     text: "Але бізнесу краще не губити клієнтів.",
     cta: "Повернутися до ONEKNIGHT",
+    links: { services: "Послуги", panel: "ONEKNIGHT для бізнесу", login: "Увійти" },
   },
 } as const satisfies Record<string, unknown>;
 

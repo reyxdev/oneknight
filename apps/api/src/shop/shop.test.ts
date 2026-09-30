@@ -72,3 +72,14 @@ test("products, public catalogue, orders with server prices and stock, statuses"
   assert.equal(n[0].key, "newOrder");
   await db.delete(sites).where(eq(sites.id, site!.id));
 });
+
+test("public API errors carry the CORS header; a foreign origin still gets only the error", async () => {
+  const bad = await app.inject({ url: "/api/public/products", headers: { origin: "https://shop.example.com", "x-site-key": "sk_nope" } });
+  assert.equal(bad.statusCode, 401);
+  assert.equal(bad.headers["access-control-allow-origin"], "https://shop.example.com");
+  const u = await register("cors");
+  const [site] = await db.insert(sites).values({ organizationId: u.org, domain: `${tag}cors.shop.com.ua`, name: "S" }).returning();
+  const foreign = await app.inject({ url: "/api/public/products", headers: { origin: "https://evil.example.com", "x-site-key": site!.publicKey } });
+  assert.deepEqual([foreign.statusCode, foreign.json()], [403, { error: "bad_origin" }]);
+  assert.equal(foreign.headers["access-control-allow-origin"], "https://evil.example.com", "the error is readable, no data in it");
+});

@@ -19,6 +19,7 @@ import { runAdminReminders } from "./projects/routes.ts";
 import { runWeeklyAudits } from "./sites/audit.ts";
 import { purgeContentHistory, runContentMorning, runContentWeekly } from "./content/jobs.ts";
 import { ensureContentSeed } from "./content/seed.ts";
+import { runStatusChecks } from "./site/status.ts";
 import { notifyOwner } from "./notify/telegram.ts";
 
 const app = await buildApp();
@@ -43,6 +44,9 @@ void runBilling().catch((e) => app.log.error(e));
 void runMorningReport((text) => notifyOwner(text, app.log)).catch((e) => app.log.error(e));
 const stopBot = startBotPolling(app.log);
 const tgTimer = setInterval(() => void deliverTelegram(undefined, { skipTestAccounts: true }).catch((e) => app.log.error(e)), 15_000);
+// The public status page: every service checked every 5 minutes.
+const statusTimer = setInterval(() => void runStatusChecks().catch((e) => app.log.error(e)), 5 * 60_000);
+void runStatusChecks().catch((e) => app.log.error(e));
 const backupTimer = setInterval(() => void runBackups(app.log).catch((e) => app.log.error(e)), 3600_000);
 // Parcels: Nova Poshta and Ukrposhta statuses hourly (Відправлено / Завершено / Повернення, waiting at the branch).
 const trackTimer = setInterval(() => void trackParcels({ skipTestAccounts: true }).catch((e) => app.log.error(e)), 3600_000);
@@ -69,6 +73,7 @@ const shutdown = async () => {
   clearInterval(promTimer);
   clearInterval(trackTimer);
   clearInterval(backupTimer);
+  clearInterval(statusTimer);
   clearInterval(tgTimer);
   stopBot();
   await app.close();

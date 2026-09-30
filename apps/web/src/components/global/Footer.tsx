@@ -10,7 +10,7 @@ export function Footer({ lang, dict }: { lang: Lang; dict: Dict }) {
   return (
     <footer className="scheme-dark" id="contacts" data-chapter>
       <div className="wrap py-16 md:py-24">
-        <div className="grid gap-12 md:grid-cols-[1.4fr_1fr_1fr]">
+        <div className="grid gap-12 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div className="grid content-start gap-4">
             <span className="text-fg"><KnightMark size={44} /></span>
             <p className="h3 max-w-[14ch]">{dict.footer.tagline}</p>
@@ -22,6 +22,16 @@ export function Footer({ lang, dict }: { lang: Lang; dict: Dict }) {
               <li><a className="ok-footer-link" href={contacts.viber.url}>{dict.footer.viber}<small>{contacts.phone.display}</small></a></li>
               <li><a className="ok-footer-link" href={contacts.whatsapp.url} rel="noopener" target="_blank">{dict.footer.whatsapp}<small>{contacts.phone.display}</small></a></li>
               <li><a className="ok-footer-link" href={contacts.facebook.url} rel="noopener" target="_blank">{dict.footer.facebook}</a></li>
+            </ul>
+          </div>
+          <div>
+            <h2 className="eyebrow mb-4">{dict.footer.product}</h2>
+            <ul className="grid gap-2 text-[0.9375rem]">
+              {([["panel", "/panel/"], ["login", "/app/"], ["cases", "/cases/"], ["status", "/status/"], ["docs", "/docs/api/"]] as const).map(([k, href]) => (
+                <li key={k}>
+                  <a className="text-muted transition-colors hover:text-fg" href={withLang(lang, href)}>{dict.footer.links[k]}</a>
+                </li>
+              ))}
             </ul>
           </div>
           <div>

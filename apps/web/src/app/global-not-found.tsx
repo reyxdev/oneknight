@@ -28,6 +28,11 @@ export default function GlobalNotFound() {
               <h1 className="display" style={{ fontSize: "clamp(3rem, 12vw, 9rem)" }}>{t.title}</h1>
               <p className="lead">{t.text}</p>
               <a className="btn btn-lg" href={href} style={{ background: "var(--paper)", color: "var(--ink)" }}>{t.cta}</a>
+              <nav className="flex flex-wrap gap-x-6 gap-y-2" aria-label="404">
+                <a className="underline underline-offset-4" href={`${href}#services`}>{t.links.services}</a>
+                <a className="underline underline-offset-4" href={`${href}panel/`}>{t.links.panel}</a>
+                <a className="underline underline-offset-4" href={`${href}app/`}>{t.links.login}</a>
+              </nav>
             </div>
           ))}
         </main>

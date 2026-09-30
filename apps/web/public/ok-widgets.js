@@ -59,7 +59,8 @@
         box.setAttribute("data-on", "");
         setTimeout(function () { box.removeAttribute("data-on"); }, 8000);
       }
-      setTimeout(show, 6000);
+      // Not earlier than 8 s after the page (owner's decision H55).
+      setTimeout(show, 8000);
       var timer = setInterval(show, 45000);
     });
   }

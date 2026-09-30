@@ -134,3 +134,39 @@ export const panelPage = {
     lead: "Реєстрація займає хвилину, 30 днів — безкоштовно. Питання — у Telegram.",
   },
 };
+
+export const statusPage = {
+  meta: { title: "Статус сервісів | ONEKNIGHT", description: "Чи працюють панель ONEKNIGHT, API сайтів, Telegram-бот і перевізники — зараз і за 90 днів." },
+  title: "Статус сервісів",
+  lead: "Перевіряємо кожні 5 хвилин. Збій — це дві невдалі перевірки поспіль.",
+  services: { panel: "Панель ONEKNIGHT", api: "API для сайтів", bot: "Telegram-бот", novaposhta: "Нова пошта", ukrposhta: "Укрпошта" },
+  states: { up: "Працює", degraded: "Перевіряємо", down: "Збій", unknown: "Ще немає даних" },
+  checked: "Перевірено {ago}",
+  days90: "90 днів тому",
+  today: "Сьогодні",
+  noData: "немає даних",
+  uptime: "{day}: {p}%",
+  incidents: "Збої за 90 днів",
+  noIncidents: "Збоїв не було.",
+  ongoing: "триває",
+  carriersNote: "Нова пошта й Укрпошта — сервіси перевізників: коли вони недоступні, ТТН і відстеження чекають, решта ONEKNIGHT працює.",
+  loadError: "Не вдалося отримати статус. Якщо не відкривається й панель — напишіть у Telegram.",
+};
+
+export const casesPage = {
+  meta: { title: "Роботи | ONEKNIGHT", description: "Сайти й системи, зроблені ONEKNIGHT: що було, що зробили і що це дало бізнесу." },
+  eyebrow: "Роботи",
+  title: "Що ми вже зробили",
+  lead: "Тут лише справжні проєкти. Нові з'являтимуться, щойно клієнти дозволять їх показати.",
+  cta: "Замовити свій",
+};
+
+export const docsPage = {
+  meta: { title: "Документація API | ONEKNIGHT", description: "Публічне API ONEKNIGHT для сайтів: товари, замовлення, відгуки, ok.js. Приклади на JavaScript, curl і PHP." },
+  title: "Документація API",
+  lead: "Як підключити свій сайт до ONEKNIGHT: товари й замовлення, відгуки, аналітика й віджети через ok.js.",
+  contents: "Зміст",
+  examples: "Приклади",
+  fields: "Поля",
+  tabs: { js: "JavaScript", curl: "curl", php: "PHP" },
+};

@@ -119,6 +119,31 @@ await p.goto(`${BASE}/en/panel/`, { waitUntil: "networkidle" });
 ok(await seen(p.getByRole("heading", { level: 1, name: "Orders, customers and delivery in one place" })), "/en/panel");
 await p.close();
 
+// /status, /cases, the footer, 404, /docs/api.
+const q = await b.newPage({ viewport: { width: 1366, height: 900 } });
+await q.goto(`${BASE}/status/`, { waitUntil: "networkidle" });
+ok(await seen(q.getByRole("heading", { level: 1, name: "Статус сервісів" })), "/status page");
+ok(await seen(q.locator(".status-list li").first()), "services with their state");
+ok((await q.locator(".status-list li").first().locator(".status-bars i").count()) === 90, "90 days of bars");
+ok(await seen(q.getByText("Панель ONEKNIGHT")), "the panel is checked");
+await q.screenshot({ path: `${SHOTS}/site-status.png` });
+await q.goto(`${BASE}/cases/`, { waitUntil: "networkidle" });
+ok(await seen(q.getByRole("heading", { level: 1, name: "Що ми вже зробили" })), "/cases page");
+const foot = q.locator("footer");
+for (const [name, href] of [["Статус сервісів", "/status/"], ["Документація API", "/docs/api/"], ["Увійти в кабінет", "/app/"], ["ONEKNIGHT для бізнесу", "/panel/"]])
+  ok((await foot.getByRole("link", { name }).getAttribute("href")) === href, `footer: ${name}`);
+await q.goto(`${BASE}/docs/api/`, { waitUntil: "networkidle" });
+ok(await seen(q.getByRole("heading", { level: 1, name: "Документація API" })), "/docs/api page");
+ok((await q.locator(".docs-body > section").count()) === 9, "9 documentation sections");
+await q.locator(".docs-tabs").first().getByRole("tab", { name: "PHP" }).click();
+ok((await q.locator(".docs-examples pre").first().innerText()).includes("<?php") || (await q.locator(".docs-examples pre").first().innerText()).includes("$"), "PHP example");
+await q.screenshot({ path: `${SHOTS}/site-docs.png` });
+await q.goto(`${BASE}/en/docs/api/`, { waitUntil: "networkidle" });
+ok(await seen(q.getByRole("heading", { level: 1, name: "API documentation" })), "/en/docs/api");
+const nf = await q.goto(`${BASE}/nope-page/`, { waitUntil: "networkidle" });
+ok(nf.status() === 404 && (await q.getByRole("link", { name: "ONEKNIGHT для бізнесу" }).getAttribute("href")) === "/panel/", "404 with links");
+await q.close();
+
 cleanupTestData();
 errs.splice(0, errs.length, ...errs.filter((e) => !e.includes("React error #418")));
 console.log("errors:", errs.length ? errs : "none");
