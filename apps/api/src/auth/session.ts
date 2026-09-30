@@ -4,6 +4,7 @@ import { db } from "../db/client.ts";
 import { sessions, users } from "../db/schema.ts";
 import { env } from "../config.ts";
 import { randomToken, sha256 } from "../security/crypto.ts";
+import { noteDevice } from "../security/devices.ts";
 
 export const SESSION_COOKIE = "ok_session";
 /** Readable, non-secret hint so the static site can show "Відкрити ONEKNIGHT" without a request. */
@@ -16,11 +17,13 @@ export type Auth = { user: AuthUser; sessionHash: string; sessionId: string; mfa
 /** Looking at a client's panel ends by itself after this long. */
 export const VIEW_TTL_MS = 2 * 3_600_000;
 
+/** A new session; the browser is remembered and a new device is reported to the person's Telegram. */
 export async function createSession(req: FastifyRequest, reply: FastifyReply, userId: string, mfaPassed: boolean) {
   const token = randomToken();
   const expiresAt = new Date(Date.now() + TTL_MS);
-  await db.insert(sessions).values({ idHash: sha256(token), userId, mfaPassed, ip: req.ip, userAgent: req.headers["user-agent"]?.slice(0, 300) ?? null, expiresAt });
+  const [s] = await db.insert(sessions).values({ idHash: sha256(token), userId, mfaPassed, ip: req.ip, userAgent: req.headers["user-agent"]?.slice(0, 300) ?? null, expiresAt }).returning({ id: sessions.id });
   setCookies(reply, token, expiresAt);
+  await noteDevice(req, reply, userId, s!.id).catch((e) => req.log.warn({ err: String(e) }, "device note failed"));
 }
 
 function setCookies(reply: FastifyReply, token: string, expires: Date) {

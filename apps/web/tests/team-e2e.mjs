@@ -2,6 +2,7 @@
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
 import { onboard } from "./nav.mjs";
+import { execFileSync } from "node:child_process";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
 const b = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox"] });
@@ -62,6 +63,27 @@ ok(await navBtn(pack, "Замовлення").isVisible() && !(await navBtn(pack
 ok(await pack.getByText("Відправити сьогодні").isVisible() && !(await pack.locator(".ok-home-stats").count()), "packer Home: sending, no sales numbers");
 await navBtn(pack, "Замовлення").click();
 ok(await pack.getByRole("button", { name: "Без ТТН" }).isVisible() && !(await pack.getByRole("button", { name: "Нові", exact: true }).count()), "packer filters: only orders to send");
+
+// «Журнал дій»: the owner sees who did what. «Вимагати 2FA»: the owner needs it first; then a member without it
+// is asked to turn it on before seeing anything.
+await navBtn(owner, "Команда").click();
+const log = owner.locator(".okp", { hasText: "Журнал дій" });
+ok(await log.getByText(/Менеджер E2E\s+приєднався\(лася\) до команди/).waitFor({ timeout: 5000 }).then(() => true, () => false), "the activity log names who did what");
+await owner.getByRole("switch", { name: "Вимагати 2FA від усієї команди" }).click();
+ok(await owner.getByText("Спершу ввімкніть 2FA собі").waitFor({ timeout: 5000 }).then(() => true, () => false), "the owner needs 2FA before requiring it");
+execFileSync("docker", ["exec", "oneknight-db", "psql", "-U", "oneknight", "-d", "oneknight", "-tAc", `update users set totp_enabled = true where email = 'team-o${stamp}@test.oneknight.local'`]);
+await owner.getByRole("switch", { name: "Вимагати 2FA від усієї команди" }).click();
+ok(await owner.getByText("Тепер 2FA обов'язкова для всіх").waitFor({ timeout: 5000 }).then(() => true, () => false), "2FA required for the team");
+await mgr.reload({ waitUntil: "networkidle" });
+ok(await mgr.getByRole("heading", { name: "Потрібна 2FA" }).or(mgr.getByText("Потрібна 2FA")).first().waitFor({ timeout: 8000 }).then(() => true, () => false), "a member without 2FA is asked to turn it on");
+if (process.env.SHOTS) await mgr.screenshot({ path: `${process.env.SHOTS}/need-2fa.png` });
+await mgr.getByRole("button", { name: "Увімкнути 2FA" }).click();
+ok(await mgr.getByRole("tab", { name: "Безпека", selected: true }).waitFor({ timeout: 5000 }).then(() => true, () => false), "straight to «Безпека»");
+if (process.env.SHOTS) {
+  await navBtn(owner, "Команда").click();
+  await owner.waitForTimeout(500);
+  await owner.screenshot({ path: `${process.env.SHOTS}/team-log.png`, fullPage: true });
+}
 
 cleanupTestData();
 const KNOWN_418 = errs.filter((e) => e.includes("React error #418"));

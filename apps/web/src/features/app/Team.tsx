@@ -5,6 +5,7 @@ import { useDict } from "@/i18n/provider";
 import { fmt } from "@/i18n";
 import { Icon } from "@/components/ui/Icon";
 import { Field } from "@/components/ui/Field";
+import { Toggle } from "@/components/ui/Toggle";
 import { api, type Me } from "@/lib/api";
 import { playSound } from "@/lib/sound";
 import { Panel, useFlash, useFormat } from "@/features/oneknight/ui/kit";
@@ -13,7 +14,8 @@ type Role = "owner" | "manager" | "marketer" | "packer";
 type InviteRole = Exclude<Role, "owner">;
 type Member = { userId: string; name: string; email: string; role: Role; permissions: string[]; totp: boolean };
 type Invite = { id: string; role: Role; permissions: string[]; note: string | null; expiresAt: string };
-type Data = { members: Member[]; invites: Invite[]; all: string[] };
+type Data = { members: Member[]; invites: Invite[]; all: string[]; require2fa: boolean };
+type LogItem = { at: string; userId: string | null; name: string | null; kind: "audit" | "order" | "product"; action: string; ref: string | null; meta: Record<string, unknown> };
 const DEFAULTS: Record<InviteRole, string[]> = { manager: ["orders", "products", "reviews", "support"], marketer: ["analytics", "reviews", "site"], packer: ["shipping"] };
 
 export function TeamScreen({ me }: { me: Me }) {
@@ -75,7 +77,7 @@ export function TeamScreen({ me }: { me: Me }) {
                 <tr key={m.userId}>
                   <th scope="row">
                     <b>{m.name}{m.userId === me.id ? ` (${t.you})` : ""}</b>
-                    <small>{t.roles[m.role]} · {m.email}{m.totp ? ` · ${t.twoFa}` : ""}</small>
+                    <small>{t.roles[m.role]} · {m.email} · <span data-bad={!m.totp && data.require2fa || undefined}>{m.totp ? t.twoFa : t.noTwoFa}</span></small>
                   </th>
                   {data.all.map((p) => (
                     <td key={p}>
@@ -142,7 +144,79 @@ export function TeamScreen({ me }: { me: Me }) {
           </>
         )}
       </Panel>
+      {me.role === "owner" && (
+        <Panel title={t.securityTitle}>
+          <Toggle
+            checked={data.require2fa}
+            onChange={async (v) => {
+              const r = await api("/team/settings", { method: "PATCH", body: { require2fa: v } });
+              if (!r.ok) {
+                playSound("error");
+                return show(r.error === "own_2fa_needed" ? t.own2fa : d.app.auth.errors.server_error);
+              }
+              show(v ? t.require2faOn : t.saved);
+              void load();
+            }}
+            label={t.require2fa}
+          />
+          <p className="ok-muted">{t.require2faHint}</p>
+        </Panel>
+      )}
+      {me.role === "owner" && <TeamLog members={data.members} />}
       {flash}
     </div>
+  );
+}
+
+/** «Журнал дій» (owner): who did what — actions, order changes, product changes; by person, in pages. */
+function TeamLog({ members }: { members: Member[] }) {
+  const d = useDict();
+  const t = d.app.team;
+  const f = useFormat();
+  const [who, setWho] = useState("");
+  const [items, setItems] = useState<LogItem[]>([]);
+  const [more, setMore] = useState(false);
+  const load = useCallback(async (before?: string) => {
+    const q = new URLSearchParams({ ...(who ? { user: who } : {}), ...(before ? { before } : {}) });
+    const r = await api<{ items: LogItem[]; more: boolean }>(`/team/log?${q}`);
+    if (!r.ok) return;
+    setItems((cur) => (before ? [...cur, ...r.data.items] : r.data.items));
+    setMore(r.data.more);
+  }, [who]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  const text = (x: LogItem) => {
+    if (x.kind === "order") {
+      const what = x.action === "status" ? fmt(t.log.status, { s: (d.ok.orders.status as Record<string, string>)[String(x.meta.status)] ?? String(x.meta.status ?? "") }) : (t.log.orderKinds as Record<string, string>)[x.action] ?? x.action;
+      return fmt(t.log.order, { n: x.ref ?? "", what });
+    }
+    if (x.kind === "product") return fmt(t.log.product, { name: x.ref ?? "", what: (d.app.products.eventKinds as Record<string, string>)[x.action] ?? x.action });
+    return (t.log.actions as Record<string, string>)[x.action] ?? x.action;
+  };
+  return (
+    <Panel title={t.logTitle}>
+      <label className="ok-select" style={{ justifySelf: "start" }}>
+        <span className="sr-only">{t.logWho}</span>
+        <select value={who} onChange={(e) => setWho(e.target.value)}>
+          <option value="">{t.logAll}</option>
+          {members.map((m) => <option key={m.userId} value={m.userId}>{m.name}</option>)}
+        </select>
+      </label>
+      {items.length === 0 ? (
+        <p className="ok-muted">{t.logEmpty}</p>
+      ) : (
+        <ol className="app-timeline">
+          {items.map((x, i) => (
+            <li key={`${x.at}${i}`}>
+              <span className="app-timeline-what"><b>{x.name ?? t.log.someone}</b> {text(x)}</span>
+              <small className="ok-muted">{f.dateTime(new Date(x.at).getTime())}</small>
+            </li>
+          ))}
+        </ol>
+      )}
+      {more && <button type="button" className="btn btn-sm btn-ghost" style={{ justifySelf: "start" }} onClick={() => load(items[items.length - 1]!.at)}>{t.logMore}</button>}
+      <p className="ok-muted">{t.logHint}</p>
+    </Panel>
   );
 }

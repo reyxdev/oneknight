@@ -5,6 +5,7 @@ import { useDict, useLang } from "@/i18n/provider";
 import { fmt, withLang } from "@/i18n";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { KnightMark } from "@/components/global/Logo";
+import { Panel } from "@/features/oneknight/ui/kit";
 import type { Me } from "@/lib/api";
 import { AdminLeads } from "./Leads";
 import { AdminOverview } from "./AdminOverview";
@@ -303,6 +304,15 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
           )}
           {!adminMode && news.data?.banner && <Banner item={news.data.banner} onClose={() => void news.load()} />}
           <div className="ok-content" key={`${me.activeOrgId}/${screen}/${route.tab ?? ""}`}>
+            {me.twofaRequired && screen !== "profile" && !adminMode ? (
+              <div className="ok-screen">
+                <Panel title={t.team.need2faTitle}>
+                  <p>{t.team.need2faText}</p>
+                  <button type="button" className="btn btn-sm" style={{ justifySelf: "start" }} onClick={() => go("profile", "security")}><Icon name="shield" size={15} />{t.team.need2faCta}</button>
+                </Panel>
+              </div>
+            ) : (
+            <>
             {!view && <p className="ok-muted">{screen === "business" ? t.business.ownerOnly : t.team.noAccess}</p>}
             {view === "home" && <HomeScreen me={me} go={(id, tab) => go(id as Screen, tab ?? null)} />}
             {view === "orders" && <OrdersScreen tab={route.tab} shippingOnly={!me.permissions.includes("orders")} finance={me.permissions.includes("finance")} meName={me.name} />}
@@ -326,6 +336,8 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             {adminMode && view === "topups" && <TopupsAdmin />}
             {adminMode && view === "keys" && <KeysAdmin />}
             {adminMode && view === "news" && <CommsAdmin />}
+            </>
+            )}
           </div>
         </div>
         {!adminMode && (me.permissions.includes("orders") || allowed("products")) && screen !== "products" && (

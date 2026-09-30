@@ -1,10 +1,10 @@
 import type { FastifyPluginAsync } from "fastify";
-import { and, desc, eq, gt, isNull } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, sql as dsql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client.ts";
 import { invites, memberships, notifications, organizations, sessions, users } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
-import { INVITE_ROLES, PERMISSIONS, orgScope, type Permission } from "../auth/access.ts";
+import { INVITE_ROLES, PERMISSIONS, activeMembership, orgScope, type Permission } from "../auth/access.ts";
 import { randomToken, sha256 } from "../security/crypto.ts";
 import { audit } from "../audit.ts";
 
@@ -32,7 +32,51 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
       .from(invites)
       .where(and(eq(invites.organizationId, org), isNull(invites.usedAt), gt(invites.expiresAt, new Date())))
       .orderBy(desc(invites.createdAt));
-    return { members: members.map((m) => ({ ...m, permissions: m.role === "owner" ? [...PERMISSIONS] : m.permissions })), invites: pending, all: PERMISSIONS };
+    const [o] = await db.select({ require2fa: organizations.require2fa }).from(organizations).where(eq(organizations.id, org));
+    return { members: members.map((m) => ({ ...m, permissions: m.role === "owner" ? [...PERMISSIONS] : m.permissions })), invites: pending, all: PERMISSIONS, require2fa: o?.require2fa ?? false };
+  });
+
+  /** «Вимагати 2FA для команди» (owner): the owner needs 2FA first, so the switch never locks them out. */
+  app.patch("/settings", async (req, reply) => {
+    const p = z.object({ require2fa: z.boolean() }).safeParse(req.body);
+    const m = await activeMembership(req);
+    if (!m || m.role !== "owner") return reply.code(403).send({ error: "owner_only" });
+    if (!p.success) return reply.code(400).send({ error: "invalid_input" });
+    if (p.data.require2fa && !req.auth!.user.totpEnabled) return reply.code(409).send({ error: "own_2fa_needed" });
+    await db.update(organizations).set({ require2fa: p.data.require2fa }).where(eq(organizations.id, m.orgId));
+    await audit(req, "team.require_2fa", req.auth!.user.id, { on: p.data.require2fa }, m.orgId);
+    return { require2fa: p.data.require2fa };
+  });
+
+  /**
+   * «Журнал дій» (owner): who did what in the business — the actions log, order changes and product changes in one
+   * list, newest first, by person, in pages (`before` = the time of the last one shown). ONEKNIGHT's own admin
+   * actions are not in it.
+   */
+  app.get<{ Querystring: { user?: string; before?: string } }>("/log", async (req, reply) => {
+    const m = await activeMembership(req);
+    if (!m || m.role !== "owner") return reply.code(403).send({ error: "owner_only" });
+    const who = z.string().uuid().safeParse(req.query.user).success ? req.query.user! : null;
+    const before = req.query.before && !Number.isNaN(Date.parse(req.query.before)) ? new Date(req.query.before) : new Date();
+    const rows = await db.execute<{ at: Date; user_id: string | null; name: string | null; kind: string; action: string; ref: string | null; meta: Record<string, unknown> }>(dsql`
+      select * from (
+        select a.created_at as at, a.user_id, u.name, 'audit' as kind, a.action, null::text as ref, a.meta
+          from audit_log a left join users u on u.id = a.user_id
+          where a.organization_id = ${m.orgId} and a.action not like 'admin.%'
+        union all
+        select e.created_at, e.user_id, u.name, 'order', e.kind, o.number::text, coalesce(e.data, '{}'::jsonb) || jsonb_build_object('status', e.status)
+          from order_events e join orders o on o.id = e.order_id left join users u on u.id = e.user_id
+          where o.organization_id = ${m.orgId} and e.user_id is not null
+        union all
+        select pe.created_at, pe.user_id, u.name, 'product', pe.kind, p.name, jsonb_build_object('changes', pe.changes)
+          from product_events pe join products p on p.id = pe.product_id left join users u on u.id = pe.user_id
+          where p.organization_id = ${m.orgId} and pe.user_id is not null
+      ) x
+      where x.at < ${before.toISOString()}::timestamptz ${who ? dsql`and x.user_id = ${who}` : dsql``}
+      order by x.at desc
+      limit 51`);
+    const list = [...rows];
+    return { items: list.slice(0, 50).map((r) => ({ at: r.at, userId: r.user_id, name: r.name, kind: r.kind, action: r.action, ref: r.ref, meta: r.meta })), more: list.length > 50 };
   });
 
   /** Creates a one-time link. The token is shown once; only its hash is stored. */

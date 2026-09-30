@@ -67,6 +67,8 @@ export const organizations = pgTable("organizations", {
   adminTags: text("admin_tags").array().notNull().default(sql`'{}'::text[]`),
   /** «Підтримка за договором»: a separate support contract; its requests go first. */
   supportContract: boolean("support_contract").notNull().default(false),
+  /** The owner requires 2FA from the whole team: without it a member sees nothing of the business. */
+  require2fa: boolean("require_2fa").notNull().default(false),
   /** Answers to the questions after sign-up (owner). Null = not answered yet: the panel asks first. */
   /** Numbering of orders: the last number given (the first order gets 1001). */
   orderSeq: integer("order_seq").notNull().default(1000),
@@ -1044,4 +1046,20 @@ export const adSpend = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("ad_spend_org_idx").on(t.organizationId, t.fromDate)],
+);
+
+/**
+ * Browsers a person signed in from (a random id in a long-lived cookie, stored hashed). A sign-in from a browser
+ * not seen before, when the person has others, sends «вхід з нового пристрою» with «Це не я» to their Telegram.
+ */
+export const userDevices = pgTable(
+  "user_devices",
+  {
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    deviceHash: text("device_hash").notNull(),
+    userAgent: text("user_agent"),
+    firstSeenAt: createdAt(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.deviceHash] })],
 );

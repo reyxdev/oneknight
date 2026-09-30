@@ -1,7 +1,7 @@
 import type { FastifyRequest } from "fastify";
 import { asc, eq } from "drizzle-orm";
 import { db } from "../db/client.ts";
-import { memberships } from "../db/schema.ts";
+import { memberships, organizations } from "../db/schema.ts";
 
 /**
  * Everything a member can be allowed to do. The owner can always do everything.
@@ -25,11 +25,17 @@ export async function orgIdsOf(userId: string): Promise<string[]> {
   return rows.map((r) => r.id);
 }
 
-export type Membership = { orgId: string; role: "owner" | "manager" | "marketer" | "packer"; permissions: Permission[] };
+/** `require2fa`: the business wants 2FA from its whole team. */
+export type Membership = { orgId: string; role: "owner" | "manager" | "marketer" | "packer"; permissions: Permission[]; require2fa?: boolean };
 
 export async function membershipsOf(userId: string): Promise<Membership[]> {
-  const rows = await db.select().from(memberships).where(eq(memberships.userId, userId)).orderBy(asc(memberships.createdAt));
-  return rows.map((m) => ({ orgId: m.organizationId, role: m.role, permissions: m.role === "owner" ? [...PERMISSIONS] : (m.permissions.filter((p) => (PERMISSIONS as readonly string[]).includes(p)) as Permission[]) }));
+  const rows = await db
+    .select({ m: memberships, require2fa: organizations.require2fa })
+    .from(memberships)
+    .innerJoin(organizations, eq(organizations.id, memberships.organizationId))
+    .where(eq(memberships.userId, userId))
+    .orderBy(asc(memberships.createdAt));
+  return rows.map(({ m, require2fa }) => ({ orgId: m.organizationId, role: m.role, require2fa, permissions: m.role === "owner" ? [...PERMISSIONS] : (m.permissions.filter((p) => (PERMISSIONS as readonly string[]).includes(p)) as Permission[]) }));
 }
 
 /** The organization the request works in: the session's active one if still a member, else the first. */
@@ -37,7 +43,10 @@ export async function activeMembership(req: FastifyRequest): Promise<Membership 
   // The admin looking at a client's panel sees it as its owner does; every change is refused (app.ts).
   if (req.auth?.viewOrgId) return { orgId: req.auth.viewOrgId, role: "owner", permissions: [...PERMISSIONS] };
   const all = await membershipsOf(req.auth!.user.id);
-  return all.find((m) => m.orgId === req.auth!.activeOrgId) ?? all[0] ?? null;
+  const m = all.find((x) => x.orgId === req.auth!.activeOrgId) ?? all[0] ?? null;
+  // «Вимагати 2FA»: without it the person sees nothing of this business until 2FA is on («Мій профіль → Безпека»).
+  if (m?.require2fa && !req.auth!.user.totpEnabled) return null;
+  return m;
 }
 
 /**

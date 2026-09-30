@@ -61,6 +61,8 @@ async function me(user: Auth["user"], activeOrgId: string | null = null, viewOrg
     modules,
     // The owner answers the questions after sign-up once; invited people never see them.
     onboarded: active?.role !== "owner" || !!org?.onboarding,
+    // The business requires 2FA and this person has not turned it on: the panel asks for it first.
+    twofaRequired: !!active?.require2fa && !user.totpEnabled,
     subscription: sub ?? null,
   };
 }

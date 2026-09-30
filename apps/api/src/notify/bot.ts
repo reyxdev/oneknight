@@ -1,7 +1,7 @@
 import https from "node:https";
 import { and, asc, eq, gt, inArray, isNotNull, not, sql as dsql } from "drizzle-orm";
 import { db } from "../db/client.ts";
-import { memberships, notifications, organizations, telegramLinks, users } from "../db/schema.ts";
+import { auditLog, memberships, notifications, organizations, sessions, telegramLinks, users } from "../db/schema.ts";
 import { env } from "../config.ts";
 import { randomToken, sha256 } from "../security/crypto.ts";
 
@@ -71,6 +71,20 @@ const HELP = "Це бот ONEKNIGHT. Щоб отримувати сповіще�
 
 /** One incoming update (private chats only). */
 export async function handleUpdate(u: any, call: TgCall = tgCall) {
+  // «Це не я» under «вхід з нового пристрою»: that session ends at once.
+  const cb = u?.callback_query;
+  if (cb && typeof cb.data === "string" && cb.data.startsWith("notme:")) {
+    const chatId = String(cb.message?.chat?.id ?? cb.from?.id ?? "");
+    const sessionId = cb.data.slice(6);
+    const [link] = chatId ? await db.select({ userId: telegramLinks.userId }).from(telegramLinks).where(eq(telegramLinks.chatId, chatId)) : [];
+    const ended = link && /^[0-9a-f-]{36}$/.test(sessionId) ? await db.update(sessions).set({ revokedAt: new Date() }).where(and(eq(sessions.id, sessionId), eq(sessions.userId, link.userId))).returning({ id: sessions.id }) : [];
+    await call("answerCallbackQuery", { callback_query_id: cb.id, text: ended.length ? "Сеанс завершено" : "Сеанс не знайдено" });
+    if (ended.length) {
+      await db.insert(auditLog).values({ userId: link!.userId, action: "session.revoke_telegram", meta: { session: sessionId } });
+      await call("sendMessage", { chat_id: chatId, text: "Сеанс на тому пристрої завершено. Змініть пароль: ONEKNIGHT → Мій профіль → Безпека, і ввімкніть 2FA." });
+    }
+    return;
+  }
   const msg = u?.message;
   if (!msg || msg.chat?.type !== "private" || typeof msg.text !== "string") return;
   const chatId = String(msg.chat.id);
@@ -109,7 +123,7 @@ export function startBotPolling(log: { warn: (o: object, m: string) => void }, c
   let offset = 0;
   void (async () => {
     while (!stopped) {
-      const r = await call("getUpdates", { offset, timeout: 25, allowed_updates: ["message"] });
+      const r = await call("getUpdates", { offset, timeout: 25, allowed_updates: ["message", "callback_query"] });
       if (!r.ok) {
         if (r.description !== "not_configured") log.warn({ err: r.description }, "telegram polling failed");
         await new Promise((ok) => setTimeout(ok, r.description === "not_configured" ? 3_600_000 : 5_000));

@@ -46,6 +46,8 @@ export type Me = {
   /** False until the owner answered the questions after sign-up. */
   onboarded: boolean;
   subscription: { status: "trial" | "active" | "grace" | "suspended" | "cancelled"; periodEnd: string } | null;
+  /** The business requires 2FA and this person has not turned it on yet. */
+  twofaRequired?: boolean;
   /** The admin is looking at this business's panel (read only). */
   viewing?: { orgId: string; name: string };
 };

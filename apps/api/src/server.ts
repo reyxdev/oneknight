@@ -11,6 +11,7 @@ import { deliverTelegram, startBotPolling } from "./notify/bot.ts";
 import { trackParcels } from "./integrations/tracking.ts";
 import { purgeTrash } from "./reviews/routes.ts";
 import { purgeAnalytics } from "./analytics/routes.ts";
+import { purgeAuditLog } from "./audit.ts";
 import { purgeCarts } from "./carts/routes.ts";
 import { downloadPendingPhotos } from "./products/photos.ts";
 import { runMorningReport } from "./admin/overview.ts";
@@ -47,6 +48,7 @@ const sweepTimer = setInterval(() => {
   void sweepOrphans().catch((e) => app.log.error(e));
   void purgeTrash().catch((e) => app.log.error(e));
   void purgeAnalytics().catch((e) => app.log.error(e));
+  void purgeAuditLog().catch((e) => app.log.error(e));
   void purgeCarts().catch((e) => app.log.error(e));
   void sweepBackupFiles().catch((e) => app.log.error(e));
 }, 24 * 3600_000);
