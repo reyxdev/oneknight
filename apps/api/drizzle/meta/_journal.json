@@ -260,6 +260,20 @@
       "when": 1790735832290,
       "tag": "0036_projects",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1790736763650,
+      "tag": "0037_admin_clients",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1790737131473,
+      "tag": "0038_comms",
+      "breakpoints": true
     }
   ]
 }

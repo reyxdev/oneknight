@@ -1,11 +1,12 @@
 // Navigation in the ONEKNIGHT panel for browser tests: grouped menu, «Мій профіль» at the bottom,
 // tabs inside «Бізнес» / «Мій профіль», and the separate admin mode.
-const ADMIN = new Set(["Огляд", "Заявки", "Проєкти", "Бізнеси", "Звернення", "Поповнення", "Ключі й промокоди", "Оголошення"]);
+const ADMIN = new Set(["Огляд", "Заявки", "Проєкти", "Бізнеси", "Звернення", "Поповнення", "Ключі й промокоди", "Комунікації", "Оголошення"]);
 const TABS = {
   "Інтеграції": ["Бізнес", "Інтеграції"],
   "Резервні копії": ["Бізнес", "Резервні копії"],
   "Безпека": ["Мій профіль", "Безпека"],
   "Сповіщення": ["Мій профіль", "Сповіщення"],
+  "Оголошення": ["Комунікації", "Банер і «Що нового»"],
 };
 
 export async function go(pg, name) {
@@ -33,4 +34,14 @@ export async function onboard(pg) {
   await pg.getByRole("button", { name: "Далі", exact: true }).click();
   await pg.getByRole("button", { name: "Перейти в кабінет" }).click();
   await pg.getByText("Вітаємо").waitFor();
+}
+
+/** Admin «Бізнеси»: finds the business in the table and opens its card (the tabs are inside). */
+export async function openBusiness(pg, name) {
+  await go(pg, "Бізнеси");
+  await pg.getByLabel("Назва, власник, телефон, мітка").fill(name);
+  await pg.locator(".app-table tbody tr", { hasText: name }).first().click();
+  const card = pg.locator(".ok-detail");
+  await card.getByRole("tab", { name: "Огляд" }).waitFor();
+  return card;
 }

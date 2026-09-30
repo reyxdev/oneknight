@@ -141,6 +141,9 @@ export function notificationText(key: string, p: Record<string, any>, finance = 
     case "lowBalance": return `💳 Не вистачає ${money(p.amount)} грн для продовження ONEKNIGHT. Сервіс працює ще ${p.days} дн.`;
     case "suspended": return `⛔ Підписку ONEKNIGHT призупинено: не вистачає ${money(p.amount)} грн`;
     case "renewed": return `✅ Підписку ONEKNIGHT продовжено, списано ${money(p.amount)} грн`;
+    case "broadcast": return `📣 ${p.title}\n${p.text}`;
+    case "ideaDone": return `💡 Вашу ідею зроблено: «${p.text}». Дякуємо!`;
+    case "balanceAdjusted": return `💳 Баланс ONEKNIGHT змінено: ${Number(p.amount) > 0 ? "+" : ""}${money(p.amount)} грн (${p.reason})`;
     case "topupConfirmed": return `💳 Баланс ONEKNIGHT поповнено на ${money(p.amount)} грн`;
     case "ticketAnswered": return `💬 Підтримка відповіла на звернення №${p.n}`;
     case "memberJoined": return `👤 ${p.name} приєднався до команди`;

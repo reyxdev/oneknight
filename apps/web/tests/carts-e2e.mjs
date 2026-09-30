@@ -2,7 +2,7 @@
 // the cart is on Home and in «Замовлення → Незавершені кошики», the team places the order from it.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
-import { go, onboard } from "./nav.mjs";
+import { go, onboard, openBusiness } from "./nav.mjs";
 import { execSync } from "node:child_process";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
@@ -29,8 +29,8 @@ await onboard(pg);
 
 execSync(`npm run -s admin:grant -w @oneknight/api -- ${email}`);
 await pg.reload({ waitUntil: "networkidle" });
-await nav("Бізнеси");
-const panel = pg.locator(".okp", { hasText: "Кошики E2E" }).first();
+const panel = await openBusiness(pg, "Кошики E2E");
+await panel.getByRole("tab", { name: "Сайти" }).click();
 await panel.getByLabel("Домен").fill(DOMAIN);
 await panel.getByRole("button", { name: "Додати" }).click();
 await panel.getByText(DOMAIN).waitFor();
@@ -86,7 +86,7 @@ if (SHOTS) {
 
 await detail.getByRole("button", { name: "Не додзвонились" }).click();
 await pg.getByText("Нагадаємо передзвонити через 2 години").waitFor();
-ok(await row.getByText(/Передзвонити/).isVisible(), "«Не додзвонились» → call again in 2 hours");
+ok(await row.getByText(/Передзвонити/).waitFor({ timeout: 5000 }).then(() => true, () => false), "«Не додзвонились» → call again in 2 hours");
 
 await detail.getByRole("button", { name: "Оформити замовлення" }).click();
 ok((await detail.getByLabel("Телефон").inputValue()).replace(/\D/g, "") === "380675554433", "the form starts with the buyer and the cart");

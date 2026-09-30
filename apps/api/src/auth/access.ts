@@ -34,6 +34,8 @@ export async function membershipsOf(userId: string): Promise<Membership[]> {
 
 /** The organization the request works in: the session's active one if still a member, else the first. */
 export async function activeMembership(req: FastifyRequest): Promise<Membership | null> {
+  // The admin looking at a client's panel sees it as its owner does; every change is refused (app.ts).
+  if (req.auth?.viewOrgId) return { orgId: req.auth.viewOrgId, role: "owner", permissions: [...PERMISSIONS] };
   const all = await membershipsOf(req.auth!.user.id);
   return all.find((m) => m.orgId === req.auth!.activeOrgId) ?? all[0] ?? null;
 }

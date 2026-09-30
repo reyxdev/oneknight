@@ -36,7 +36,7 @@ await c.getByLabel("Категорія").selectOption("bug");
 await c.getByLabel("Опишіть, що сталося").fill("Кнопка «Купити» не натискається на iPhone");
 await c.locator("input[type=file]").setInputFiles(shot);
 await c.locator(".ok-shot img").waitFor();
-await c.getByRole("button", { name: "Надіслати" }).click();
+await c.getByRole("button", { name: "Надіслати", exact: true }).click();
 await c.getByText(/Звернення №\d+ створено/).waitFor();
 ok(true, "client creates a request with a screenshot");
 
@@ -47,7 +47,7 @@ await nav(a, "Звернення");
 await a.locator(".ok-row", { hasText: "Помилка" }).first().click();
 ok(await a.locator(".app-thread img").waitFor({ timeout: 5000 }).then(() => true, () => false), "admin sees the screenshot");
 await a.getByLabel("Відповісти").fill("Дякую! Виправили, перевірте, будь ласка.");
-await a.getByRole("button", { name: "Надіслати" }).click();
+await a.getByRole("button", { name: "Надіслати", exact: true }).click();
 await a.getByText("Дякую! Виправили").waitFor();
 
 await c.reload({ waitUntil: "networkidle" });

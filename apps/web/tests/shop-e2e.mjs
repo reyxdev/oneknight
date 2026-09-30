@@ -2,7 +2,7 @@
 // public API (server prices), the order shows up and moves through statuses.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
-import { go, onboard } from "./nav.mjs";
+import { go, onboard, openBusiness } from "./nav.mjs";
 import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -31,8 +31,8 @@ ok(await pg.getByText("потрібен сайт").waitFor({ timeout: 5000 }).th
 
 execSync(`npm run -s admin:grant -w @oneknight/api -- ${email}`);
 await pg.reload({ waitUntil: "networkidle" });
-await nav("Бізнеси");
-const panel = pg.locator(".okp", { hasText: "Магазин E2E" }).first();
+const panel = await openBusiness(pg, "Магазин E2E");
+await panel.getByRole("tab", { name: "Сайти" }).click();
 await panel.getByLabel("Домен").fill(DOMAIN);
 await panel.getByRole("button", { name: "Додати" }).click();
 await panel.getByText(DOMAIN).waitFor();

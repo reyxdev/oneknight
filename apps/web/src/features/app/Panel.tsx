@@ -9,8 +9,9 @@ import type { Me } from "@/lib/api";
 import { AdminLeads } from "./Leads";
 import { AdminOverview } from "./AdminOverview";
 import { AdminProjects } from "./Projects";
-import { Toasts } from "./Toasts";
-import { AnnouncementsAdmin, Banner, NewsButton, useAnnouncements } from "./Announcements";
+import { CommsAdmin } from "./Comms";
+import { Toasts, useToast } from "./Toasts";
+import { Banner, NewsButton, useAnnouncements } from "./Announcements";
 import { applyTextSize } from "./textSize";
 import { NewOrders } from "./NewOrders";
 import { Search } from "./Search";
@@ -32,7 +33,7 @@ import { ReviewsScreen } from "./Reviews";
 import { AnalyticsScreen } from "./Analytics";
 import { HomeScreen } from "./Home";
 import { TeamScreen } from "./Team";
-import { READ_ONLY, api } from "@/lib/api";
+import { READ_ONLY, VIEW_ONLY, api } from "@/lib/api";
 
 type ClientScreen = "home" | "orders" | "customers" | "products" | "reviews" | "analytics" | "site" | "modules" | "services" | "business" | "billing" | "team" | "profile" | "support";
 type AdminScreen = "overview" | "admin" | "projects" | "clients" | "tickets" | "topups" | "keys" | "news";
@@ -69,6 +70,18 @@ function readHash(isAdmin: boolean): Route {
   return { screen: "home", tab: null };
 }
 
+/** While the admin views a client's panel, a refused change explains itself. */
+function ViewOnlyNotice() {
+  const t = useDict().app.clients;
+  const toast = useToast();
+  useEffect(() => {
+    const on = () => toast.show(t.viewOnly, "warn");
+    window.addEventListener(VIEW_ONLY, on);
+    return () => window.removeEventListener(VIEW_ONLY, on);
+  }, [toast, t.viewOnly]);
+  return null;
+}
+
 export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => void; onChange: () => void }) {
   const d = useDict();
   const t = d.app;
@@ -103,7 +116,8 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
   }, []);
   const readOnly = blocked || me.subscription?.status === "suspended" || me.subscription?.status === "cancelled" || (!me.subscription && me.onboarded && me.role === "owner");
   const { screen } = route;
-  const adminMode = me.isAdmin && ADMIN_SCREENS.has(screen);
+  // While viewing a client's panel the admin sections stay closed (the strip on top ends the view).
+  const adminMode = me.isAdmin && !me.viewing && ADMIN_SCREENS.has(screen);
   const org = me.organizations.find((o) => o.id === me.activeOrgId) ?? me.organizations[0];
   // Orders: everything with `orders`, orders waiting to be sent with `shipping` («Комплектувальник»).
   const allowed = (id: Screen) => (id === "business" ? me.role === "owner" : id === "orders" ? me.permissions.includes("orders") || me.permissions.includes("shipping") : !NEEDS[id] || me.permissions.includes(NEEDS[id]!));
@@ -119,7 +133,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
       tickets: t.supportAdmin.nav,
       topups: t.topupsAdmin.nav,
       keys: t.keysAdmin.nav,
-      news: t.newsAdmin.nav,
+      news: t.comms.nav,
       services: t.servicesApp.nav,
       site: t.site.title,
       modules: t.modulesApp.nav,
@@ -193,6 +207,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
 
   return (
     <Toasts>
+    {me.viewing && <ViewOnlyNotice />}
     <Modal open={keysOpen} onClose={() => setKeysOpen(false)} labelledBy="ok-keys">
       <div className="app-dialog">
       <h2 id="ok-keys" className="app-neworders-title">{t.keys.title}</h2>
@@ -263,7 +278,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
               </button>
             )}
             <button type="button" className="btn btn-sm btn-ghost btn-icon app-keys-btn" aria-label={t.keys.title} title={t.keys.title} onClick={() => setKeysOpen(true)}>?</button>
-            {me.isAdmin && (
+            {me.isAdmin && !me.viewing && (
               <button type="button" className="btn btn-sm btn-secondary app-mode" data-mode-switch data-admin={adminMode} onClick={() => go(adminMode ? "home" : "overview")}>
                 <Icon name={adminMode ? "home" : "settings"} size={15} />
                 {adminMode ? t.nav.modeBusiness : t.nav.modeAdmin}
@@ -272,7 +287,14 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             <span className="app-user"><Icon name="person" size={16} />{me.email}</span>
             <Bell />
           </header>
-          {!adminMode && readOnly && (
+          {me.viewing && (
+            <div className="app-banner app-viewing" role="status">
+              <Icon name="eye" size={18} />
+              <span className="ok-grow"><b>{fmt(t.clients.viewing, { name: me.viewing.name })}</b></span>
+              <button type="button" className="btn btn-sm" onClick={async () => { await api("/admin/view/stop", { method: "POST", body: {} }); history.replaceState(null, "", `${location.pathname}#clients/c-${me.viewing!.orgId}`); location.reload(); }}>{t.clients.viewStop}</button>
+            </div>
+          )}
+          {!adminMode && readOnly && !me.viewing && (
             <div className="app-banner app-readonly" role="alert">
               <Icon name="lock" size={18} />
               <span className="ok-grow"><b>{t.readOnly.title}</b> {me.subscription ? t.readOnly.suspended : t.readOnly.noTrial}</span>
@@ -299,11 +321,11 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             {adminMode && view === "overview" && <AdminOverview go={(id, tab) => go(id as Screen, tab ?? null)} />}
             {adminMode && view === "admin" && <AdminLeads openProject={(id) => go("projects", `p-${id}`)} />}
             {adminMode && view === "projects" && <AdminProjects tab={route.tab} />}
-            {adminMode && view === "clients" && <Clients />}
+            {adminMode && view === "clients" && <Clients tab={route.tab} />}
             {adminMode && view === "tickets" && <SupportScreen admin />}
             {adminMode && view === "topups" && <TopupsAdmin />}
             {adminMode && view === "keys" && <KeysAdmin />}
-            {adminMode && view === "news" && <AnnouncementsAdmin />}
+            {adminMode && view === "news" && <CommsAdmin />}
           </div>
         </div>
         {!adminMode && (me.permissions.includes("orders") || allowed("products")) && screen !== "products" && (

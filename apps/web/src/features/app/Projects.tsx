@@ -70,12 +70,12 @@ function Thread({ p, post }: { p: Project; post: (text: string, file?: { name: s
   return (
     <div className="grid gap-3">
       {p.comments.length > 0 && (
-        <ol className="app-thread">
+        <ol className="app-pthread">
           {p.comments.map((c) => (
             <li key={c.id} data-admin={c.fromAdmin || undefined} data-kind={c.kind}>
               <small className="ok-muted">{c.fromAdmin ? t.fromUs : c.by ?? t.client} · {f.dateTime(new Date(c.at).getTime())}</small>
               <p>{line(c)}</p>
-              {c.file && <a href={c.file} target="_blank" rel="noopener"><img className="app-thread-img" src={c.file} alt="" loading="lazy" /></a>}
+              {c.file && <a href={c.file} target="_blank" rel="noopener"><img className="app-pthread-img" src={c.file} alt="" loading="lazy" /></a>}
             </li>
           ))}
         </ol>

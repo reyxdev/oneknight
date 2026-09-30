@@ -27,6 +27,7 @@ import { customerRoutes } from "./customers/routes.ts";
 import { cartRoutes } from "./carts/routes.ts";
 import { productRoutes } from "./products/routes.ts";
 import { projectRoutes } from "./projects/routes.ts";
+import { ideaRoutes } from "./admin/comms.ts";
 import { referralRoutes } from "./billing/referrals.ts";
 import { announcementRoutes } from "./announcements/routes.ts";
 import { backupRoutes } from "./backups/routes.ts";
@@ -53,6 +54,13 @@ export async function buildApp(opts: FastifyServerOptions = {}, deps: { npCall?:
   await app.register(cookie);
   // Coarse per-IP limit for everything; auth routes set stricter limits per route.
   await app.register(rateLimit, { global: true, max: 300, timeWindow: "1 minute" });
+  // An admin looking at a client's panel changes nothing there (only stopping the view and signing out).
+  app.addHook("preHandler", async (req, reply) => {
+    if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return;
+    if (!req.cookies?.ok_session || req.url.startsWith("/api/admin/view") || req.url.startsWith("/api/auth/logout") || req.url.startsWith("/api/public")) return;
+    const auth = req.auth ?? (await loadAuth(req));
+    if (auth?.viewOrgId) return reply.code(403).send({ error: "view_only" });
+  });
   // «Лише перегляд»: changes to a suspended business are refused (billing, support and the account stay open).
   app.addHook("preHandler", async (req, reply) => {
     if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return;
@@ -84,6 +92,7 @@ export async function buildApp(opts: FastifyServerOptions = {}, deps: { npCall?:
   await app.register(cartRoutes, { prefix: "/api/shop" });
   await app.register(productRoutes, { prefix: "/api/shop" });
   await app.register(projectRoutes, { prefix: "/api/projects" });
+  await app.register(ideaRoutes, { prefix: "/api/ideas" });
   await app.register(businessRoutes, { prefix: "/api/business" });
   await app.register(customerRoutes, { prefix: "/api/customers" });
   await app.register(referralRoutes, { prefix: "/api/referrals" });

@@ -2,7 +2,7 @@
 // and makes a PNG creative from it.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
-import { go, onboard } from "./nav.mjs";
+import { go, onboard, openBusiness } from "./nav.mjs";
 import { execSync } from "node:child_process";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
@@ -25,10 +25,10 @@ await pg.getByRole("button", { name: "Створити акаунт" }).click();
 await onboard(pg);
 execSync(`npm run -s admin:grant -w @oneknight/api -- ${email}`);
 await pg.reload({ waitUntil: "networkidle" });
-await nav("Бізнеси");
-const panel = pg.locator(".okp", { hasText: "Відгуки E2E" }).first();
+const panel = await openBusiness(pg, "Відгуки E2E");
 await panel.getByRole("button", { name: "Відкрити 3 місяці безкоштовно" }).click();
 await pg.getByText("Безкоштовний період відкрито").waitFor();
+await panel.getByRole("tab", { name: "Сайти" }).click();
 await panel.getByLabel("Домен").fill("example.org");
 await panel.getByRole("button", { name: "Додати" }).click();
 await panel.getByText("example.org").waitFor();

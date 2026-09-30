@@ -2,8 +2,8 @@
 // link, the client joins and approves a stage in «Послуги», Ivan launches the website.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
-import { go, onboard } from "./nav.mjs";
-import { execSync } from "node:child_process";
+import { go, onboard, openBusiness } from "./nav.mjs";
+import { execFileSync, execSync } from "node:child_process";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
 const SHOTS = process.env.SHOTS;
@@ -14,7 +14,7 @@ let failed = false;
 const ok = (c, msg) => { if (!c) failed = true; console.log(c ? "PASS" : "FAIL", msg); };
 const seen = (loc, timeout = 6000) => loc.waitFor({ timeout }).then(() => true, () => false);
 const stamp = Date.now();
-const psql = (q) => execSync(`docker exec oneknight-db psql -U oneknight -d oneknight -tAc "${q}"`).toString().trim();
+const psql = (q) => execFileSync("docker", ["exec", "oneknight-db", "psql", "-U", "oneknight", "-d", "oneknight", "-tAc", q]).toString().trim();
 
 async function signUp(pg, name, phone, email) {
   pg.on("pageerror", (e) => { if (!String(e).includes("#418")) errs.push(`${pg.url()} ${String(e).slice(0, 80)}`); });
@@ -26,10 +26,10 @@ async function signUp(pg, name, phone, email) {
   await onboard(pg);
 }
 
-// A lead from the public site, without an account.
-const lead = await fetch(`${BASE}/api/leads`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ service: "website", siteType: "shop", business: `Свічки E2E ${stamp}`, about: "Продаю свічки в Instagram", name: "Олена E2E", phone: "+380671119900", locale: "uk" }) });
-ok(lead.status === 201, "a lead from the site");
-const leadNo = (await lead.json()).number;
+// A lead from the public site, without an account (straight into the database: the form's 5-per-10-minutes limit
+// would stop repeated runs; the form itself is tested in leads.test.ts).
+const leadNo = Number(psql(`insert into leads (name, phone, service, site_type, brief, source, locale) values ('Олена E2E', '+380671119900', 'website', 'shop', '{"business":"Свічки E2E ${stamp}","about":"Продаю свічки в Instagram"}', 'site', 'uk') returning number`).split("\n")[0]);
+ok(leadNo > 0, "a lead from the site");
 
 const pg = await b.newPage({ viewport: { width: 1360, height: 900 } });
 const adminEmail = `admin-e2e${stamp}@test.oneknight.local`;
@@ -107,6 +107,62 @@ if (SHOTS) {
 await pg.locator(".ok-detail").getByRole("button", { name: "Запустити сайт" }).click();
 ok(await seen(pg.getByText("Сайт запущено: клієнту відкрито 3 місяці ONEKNIGHT")), "launched");
 ok(psql(`select count(*) from sites where domain = 'svichky${stamp}.com.ua'`) === "1", "the website is in the client's «Сайт»");
+
+// The client suggests an idea and writes to support.
+await go(cp, "Підтримка");
+await cp.getByLabel("Ваша ідея").fill(`Друк наклейок з логотипом E2E ${stamp}`);
+await cp.getByRole("button", { name: "Надіслати ідею" }).click();
+ok(await seen(cp.getByText("Дякуємо! Ідею отримали.")), "an idea from the client");
+await cp.getByLabel("Опишіть, що сталося").fill("Як додати менеджера в команду?");
+await cp.getByRole("button", { name: "Надіслати", exact: true }).click();
+ok(await seen(cp.getByText(/Звернення №\d+ створено/)), "a support request from the client");
+
+// «Бізнеси»: the card, a tag, a balance adjustment with a reason, the client's panel read only.
+const bc = await openBusiness(pg, "Олена E2E");
+await bc.getByLabel("Твої мітки").fill("VIP, свічки");
+await bc.getByRole("button", { name: "Зберегти" }).click();
+await bc.getByRole("tab", { name: "Оплата" }).click();
+await bc.getByLabel("Сума, грн").fill("100");
+await bc.getByLabel("Причина").fill("Компенсація E2E");
+await bc.getByRole("button", { name: "Змінити баланс" }).click();
+ok(await seen(bc.getByText("Компенсація E2E")), "a balance adjustment with its reason");
+ok(await seen(pg.locator(".app-table tbody tr", { hasText: "Олена E2E" }).getByText("VIP")), "the tag in the table");
+if (SHOTS) {
+  await pg.waitForTimeout(400);
+  await pg.screenshot({ path: `${SHOTS}/admin-clients.png` });
+}
+await bc.getByRole("tab", { name: "Огляд" }).click();
+await bc.getByRole("button", { name: "Переглянути кабінет" }).click();
+ok(await seen(pg.getByText(/Ви переглядаєте кабінет «.*»: лише читання/), 10000), "viewing the client's panel");
+await pg.locator(".ok-side").getByRole("button", { name: "Головна", exact: true }).waitFor({ timeout: 10000 });
+await go(pg, "Підтримка");
+ok(await seen(pg.locator(".ok-rows .ok-row").first()), "sees the client's data (their support requests)");
+if (SHOTS) await pg.screenshot({ path: `${SHOTS}/admin-viewing.png` });
+await pg.getByRole("button", { name: "Завершити перегляд" }).click();
+ok(await seen(pg.getByRole("heading", { name: "Бізнеси" }), 10000), "back in the admin after the view");
+
+// «Звернення»: the queue and a ready answer with the client's name.
+await go(pg, "Звернення");
+await pg.locator(".ok-row", { hasText: "Олена E2E" }).first().click();
+await pg.getByLabel("Шаблон відповіді…").selectOption({ label: "Привітання" });
+ok((await pg.getByLabel("Відповісти").inputValue()).startsWith("Вітаю, Олена!"), "a template with the client's name");
+await pg.getByRole("button", { name: "Надіслати", exact: true }).click();
+
+// «Комунікації»: a message to a segment, and the idea marked done.
+await go(pg, "Комунікації");
+await pg.getByLabel("Кому", { exact: true }).selectOption("trial");
+await pg.getByLabel("Заголовок").fill("Нове: незавершені кошики E2E");
+await pg.getByLabel("Текст").fill("Подивіться вкладку в «Замовленнях».");
+ok(await seen(pg.getByText(/Отримають: [1-9]/)), "how many get it");
+pg.once("dialog", (dlg) => dlg.accept());
+await pg.getByRole("button", { name: "Надіслати", exact: true }).click();
+ok(await seen(pg.getByText(/Надіслано: [1-9]/)), "sent to the segment");
+if (SHOTS) await pg.screenshot({ path: `${SHOTS}/admin-comms.png` });
+await pg.getByRole("tab", { name: "Ідеї клієнтів" }).click();
+await pg.locator(".ok-list li", { hasText: `Друк наклейок з логотипом E2E ${stamp}` }).getByLabel("Стан ідеї").selectOption("done");
+ok(await seen(pg.getByText("Позначено «Зроблено»: клієнт отримав сповіщення")), "the idea is done, the client is told");
+psql("delete from ideas where text like '%E2E%'");
+psql("delete from broadcasts where title like '%E2E%'");
 
 ok(errs.length === 0, `no page errors ${errs.join(" | ")}`);
 psql(`delete from projects where title = 'Свічки E2E ${stamp}'`);

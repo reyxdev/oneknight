@@ -77,7 +77,7 @@ export function NewsButton({ data, onSeen }: { data: Data; onSeen: () => void })
 type AdminItem = Item & { kind: "banner" | "news"; startsAt: string; endsAt: string | null; closed: number };
 
 /** Admin: write a promotion banner (with dates) or a «Що нового» entry for everyone. */
-export function AnnouncementsAdmin() {
+export function AnnouncementsAdmin({ embedded = false }: { embedded?: boolean }) {
   const t = useDict().app.newsAdmin;
   const f = useFormat();
   const [list, setList] = useState<AdminItem[] | null>(null);
@@ -104,8 +104,8 @@ export function AnnouncementsAdmin() {
     void load();
   };
   return (
-    <div className="ok-screen">
-      <div className="ok-h"><h3>{t.title}</h3></div>
+    <div className={embedded ? "grid gap-4" : "ok-screen"}>
+      {!embedded && <div className="ok-h"><h3>{t.title}</h3></div>}
       <Panel title={t.new}>
         <form className="grid gap-3" onSubmit={submit} noValidate>
           <div className="ok-seg" role="radiogroup" aria-label={t.kind}>

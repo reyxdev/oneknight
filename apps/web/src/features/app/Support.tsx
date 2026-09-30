@@ -12,7 +12,8 @@ import { playSound } from "@/lib/sound";
 import { Empty, Panel, useFlash, useFormat } from "@/features/oneknight/ui/kit";
 
 type Category = "bug" | "question" | "change" | "oneknight" | "site" | "other";
-type Ticket = { id: string; number: number; category: Category; status: "open" | "answered" | "closed"; updatedAt: string; org?: string };
+type Ticket = { id: string; number: number; category: Category; status: "open" | "answered" | "closed"; updatedAt: string; org?: string; contract?: boolean; waitingSince?: string | null };
+type Template = { id: string; title: string; body: string; sort: number };
 type Message = { id: string; staff: boolean; body: string; fileId: string | null; at: string; author: string | null };
 const pill = { open: "new", answered: "done", closed: "cancelled" } as const;
 
@@ -48,6 +49,11 @@ function Thread({ id, admin, onBack }: { id: string; admin: boolean; onBack: () 
   useEffect(() => {
     void load();
   }, [load]);
+  // Admin: ready answers with the client's name and the request number filled in.
+  const [templates, setTemplates] = useState<Template[]>([]);
+  useEffect(() => {
+    if (admin) void api<Template[]>("/admin/tickets/templates").then((r) => r.ok && setTemplates(r.data));
+  }, [admin]);
   const send = async (e: FormEvent) => {
     e.preventDefault();
     if (!text.trim()) return;
@@ -84,6 +90,15 @@ function Thread({ id, admin, onBack }: { id: string; admin: boolean; onBack: () 
         ))}
       </ul>
       <form className="ok-form" onSubmit={send} noValidate>
+        {admin && templates.length > 0 && (
+          <label className="ok-select" style={{ justifySelf: "start" }}>
+            <span className="sr-only">{d.app.supportAdmin.template}</span>
+            <select value="" onChange={(e) => { const x = templates.find((y) => y.id === e.target.value); if (x) setText(x.body.replaceAll("{name}", (data.messages.find((m) => !m.staff)?.author ?? "").split(" ")[0] || "").replaceAll("{n}", String(data.number))); }}>
+              <option value="">{d.app.supportAdmin.template}</option>
+              {templates.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}
+            </select>
+          </label>
+        )}
         <Field label={t.reply} error={err ?? undefined}>{(p) => <textarea {...p} className="input" rows={3} value={text} onChange={(e) => setText(e.target.value)} />}</Field>
         <AttachPicker value={file} onChange={setFile} />
         <div className="ok-actions">
@@ -169,7 +184,7 @@ export function SupportScreen({ admin = false }: { admin?: boolean }) {
               <li key={x.id}>
                 <button type="button" className="ok-row" onClick={() => setOpen(x.id)}>
                   <span className="num ok-muted">#{x.number}</span>
-                  <span className="ok-grow"><b>{d.ok.support.categories[x.category]}</b><small>{x.org ? `${x.org} · ` : ""}{f.ago(new Date(x.updatedAt).getTime())}</small></span>
+                  <span className="ok-grow"><b>{d.ok.support.categories[x.category]}{x.contract && <span className="ok-pill app-contract-pill" data-s="paid">{d.app.clients.contractShort}</span>}</b><small>{x.org ? `${x.org} · ` : ""}{x.status === "open" && x.waitingSince ? fmt(d.app.supportAdmin.waiting, { t: f.ago(new Date(x.waitingSince).getTime()) }) : f.ago(new Date(x.updatedAt).getTime())}</small></span>
                   <span className="ok-pill" data-s={pill[x.status]}>{t.status[x.status]}</span>
                 </button>
               </li>
@@ -177,7 +192,93 @@ export function SupportScreen({ admin = false }: { admin?: boolean }) {
           </ul>
         )}
       </Panel>
+      {admin && <TemplatesAdmin />}
+      {!admin && <Ideas />}
       {flash}
     </div>
+  );
+}
+
+/** Admin: the ready answers ({name} — the client's first name, {n} — the request number). */
+function TemplatesAdmin() {
+  const t = useDict().app.supportAdmin;
+  const [list, setList] = useState<Template[]>([]);
+  const [edit, setEdit] = useState<{ id?: string; title: string; body: string } | null>(null);
+  const load = useCallback(async () => {
+    const r = await api<Template[]>("/admin/tickets/templates");
+    if (r.ok) setList(r.data);
+  }, []);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!edit) return;
+    await api(edit.id ? `/admin/tickets/templates/${edit.id}` : "/admin/tickets/templates", { method: edit.id ? "PATCH" : "POST", body: { title: edit.title, body: edit.body } });
+    setEdit(null);
+    void load();
+  };
+  return (
+    <Panel title={t.templates} action={<button type="button" className="btn btn-sm btn-ghost" onClick={() => setEdit({ title: "", body: "" })}><Icon name="plus" size={14} />{t.templateAdd}</button>}>
+      <p className="ok-muted">{t.templatesHint}</p>
+      {edit && (
+        <form className="ok-form" onSubmit={save}>
+          <Field label={t.templateTitle}>{(p) => <input {...p} className="input" maxLength={80} value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} />}</Field>
+          <Field label={t.templateBody}>{(p) => <textarea {...p} className="input" rows={4} maxLength={3000} value={edit.body} onChange={(e) => setEdit({ ...edit, body: e.target.value })} />}</Field>
+          <div className="ok-actions">
+            <button type="submit" className="btn btn-sm" disabled={!edit.title.trim() || !edit.body.trim()}>{t.templateSave}</button>
+            <button type="button" className="btn btn-sm btn-ghost" onClick={() => setEdit(null)}>{t.templateCancel}</button>
+          </div>
+        </form>
+      )}
+      <ul className="ok-list">
+        {list.map((x) => (
+          <li key={x.id}>
+            <span className="ok-grow app-cell-main"><b>{x.title}</b><small>{x.body.slice(0, 120)}{x.body.length > 120 ? "…" : ""}</small></span>
+            <button type="button" className="ok-link" onClick={() => setEdit({ id: x.id, title: x.title, body: x.body })}>{t.templateEdit}</button>
+            <button type="button" className="ok-link ok-danger" onClick={async () => { await api(`/admin/tickets/templates/${x.id}`, { method: "DELETE" }); void load(); }}>{t.templateDelete}</button>
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  );
+}
+
+/** «Запропонувати ідею»: goes to Ivan; the status comes back here (and «Зроблено» to the bell). */
+function Ideas() {
+  const d = useDict();
+  const t = d.app.ideas;
+  const f = useFormat();
+  const [text, setText] = useState("");
+  const [mine, setMine] = useState<{ id: string; text: string; status: "new" | "planned" | "done" | "declined"; createdAt: string }[]>([]);
+  const [sent, setSent] = useState(false);
+  const load = useCallback(async () => {
+    const r = await api<typeof mine>("/ideas/mine");
+    if (r.ok) setMine(r.data);
+  }, []);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  return (
+    <Panel title={t.title}>
+      <p className="ok-muted">{t.lead}</p>
+      <form className="ok-form" onSubmit={async (e) => { e.preventDefault(); const r = await api("/ideas", { method: "POST", body: { text: text.trim() } }); if (r.ok) { setText(""); setSent(true); void load(); } }}>
+        <Field label={t.label}>{(p) => <textarea {...p} className="input" rows={3} maxLength={2000} value={text} onChange={(e) => { setText(e.target.value); setSent(false); }} />}</Field>
+        <div className="ok-actions">
+          <button type="submit" className="btn btn-sm btn-secondary" disabled={text.trim().length < 10}>{t.send}</button>
+          {sent && <span className="ok-muted">{t.thanks}</span>}
+        </div>
+      </form>
+      {mine.length > 0 && (
+        <ul className="ok-list">
+          {mine.map((x) => (
+            <li key={x.id}>
+              <span className="ok-grow app-cell-main"><span>{x.text}</span><small>{f.date(new Date(x.createdAt).getTime())}</small></span>
+              <span className="ok-pill" data-s={x.status === "done" ? "done" : x.status === "planned" ? "confirmed" : x.status === "declined" ? "cancelled" : "new"}>{t.status[x.status]}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
   );
 }

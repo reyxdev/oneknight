@@ -70,7 +70,7 @@ export function AdminOverview({ go }: { go: (screen: string, tab?: string) => vo
           <ul className="ok-list">
             {o.risk.map((r) => (
               <li key={r.id}>
-                <span className="ok-grow">
+                <span className="ok-grow app-cell-main">
                   <b>{r.name}</b>
                   <small>{r.owner} · <a className="ok-link" href={`tel:${r.phone.replace(/[^\d+]/g, "")}`}>{r.phone}</a>{r.lastSeen ? ` · ${fmt(t.lastSeen, { ago: f.ago(new Date(r.lastSeen).getTime()) })}` : ""}</small>
                 </span>

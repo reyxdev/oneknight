@@ -63,6 +63,10 @@ export const organizations = pgTable("organizations", {
   firstStepsRewardAt: timestamp("first_steps_reward_at", { withTimezone: true }),
   /** Business data deleted after 90 days of suspension (the account and the login stay). */
   purgedAt: timestamp("purged_at", { withTimezone: true }),
+  /** Ivan's own tags on the business («Бізнеси»), never shown to the client. */
+  adminTags: text("admin_tags").array().notNull().default(sql`'{}'::text[]`),
+  /** «Підтримка за договором»: a separate support contract; its requests go first. */
+  supportContract: boolean("support_contract").notNull().default(false),
   /** Answers to the questions after sign-up (owner). Null = not answered yet: the panel asks first. */
   /** Numbering of orders: the last number given (the first order gets 1001). */
   orderSeq: integer("order_seq").notNull().default(1000),
@@ -118,6 +122,9 @@ export const sessions = pgTable(
     mfaPassed: boolean("mfa_passed").notNull().default(false),
     /** Organization the user is working in (members of several businesses switch it). */
     activeOrgId: uuid("active_org_id"),
+    /** An admin looking at a client's panel (read only, logged); ends by itself after 2 hours. */
+    viewOrgId: uuid("view_org_id"),
+    viewStartedAt: timestamp("view_started_at", { withTimezone: true }),
     ip: inet("ip"),
     userAgent: text("user_agent"),
     createdAt: createdAt(),
@@ -936,4 +943,54 @@ export const projectComments = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("project_comments_project_idx").on(t.projectId, t.createdAt)],
+);
+
+/** Ivan's notes on a business. */
+export const orgNotes = pgTable(
+  "org_notes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    text: text("text").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("org_notes_org_idx").on(t.organizationId, t.createdAt)],
+);
+
+/** Ready answers for support requests; {name} is the client's name, {n} the request number. */
+export const replyTemplates = pgTable("reply_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  sort: integer("sort").notNull().default(0),
+  createdAt: createdAt(),
+});
+
+/** A message from Ivan to all businesses or a segment: the bell of each owner, and Telegram. */
+export const broadcasts = pgTable("broadcasts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  title: text("title").notNull(),
+  text: text("text").notNull(),
+  /** all | trial | debt | module:<id> */
+  segment: text("segment").notNull(),
+  recipients: integer("recipients").notNull(),
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: createdAt(),
+});
+
+/** «Запропонувати ідею» from a client; Ivan sets the status, «Зроблено» notifies the business. */
+export const ideas = pgTable(
+  "ideas",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").references(() => organizations.id, { onDelete: "set null" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    text: text("text").notNull(),
+    /** new | planned | done | declined */
+    status: text("status").notNull().default("new"),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ideas_status_idx").on(t.status, t.createdAt)],
 );

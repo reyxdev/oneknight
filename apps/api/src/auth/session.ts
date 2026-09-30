@@ -11,7 +11,10 @@ export const HINT_COOKIE = "ok_auth";
 const TTL_MS = 30 * 24 * 3600 * 1000;
 
 export type AuthUser = typeof users.$inferSelect;
-export type Auth = { user: AuthUser; sessionHash: string; sessionId: string; mfaPassed: boolean; activeOrgId: string | null };
+/** `viewOrgId`: an admin looking at this business's panel, read only. */
+export type Auth = { user: AuthUser; sessionHash: string; sessionId: string; mfaPassed: boolean; activeOrgId: string | null; viewOrgId?: string | null };
+/** Looking at a client's panel ends by itself after this long. */
+export const VIEW_TTL_MS = 2 * 3_600_000;
 
 export async function createSession(req: FastifyRequest, reply: FastifyReply, userId: string, mfaPassed: boolean) {
   const token = randomToken();
@@ -47,7 +50,8 @@ export async function loadAuth(req: FastifyRequest): Promise<Auth | null> {
   if (Date.now() - row.s.lastSeenAt.getTime() > 60_000) {
     await db.update(sessions).set({ lastSeenAt: new Date() }).where(eq(sessions.idHash, idHash));
   }
-  return { user: row.u, sessionHash: idHash, sessionId: row.s.id, mfaPassed: row.s.mfaPassed, activeOrgId: row.s.activeOrgId };
+  const viewing = row.u.isAdmin && row.s.viewOrgId && row.s.viewStartedAt && Date.now() - row.s.viewStartedAt.getTime() < VIEW_TTL_MS ? row.s.viewOrgId : null;
+  return { user: row.u, sessionHash: idHash, sessionId: row.s.id, mfaPassed: row.s.mfaPassed, activeOrgId: row.s.activeOrgId, viewOrgId: viewing };
 }
 
 /** Full access requires the second factor when 2FA is on. */

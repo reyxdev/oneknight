@@ -2,7 +2,7 @@
 // PAYMENT_RECIPIENT="Test recipient" PAYMENT_IBAN="UA000000000000000000000000000" npm start -w @oneknight/api
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
-import { go, onboard } from "./nav.mjs";
+import { go, onboard, openBusiness } from "./nav.mjs";
 import { execSync } from "node:child_process";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
@@ -28,8 +28,7 @@ ok(await pg.getByRole("button", { name: /Пробний: (30|29) дн\./ }).wait
 
 execSync(`npm run -s admin:grant -w @oneknight/api -- ${email}`);
 await pg.reload({ waitUntil: "networkidle" });
-await nav("Бізнеси");
-await pg.locator(".okp", { hasText: "Оплата E2E" }).getByRole("button", { name: "Відкрити 3 місяці безкоштовно" }).click();
+await (await openBusiness(pg, "Оплата E2E")).getByRole("button", { name: "Відкрити 3 місяці безкоштовно" }).click();
 await pg.getByText("Безкоштовний період відкрито").waitFor();
 await nav("Оплата");
 ok(await pg.getByText("Безкоштовний період").first().waitFor({ timeout: 5000 }).then(() => true, () => false), "trial is active after the admin opens it");

@@ -2,7 +2,7 @@
 // real .xlsx template, bulk price change with the old price kept, tiles, history.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
-import { go, onboard } from "./nav.mjs";
+import { go, onboard, openBusiness } from "./nav.mjs";
 import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -28,8 +28,8 @@ await pg.getByRole("button", { name: "Створити акаунт" }).click();
 await onboard(pg);
 execSync(`npm run -s admin:grant -w @oneknight/api -- ${email}`);
 await pg.reload({ waitUntil: "networkidle" });
-await go(pg, "Бізнеси");
-const biz = pg.locator(".okp", { hasText: "Товари E2E" }).first();
+const biz = await openBusiness(pg, "Товари E2E");
+await biz.getByRole("tab", { name: "Сайти" }).click();
 await biz.getByLabel("Домен").fill("products.example.net");
 await biz.getByRole("button", { name: "Додати" }).click();
 await biz.getByText("products.example.net").waitFor();
@@ -51,7 +51,7 @@ ok(await seen(cats.getByRole("button", { name: /^Сукні/ })), "a subcategory
 await pg.getByRole("button", { name: "Додати товар" }).click();
 const ed = pg.locator(".ok-detail");
 await ed.locator(".app-gallery input[type=file]").setInputFiles([shot, shot]);
-ok((await ed.locator(".app-gallery figure").count()) === 2, "two photos chosen at once");
+ok(await ed.locator(".app-gallery figure").nth(1).waitFor({ timeout: 5000 }).then(() => true, () => false), "two photos chosen at once");
 await ed.getByLabel("Назва", { exact: true }).fill("Сукня з льону");
 await ed.getByLabel("Артикул").fill("DR-1");
 await ed.getByLabel("Категорія").selectOption({ label: "· Сукні" });

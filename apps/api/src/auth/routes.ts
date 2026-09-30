@@ -10,7 +10,7 @@ import { checkTotp, newTotpSecret, totpUri } from "../security/totp.ts";
 import { clearCookies, createSession, isComplete, loadAuth, type Auth } from "./session.ts";
 import { isLockedOut } from "./limits.ts";
 import { audit } from "../audit.ts";
-import { membershipsOf } from "./access.ts";
+import { PERMISSIONS, membershipsOf } from "./access.ts";
 import { referrerOf } from "../billing/referrals.ts";
 
 const email = z.string().trim().toLowerCase().email().max(254);
@@ -33,7 +33,8 @@ function bad(reply: FastifyReply, status: number, error: string) {
   return reply.code(status).send({ error });
 }
 
-async function me(user: Auth["user"], activeOrgId: string | null = null) {
+async function me(user: Auth["user"], activeOrgId: string | null = null, viewOrgId: string | null = null) {
+  if (viewOrgId) return viewedMe(user, viewOrgId);
   const orgs = await db
     .select({ id: organizations.id, name: organizations.name, role: memberships.role })
     .from(memberships)
@@ -61,6 +62,29 @@ async function me(user: Auth["user"], activeOrgId: string | null = null) {
     // The owner answers the questions after sign-up once; invited people never see them.
     onboarded: active?.role !== "owner" || !!org?.onboarding,
     subscription: sub ?? null,
+  };
+}
+
+/** The admin in a client's panel: the business as its owner sees it, marked as viewing (read only). */
+async function viewedMe(user: Auth["user"], orgId: string) {
+  const [org] = await db.select({ id: organizations.id, name: organizations.name, onboarding: organizations.onboarding }).from(organizations).where(eq(organizations.id, orgId));
+  const modules = (await db.select({ id: moduleInstalls.moduleId }).from(moduleInstalls).where(eq(moduleInstalls.organizationId, orgId))).map((m) => m.id);
+  const [sub] = await db.select({ status: subscriptions.status, periodEnd: subscriptions.periodEnd }).from(subscriptions).where(eq(subscriptions.organizationId, orgId));
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    phone: user.phone,
+    isAdmin: true,
+    totpEnabled: user.totpEnabled,
+    organizations: org ? [{ id: org.id, name: org.name, role: "owner" as const }] : [],
+    activeOrgId: orgId,
+    role: "owner" as const,
+    permissions: [...PERMISSIONS],
+    modules,
+    onboarded: true,
+    subscription: sub ?? null,
+    viewing: { orgId, name: org?.name ?? "" },
   };
 }
 
@@ -157,7 +181,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       return bad(reply, 401, "unauthorized");
     }
     if (!isComplete(a)) return bad(reply, 401, "mfa_required");
-    return me(a.user, a.activeOrgId);
+    return me(a.user, a.activeOrgId, a.viewOrgId ?? null);
   });
 
   /** Switch the organization this session works in. */

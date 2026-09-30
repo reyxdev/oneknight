@@ -1,7 +1,7 @@
 // Admin adds a real site to a client; the client sees live monitoring. Needs the API with network access.
 import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
-import { go, onboard } from "./nav.mjs";
+import { go, onboard, openBusiness } from "./nav.mjs";
 import { execSync } from "node:child_process";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
@@ -27,8 +27,8 @@ ok(await pg.getByText("Сайту поки немає").waitFor({ timeout: 5000 
 
 execSync(`npm run -s admin:grant -w @oneknight/api -- ${email}`);
 await pg.reload({ waitUntil: "networkidle" });
-await go(pg, "Бізнеси");
-const panel = pg.locator(".okp", { hasText: "Сайт E2E" }).first();
+const panel = await openBusiness(pg, "Сайт E2E");
+await panel.getByRole("tab", { name: "Сайти" }).click();
 await panel.getByLabel("Домен").fill("localhost");
 await panel.getByRole("button", { name: "Додати" }).click();
 ok(await panel.getByText("Вкажіть публічний домен").waitFor({ timeout: 5000 }).then(() => true, () => false), "local domains are refused");

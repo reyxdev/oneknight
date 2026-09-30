@@ -1,8 +1,8 @@
 import type { FastifyPluginAsync } from "fastify";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql as dsql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client.ts";
-import { notifications, organizations, ticketMessages, tickets, users } from "../db/schema.ts";
+import { notifications, organizations, replyTemplates, ticketMessages, tickets, users } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
 import { orgScope } from "../auth/access.ts";
 import { isTestContact, notifyOwner } from "../notify/telegram.ts";
@@ -81,13 +81,50 @@ export const supportRoutes: FastifyPluginAsync = async (app) => {
 
 /** Admin side: /api/admin/tickets. Registered inside the admin plugin (admin check applies). */
 export const supportAdminRoutes: FastifyPluginAsync = async (app) => {
+  /**
+   * The queue: open requests first, businesses with a support contract first among them, then the longest
+   * waiting. `waitingSince`: the client's first message after our last reply (the timer).
+   */
   app.get("/", async () => {
-    return db
-      .select({ id: tickets.id, number: tickets.number, category: tickets.category, status: tickets.status, updatedAt: tickets.updatedAt, createdAt: tickets.createdAt, org: organizations.name })
+    const rows = await db
+      .select({
+        id: tickets.id,
+        number: tickets.number,
+        category: tickets.category,
+        status: tickets.status,
+        updatedAt: tickets.updatedAt,
+        createdAt: tickets.createdAt,
+        org: organizations.name,
+        contract: organizations.supportContract,
+        waitingSince: dsql<Date | null>`(select min(m.created_at) from ticket_messages m where m.ticket_id = ${tickets.id} and not m.staff and m.created_at > coalesce((select max(s.created_at) from ticket_messages s where s.ticket_id = ${tickets.id} and s.staff), 'epoch'))`,
+      })
       .from(tickets)
       .innerJoin(organizations, eq(organizations.id, tickets.organizationId))
       .orderBy(desc(tickets.updatedAt))
       .limit(200);
+    const rank = (r: (typeof rows)[number]) => (r.status === "open" ? 0 : r.status === "answered" ? 1 : 2);
+    return rows.sort((x, y) => rank(x) - rank(y) || Number(y.contract) - Number(x.contract) || (x.status === "open" ? new Date(x.waitingSince ?? x.updatedAt).getTime() - new Date(y.waitingSince ?? y.updatedAt).getTime() : 0));
+  });
+
+  /** Ready answers; {name} and {n} are filled in the panel. */
+  app.get("/templates", async () => db.select().from(replyTemplates).orderBy(asc(replyTemplates.sort), asc(replyTemplates.createdAt)));
+  const Template = z.object({ title: z.string().trim().min(1).max(80), body: z.string().trim().min(1).max(3000), sort: z.number().int().optional() });
+  app.post("/templates", async (req, reply) => {
+    const p = Template.safeParse(req.body);
+    if (!p.success) return reply.code(400).send({ error: "invalid_input" });
+    const [row] = await db.insert(replyTemplates).values(p.data).returning();
+    return reply.code(201).send(row);
+  });
+  app.patch<{ Params: { id: string } }>("/templates/:id", async (req, reply) => {
+    const p = Template.partial().safeParse(req.body);
+    if (!p.success || !uuid.safeParse(req.params.id).success) return reply.code(400).send({ error: "invalid_input" });
+    const [row] = await db.update(replyTemplates).set(p.data).where(eq(replyTemplates.id, req.params.id)).returning();
+    return row ?? reply.code(404).send({ error: "not_found" });
+  });
+  app.delete<{ Params: { id: string } }>("/templates/:id", async (req, reply) => {
+    if (!uuid.safeParse(req.params.id).success) return reply.code(400).send({ error: "invalid_input" });
+    await db.delete(replyTemplates).where(eq(replyTemplates.id, req.params.id));
+    return { ok: true };
   });
   app.get<{ Params: { id: string } }>("/:id", async (req, reply) => {
     if (!uuid.safeParse(req.params.id).success) return reply.code(404).send({ error: "not_found" });
