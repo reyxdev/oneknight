@@ -131,8 +131,8 @@ x-site-key: YOUR_SITE_KEY`,
       },
       {
         kind: "p",
-        uk: "Версії в адресі (на кшталт /v1) поки немає: адреси в цій документації і є поточна версія API.",
-        en: "There is no version in the path (such as /v1) yet: the addresses in this documentation are the current API.",
+        uk: "Є два входи. /api/public — для браузера (ok.js, сторінки сайту) з публічним ключем. /api/v1 — для сервера вашого сайту з секретним ключем: ті самі товари, категорії й замовлення, плюс сторінка замовлення за номером. /v1 — версія: несумісні зміни підуть у /v2, а /v1 працюватиме ще щонайменше 6 місяців.",
+        en: "There are two entry points. /api/public is for the browser (ok.js, site pages) with the public key. /api/v1 is for your site's server with the secret key: the same products, categories and orders, plus an order's page data by number. /v1 is a version: breaking changes go to /v2, and /v1 keeps working for at least 6 months.",
       },
     ],
   },
@@ -187,8 +187,27 @@ x-site-key: YOUR_SITE_KEY`,
       },
       {
         kind: "p",
-        uk: "Окремий секретний ключ для сервера поки в розробці. Зараз один ключ працює і в браузері, і на сервері.",
-        en: "A separate secret key for servers is in development. For now one key works both in the browser and on the server.",
+        uk: "Секретний ключ (ok_sec_…) — для сервера сайту. Його створює власник бізнесу в «Сайт → API й ok.js», показується один раз, у базі зберігається лише хеш. Надсилайте його в заголовку Authorization: Bearer. Запит, зроблений браузером (із заголовком Origin, Sec-Fetch-Site чи Sec-Fetch-Dest), із секретним ключем відхиляється з 403 secret_key_in_browser. Після заміни старий ключ працює ще 24 години. Ліміти — на сайт, а не на IP: 600 запитів за хвилину на читання, 300 замовлень за 10 хвилин.",
+        en: "The secret key (ok_sec_…) is for the site's server. The business owner creates it in «Сайт → API й ok.js»; it is shown once and only its hash is stored. Send it as Authorization: Bearer. A request made by a browser (with an Origin, Sec-Fetch-Site or Sec-Fetch-Dest header) carrying the secret key is refused with 403 secret_key_in_browser. After a replacement the old key keeps working for 24 hours. Limits are per site, not per IP: 600 reads a minute, 300 orders per 10 minutes.",
+      },
+      { kind: "endpoint", method: "GET", path: "/api/v1/site", uk: "Сайт і бізнес, до яких належить ключ: id, domain, name, business, verified, publicKey.", en: "The site and business the key belongs to: id, domain, name, business, verified, publicKey." },
+      { kind: "endpoint", method: "GET", path: "/api/v1/products · /api/v1/products/{id} · /api/v1/categories", uk: "Те саме, що в /api/public, але з секретним ключем і без перевірки домену.", en: "The same as in /api/public, but with the secret key and without the domain check." },
+      { kind: "endpoint", method: "POST", path: "/api/v1/orders", uk: "Те саме тіло, що в /api/public/orders, плюс необов'язковий customerIp — IP покупця для запису в замовленні.", en: "The same body as /api/public/orders, plus an optional customerIp — the buyer's IP kept with the order." },
+      { kind: "endpoint", method: "GET", path: "/api/v1/orders/{number}", uk: "Замовлення цього сайту за номером — для сторінки «Ваше замовлення»: status, statusName, paymentStatus, prepaid, total, items, delivery, payment, waybill, createdAt, history.", en: "This site's order by number — for a «Your order» page: status, statusName, paymentStatus, prepaid, total, items, delivery, payment, waybill, createdAt, history." },
+      {
+        kind: "examples",
+        js: `// Node.js, on the site's server (the key comes from the environment)
+const res = await fetch("https://oneknight.pro/api/v1/products", {
+  headers: { authorization: \`Bearer \${process.env.ONEKNIGHT_SECRET_KEY}\` },
+});
+const products = await res.json();`,
+        curl: `curl https://oneknight.pro/api/v1/products \\
+  -H "Authorization: Bearer $ONEKNIGHT_SECRET_KEY"`,
+        php: `<?php
+$ctx = stream_context_create(["http" => [
+  "header" => "Authorization: Bearer " . getenv("ONEKNIGHT_SECRET_KEY"),
+]]);
+$products = json_decode(file_get_contents("https://oneknight.pro/api/v1/products", false, $ctx), true);`,
       },
     ],
   },
@@ -718,8 +737,67 @@ echo '<script type="application/ld+json">' . json_encode($data, JSON_UNESCAPED_U
     blocks: [
       {
         kind: "p",
-        uk: "Вебхуки поки в розробці: ONEKNIGHT ще не надсилає подій на адреси вашого сервера. Нові замовлення видно в кабінеті.",
-        en: "Webhooks are in development: ONEKNIGHT does not send events to your server yet. New orders are visible in the account.",
+        uk: "ONEKNIGHT одразу повідомляє ваш сервер про зміни — так сайт оновлює сторінки й кеш сам. До 3 адрес на сайт у «Сайт → API й ok.js», кожна зі своїми подіями й секретом підпису (показується один раз).",
+        en: "ONEKNIGHT tells your server about changes at once — so the site refreshes its pages and cache by itself. Up to 3 addresses per site in «Сайт → API й ok.js», each with its own events and signing secret (shown once).",
+      },
+      {
+        kind: "fields",
+        rows: [
+          { name: "order.created", type: "event", uk: "Нове замовлення з цього сайту: orderId, number, status, paymentStatus.", en: "A new order from this site: orderId, number, status, paymentStatus." },
+          { name: "order.status_changed", type: "event", uk: "Статус змінився: orderId, number, status, previous.", en: "The status changed: orderId, number, status, previous." },
+          { name: "order.payment_changed", type: "event", uk: "Оплата змінилась: orderId, number, paymentStatus, previous.", en: "The payment changed: orderId, number, paymentStatus, previous." },
+          { name: "product.changed", type: "event", uk: "Товар створено, змінено чи видалено: productId, action (created · updated · deleted).", en: "A product was created, changed or deleted: productId, action (created · updated · deleted)." },
+          { name: "stock.changed", type: "event", uk: "Залишок чи наявність: productId, stock, availability.", en: "Stock or availability: productId, stock, availability." },
+          { name: "category.changed", type: "event", uk: "Категорію додано, змінено чи видалено: categoryId, action.", en: "A category was added, changed or deleted: categoryId, action." },
+        ],
+      },
+      {
+        kind: "code",
+        lang: "http",
+        code: `POST https://your-site/hooks/oneknight
+content-type: application/json
+x-oneknight-event: order.created
+x-oneknight-delivery: 6f1c…
+x-oneknight-signature: t=1790000000,v1=5d2a…
+
+{"id":"6f1c…","type":"order.created","createdAt":"2026-09-30T10:00:00.000Z","siteId":"…","data":{"orderId":"…","number":1041,"status":"new","paymentStatus":"unpaid"}}`,
+      },
+      {
+        kind: "list",
+        uk: [
+          "Підпис: v1 = HMAC-SHA256(секрет, t + \".\" + тіло запиту як є). Порівнюйте за сталий час і відкидайте t, старший за 5 хвилин.",
+          "Відповідь 2xx — доставлено. Інакше повторимо через 1, 5, 30 хвилин, 2 і 12 годин; далі «не доставлено» (можна надіслати ще раз з журналу).",
+          "20 доставок поспіль, що не вдалися, вимикають адресу; власник отримує сповіщення.",
+          "Та сама подія може прийти двічі — зважайте на id. Дані в події короткі: актуальний стан беріть з API.",
+        ],
+        en: [
+          "Signature: v1 = HMAC-SHA256(secret, t + \".\" + the raw request body). Compare in constant time and reject a t older than 5 minutes.",
+          "A 2xx answer means delivered. Otherwise we retry in 1, 5, 30 minutes, 2 and 12 hours; then «not delivered» (it can be sent again from the log).",
+          "20 deliveries in a row that failed switch the address off; the owner gets a notification.",
+          "The same event may come twice — use its id. Event data is short: take the current state from the API.",
+        ],
+      },
+      {
+        kind: "examples",
+        js: `// Node.js (Express): check the signature before trusting the body
+import crypto from "node:crypto";
+app.post("/hooks/oneknight", express.raw({ type: "application/json" }), (req, res) => {
+  const [, t, v1] = /^t=(\\d+),v1=([0-9a-f]{64})$/.exec(req.get("x-oneknight-signature") ?? "") ?? [];
+  const mine = crypto.createHmac("sha256", process.env.ONEKNIGHT_WEBHOOK_SECRET).update(\`\${t}.\${req.body}\`).digest("hex");
+  const fresh = Math.abs(Date.now() / 1000 - Number(t)) < 300;
+  if (!v1 || !fresh || !crypto.timingSafeEqual(Buffer.from(mine), Buffer.from(v1))) return res.sendStatus(400);
+  const event = JSON.parse(req.body);
+  // e.g. event.type === "stock.changed" → refresh the product page cache
+  res.sendStatus(204);
+});`,
+        curl: `# Send yourself a test from the account: «Сайт → API й ok.js → Вебхуки → Надіслати тест».`,
+        php: `<?php
+$body = file_get_contents("php://input");
+preg_match('/^t=(\\d+),v1=([0-9a-f]{64})$/', $_SERVER["HTTP_X_ONEKNIGHT_SIGNATURE"] ?? "", $m);
+$mine = hash_hmac("sha256", ($m[1] ?? "") . "." . $body, getenv("ONEKNIGHT_WEBHOOK_SECRET"));
+if (!$m || abs(time() - (int)$m[1]) > 300 || !hash_equals($mine, $m[2])) { http_response_code(400); exit; }
+$event = json_decode($body, true);
+http_response_code(204);`,
       },
     ],
   },

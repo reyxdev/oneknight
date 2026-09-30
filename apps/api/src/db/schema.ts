@@ -228,6 +228,15 @@ export const sites = pgTable(
     verifiedAt: timestamp("verified_at", { withTimezone: true }),
     /** Site settings: «Зроблено на ONEKNIGHT», widgets of ok.js (social proof, reviews, stars) and «вимкнути всі». */
     settings: jsonb("settings").notNull().default(sql`'{}'::jsonb`).$type<{ poweredBy?: boolean; widgetsOff?: boolean; socialProof?: boolean; reviewsBlock?: boolean; stars?: boolean }>(),
+    /**
+     * The secret server key of the site (API /v1, from the site's own server only). Shown once; only its hash is kept.
+     * After a replacement the previous one keeps working for 24 hours.
+     */
+    secretKeyHash: text("secret_key_hash").unique(),
+    secretKeyHint: text("secret_key_hint"),
+    secretKeyCreatedAt: timestamp("secret_key_created_at", { withTimezone: true }),
+    prevSecretKeyHash: text("prev_secret_key_hash"),
+    prevSecretExpiresAt: timestamp("prev_secret_expires_at", { withTimezone: true }),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("sites_domain_uq").on(t.domain), index("sites_org_idx").on(t.organizationId)],
@@ -1223,4 +1232,62 @@ export const statusIncidents = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("status_incidents_started_idx").on(t.startedAt)],
+);
+
+/** Where a site wants to hear about changes (up to 3 per site, each with its own events and signing secret). */
+export const webhookEndpoints = pgTable(
+  "webhook_endpoints",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    siteId: uuid("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    events: text("events").array().notNull(),
+    /** The signing secret, encrypted (the site verifies the HMAC with it). */
+    secret: text("secret").notNull(),
+    active: boolean("active").notNull().default(true),
+    /** Deliveries that failed for good in a row; at 20 the endpoint is switched off and the owner told. */
+    failures: integer("failures").notNull().default(0),
+    disabledAt: timestamp("disabled_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("webhook_endpoints_site_idx").on(t.siteId)],
+);
+
+/**
+ * Changes waiting to be sent (written by database triggers on products, categories and orders, so every path —
+ * the site, the panel, imports, marketplaces — is covered). The worker turns each into deliveries.
+ */
+export const webhookEvents = pgTable(
+  "webhook_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull(),
+    siteId: uuid("site_id"),
+    type: text("type").notNull(),
+    data: jsonb("data").notNull(),
+    dispatched: boolean("dispatched").notNull().default(false),
+    createdAt: createdAt(),
+  },
+  (t) => [index("webhook_events_pending_idx").on(t.createdAt).where(sql`not dispatched`)],
+);
+
+export const webhookDeliveries = pgTable(
+  "webhook_deliveries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    endpointId: uuid("endpoint_id").notNull().references(() => webhookEndpoints.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id"),
+    type: text("type").notNull(),
+    payload: jsonb("payload").notNull(),
+    /** pending → ok | failed (after the last retry) */
+    status: text("status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+    lastStatus: integer("last_status"),
+    lastError: text("last_error"),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("webhook_deliveries_due_idx").on(t.nextAttemptAt).where(sql`status = 'pending'`), index("webhook_deliveries_endpoint_idx").on(t.endpointId, t.createdAt)],
 );

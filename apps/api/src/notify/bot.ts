@@ -153,6 +153,7 @@ export function notificationText(key: string, p: Record<string, any>, finance = 
     case "siteUp": return `✅ ${p.domain} знову працює`;
     case "contentWeek": return `🗓 Новий тиждень ідей готовий: ${p.n} дописів на ${p.from} — ${p.to}. Відкрийте «Контент»`;
     case "contentToday": return `📣 Сьогодні запостити (${p.n}):\n${p.list}`;
+    case "webhookOff": return `⚠️ Вебхук ${p.url} вимкнено: 20 доставок поспіль не вдалися. Перевірте адресу в «Сайт → API й вебхуки»`;
     case "contentYours": return `📌 Ваші ідеї на сьогодні (${p.n}):\n${p.list}`;
     case "contentAssigned": return `📌 Вам призначено ідею «${p.title}» на ${p.day}`;
     case "contentMention": return `💬 ${p.name} згадав вас в ідеї «${p.title}»`;

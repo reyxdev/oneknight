@@ -12,6 +12,7 @@ import { fileRoutes } from "./files/routes.ts";
 import { shopRoutes } from "./shop/routes.ts";
 import { publicRoutes } from "./public/routes.ts";
 import { landingRoutes } from "./site/landing.ts";
+import { siteApiRoutes, v1Routes } from "./site-api/routes.ts";
 import { reviewRoutes } from "./reviews/routes.ts";
 import { analyticsRoutes } from "./analytics/routes.ts";
 import { dashboardRoutes } from "./dashboard/routes.ts";
@@ -102,6 +103,8 @@ export async function buildApp(opts: FastifyServerOptions = {}, deps: { npCall?:
   await app.register(announcementRoutes, { prefix: "/api/announcements" });
   await app.register(publicRoutes, { prefix: "/api/public" });
   await app.register(landingRoutes, { prefix: "/api/site" });
+  await app.register(v1Routes, { prefix: "/api/v1" });
+  await app.register(siteApiRoutes, { prefix: "/api" });
   await app.register(reviewRoutes, { prefix: "/api/reviews" });
   await app.register(analyticsRoutes, { prefix: "/api/analytics" });
   await app.register(dashboardRoutes, { prefix: "/api/dashboard" });

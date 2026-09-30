@@ -85,32 +85,7 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
     await scoped.register(cartPublicRoutes);
   });
 
-  app.get("/products", { preHandler: siteByKey }, async (req) => {
-    const rows = await db.select().from(products).where(and(eq(products.siteId, req.site!.id), eq(products.active, true), isNull(products.archivedAt))).orderBy(asc(products.sort), asc(products.createdAt));
-    // Cost, thresholds and the history never leave the account.
-    return rows.map((p) => ({
-      id: p.id,
-      sku: p.sku,
-      name: p.name,
-      description: p.description,
-      categoryId: p.categoryId,
-      price: p.priceKop / 100,
-      oldPrice: p.oldPriceKop !== null && p.oldPriceKop > p.priceKop ? p.oldPriceKop / 100 : null,
-      discountPercent: p.oldPriceKop !== null && p.oldPriceKop > p.priceKop ? Math.round((1 - p.priceKop / p.oldPriceKop) * 100) : null,
-      /** in_stock · to_order · expected · out; only in_stock and to_order can be ordered. */
-      availability: stateOf(p),
-      orderDays: p.availability === "to_order" ? p.orderDays : null,
-      inStock: orderable(p),
-      stock: p.stock,
-      /** «Залишилось N шт.». */
-      fewLeft: isLow(p),
-      photo: p.photoFileId ? `/api/files/${p.photoFileId}` : null,
-      photos: p.photos.map((id) => `/api/files/${id}`),
-      attributes: p.attributes,
-      warrantyMonths: p.warrantyMonths,
-      weightG: p.weightG,
-    }));
-  });
+  app.get("/products", { preHandler: siteByKey }, async (req) => catalogOf(req.site!.id));
 
   /**
    * What ok.js should switch on for this site (the site's settings; reviews need the module). Read by the
@@ -180,18 +155,54 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
   });
 
   /** Categories of the catalogue (a tree by `parentId`). */
-  app.get("/categories", { preHandler: siteByKey }, async (req) => {
-    const rows = await db.select().from(productCategories).where(eq(productCategories.siteId, req.site!.id)).orderBy(asc(productCategories.sort), asc(productCategories.name));
-    return rows.map((c) => ({ id: c.id, name: c.name, parentId: c.parentId }));
-  });
+  app.get("/categories", { preHandler: siteByKey }, async (req) => categoriesOf(req.site!.id));
 
   app.post("/orders", { preHandler: siteByKey, config: { rateLimit: { max: 10, timeWindow: "10 minutes" } } }, async (req, reply) => {
-    const p = Order.safeParse(req.body);
-    if (!p.success) return reply.code(400).send({ error: "invalid_input" });
-    const r = await placeOrder(req.site!, p.data, req.ip);
-    if (!r.ok) return reply.code(409).send(r);
-    await finishCarts(req.site!.organizationId, r.order.id, p.data.customer.phone, p.data.analytics?.session);
-    if (p.data.analytics && (await hasModule(req.site!.organizationId, "analytics"))) await recordEvent(req.site!, "order", p.data.analytics, { valueKop: r.order.totalKop });
-    return reply.code(201).send({ number: r.order.number, total: r.order.totalKop / 100, status: r.order.status });
+    const r = await createSiteOrder(req.site!, req.body, req.ip);
+    return reply.code(r.code).send(r.body);
   });
 };
+
+/** The catalogue a site shows: active products in the account's order (ok.js, the public API and /v1 alike). */
+export async function catalogOf(siteId: string) {
+    const rows = await db.select().from(products).where(and(eq(products.siteId, siteId), eq(products.active, true), isNull(products.archivedAt))).orderBy(asc(products.sort), asc(products.createdAt));
+    // Cost, thresholds and the history never leave the account.
+    return rows.map((p) => ({
+      id: p.id,
+      sku: p.sku,
+      name: p.name,
+      description: p.description,
+      categoryId: p.categoryId,
+      price: p.priceKop / 100,
+      oldPrice: p.oldPriceKop !== null && p.oldPriceKop > p.priceKop ? p.oldPriceKop / 100 : null,
+      discountPercent: p.oldPriceKop !== null && p.oldPriceKop > p.priceKop ? Math.round((1 - p.priceKop / p.oldPriceKop) * 100) : null,
+      /** in_stock · to_order · expected · out; only in_stock and to_order can be ordered. */
+      availability: stateOf(p),
+      orderDays: p.availability === "to_order" ? p.orderDays : null,
+      inStock: orderable(p),
+      stock: p.stock,
+      /** «Залишилось N шт.». */
+      fewLeft: isLow(p),
+      photo: p.photoFileId ? `/api/files/${p.photoFileId}` : null,
+      photos: p.photos.map((id) => `/api/files/${id}`),
+      attributes: p.attributes,
+      warrantyMonths: p.warrantyMonths,
+      weightG: p.weightG,
+    }));
+}
+
+export async function categoriesOf(siteId: string) {
+  const rows = await db.select().from(productCategories).where(eq(productCategories.siteId, siteId)).orderBy(asc(productCategories.sort), asc(productCategories.name));
+  return rows.map((c) => ({ id: c.id, name: c.name, parentId: c.parentId }));
+}
+
+/** An order from the site (the browser with the public key, or the site's server with the secret one). */
+export async function createSiteOrder(site: typeof sites.$inferSelect, body: unknown, ip: string) {
+  const p = Order.safeParse(body);
+  if (!p.success) return { code: 400, body: { error: "invalid_input" } as object };
+  const r = await placeOrder(site, p.data, ip);
+  if (!r.ok) return { code: 409, body: r as object };
+  await finishCarts(site.organizationId, r.order.id, p.data.customer.phone, p.data.analytics?.session);
+  if (p.data.analytics && (await hasModule(site.organizationId, "analytics"))) await recordEvent(site, "order", p.data.analytics, { valueKop: r.order.totalKop });
+  return { code: 201, body: { number: r.order.number, total: r.order.totalKop / 100, status: r.order.status } as object };
+}

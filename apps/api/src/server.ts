@@ -20,6 +20,7 @@ import { runWeeklyAudits } from "./sites/audit.ts";
 import { purgeContentHistory, runContentMorning, runContentWeekly } from "./content/jobs.ts";
 import { ensureContentSeed } from "./content/seed.ts";
 import { runStatusChecks } from "./site/status.ts";
+import { deliverDue, dispatchEvents, purgeWebhooks } from "./webhooks/service.ts";
 import { notifyOwner } from "./notify/telegram.ts";
 
 const app = await buildApp();
@@ -44,6 +45,17 @@ void runBilling().catch((e) => app.log.error(e));
 void runMorningReport((text) => notifyOwner(text, app.log)).catch((e) => app.log.error(e));
 const stopBot = startBotPolling(app.log);
 const tgTimer = setInterval(() => void deliverTelegram(undefined, { skipTestAccounts: true }).catch((e) => app.log.error(e)), 15_000);
+// Webhooks to client sites: changes become deliveries, due deliveries go out (every 15 s); history is purged hourly.
+let webhookBusy = false;
+const webhookTimer = setInterval(() => {
+  if (webhookBusy) return;
+  webhookBusy = true;
+  void dispatchEvents({ skipTestAccounts: true })
+    .then(() => deliverDue(undefined, new Date(), { skipTestAccounts: true }))
+    .catch((e) => app.log.error(e))
+    .finally(() => (webhookBusy = false));
+}, 15_000);
+const webhookPurgeTimer = setInterval(() => void purgeWebhooks().catch((e) => app.log.error(e)), 3600_000);
 // The public status page: every service checked every 5 minutes.
 const statusTimer = setInterval(() => void runStatusChecks().catch((e) => app.log.error(e)), 5 * 60_000);
 void runStatusChecks().catch((e) => app.log.error(e));
@@ -74,6 +86,8 @@ const shutdown = async () => {
   clearInterval(trackTimer);
   clearInterval(backupTimer);
   clearInterval(statusTimer);
+  clearInterval(webhookTimer);
+  clearInterval(webhookPurgeTimer);
   clearInterval(tgTimer);
   stopBot();
   await app.close();

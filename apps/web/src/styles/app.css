@@ -521,3 +521,10 @@ label.app-inline { display: inline-flex; align-items: center; gap: 0.4rem; font-
 .app-learn { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.3rem; }
 .app-incident { display: grid !important; grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr); gap: 0.75rem; align-items: start; }
 @media (max-width: 640px) { .app-incident { grid-template-columns: 1fr; } }
+.app-once { display: grid; gap: 0.5rem; padding: 0.9rem 1rem; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line)); background: color-mix(in srgb, var(--warn) 8%, var(--surface)); }
+.app-once p { margin: 0; }
+.app-hook { display: grid !important; gap: 0.5rem; }
+.app-hook-head { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-start; justify-content: space-between; }
+.app-hook-url { word-break: break-all; font-family: var(--font-code); font-size: 0.875rem; }
+.app-hook-help summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+.app-deliveries li[data-s="failed"] b { color: var(--bad); }

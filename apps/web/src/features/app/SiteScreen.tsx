@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/Icon";
 import { api } from "@/lib/api";
 import { AreaChart, Panel, Stat, useFormat } from "@/features/oneknight/ui/kit";
 import { SiteApiPanel } from "./Shop";
+import { SiteServerApi } from "./SiteServerApi";
 import { Field } from "@/components/ui/Field";
 import { Toggle } from "@/components/ui/Toggle";
 import { Tabs } from "./Tabs";
@@ -300,7 +301,13 @@ export function SiteScreen({ canEdit = true, goServices }: { canEdit?: boolean; 
       {adding ? (
         <AddSite onAdded={() => { setAdding(false); void load().then(() => setSel(sites.length)); }} onCancel={() => setAdding(false)} />
       ) : !cur.verifiedAt ? (
-        canEdit ? <Pending s={cur} onReload={load} /> : <Panel><p className="ok-muted">{t.pendingTitle}</p></Panel>
+        canEdit ? (
+          <div className="grid gap-4">
+            <Pending s={cur} onReload={load} />
+            {/* A site that works through its own server (API /v1) needs the key and webhooks before ok.js is found. */}
+            <SiteServerApi siteId={cur.id} key={`srv${cur.id}`} />
+          </div>
+        ) : <Panel><p className="ok-muted">{t.pendingTitle}</p></Panel>
       ) : (
         <>
           <Tabs label={cur.domain} value={tab} onChange={setTab} tabs={SITE_TABS.filter((x) => canEdit || x === "state" || x === "quality").map((x) => ({ id: x, label: t.tabs[x] }))} />
@@ -315,6 +322,7 @@ export function SiteScreen({ canEdit = true, goServices }: { canEdit?: boolean; 
                 <p className="ok-muted">{cur.okSeenAt ? fmt(t.okSeen, { ago: new Date(cur.okSeenAt).toLocaleString("uk-UA", { timeZone: "Europe/Kyiv" }) }) : t.okNotSeen}</p>
               </Panel>
               {cur.publicKey && <SiteApiPanel site={cur} onRotated={load} />}
+              <SiteServerApi siteId={cur.id} key={`srv${cur.id}`} />
               <Panel title={t.googleTitle}>
                 <p className="ok-muted">{t.googleLead}</p>
                 <pre className="app-code-block">{`GET ${typeof window !== "undefined" ? window.location.origin : ""}/api/public/reviews/schema\nx-site-key: ${cur.publicKey ?? ""}\n\n<script type="application/ld+json">{відповідь}</script>`}</pre>

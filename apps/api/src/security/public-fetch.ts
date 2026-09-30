@@ -55,3 +55,23 @@ export async function publicFetch(url: string, maxBytes: number): Promise<Buffer
   if (r.status < 200 || r.status >= 300) throw new Error(`http_${r.status}`);
   return r.body;
 }
+
+/**
+ * A POST to a public address (a client's webhook): the host must resolve to public addresses only (outside
+ * production, localhost is allowed for a site developed on the same machine); redirects are not followed.
+ */
+export async function publicPost(url: string, body: string, headers: Record<string, string>, opts: { timeoutMs?: number; allowLocal?: boolean } = {}) {
+  const u = new URL(url);
+  if (u.protocol !== "https:" && u.protocol !== "http:") throw new Error("bad_url");
+  if (u.username || u.password) throw new Error("bad_url");
+  const local = opts.allowLocal && (u.hostname === "localhost" || u.hostname === "127.0.0.1");
+  if (!local) {
+    if (isIP(u.hostname.replace(/^\[|\]$/g, ""))) throw new Error("bad_url");
+    const addrs = await lookup(u.hostname, { all: true });
+    if (!addrs.length || addrs.some((a) => privateAddress(a.address))) throw new Error("bad_url");
+  }
+  const t0 = performance.now();
+  const res = await fetch(u, { method: "POST", redirect: "manual", body, signal: AbortSignal.timeout(opts.timeoutMs ?? 10_000), headers: { "user-agent": UA, "content-type": "application/json", ...headers } });
+  const text = (await res.text().catch(() => "")).slice(0, 500);
+  return { status: res.status, body: text, ms: Math.round(performance.now() - t0) };
+}
