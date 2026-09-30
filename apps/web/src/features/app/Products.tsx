@@ -41,6 +41,7 @@ export type Product = {
   widthCm: number | null;
   heightCm: number | null;
   warrantyMonths: number | null;
+  promote: "yes" | "no" | null;
   attributes: { name: string; value: string }[];
   active: boolean;
   archived: boolean;
@@ -168,12 +169,12 @@ function CategoryTree({ site, cats, filter, onFilter, onChanged }: { site: SiteI
 type Draft = {
   name: string; description: string; sku: string; categoryId: string; price: string; oldPrice: string; cost: string;
   availability: Avail; orderDays: string; stock: string; lowStock: string; weightG: string; lengthCm: string; widthCm: string; heightCm: string;
-  warrantyMonths: string; attributes: { name: string; value: string }[]; active: boolean;
+  warrantyMonths: string; attributes: { name: string; value: string }[]; active: boolean; promote: "yes" | "no" | null;
 };
 const draftOf = (p?: Product): Draft => ({
   name: p?.name ?? "", description: p?.description ?? "", sku: p?.sku ?? "", categoryId: p?.categoryId ?? "", price: str(p?.price), oldPrice: str(p?.oldPrice), cost: str(p?.cost),
   availability: p?.availability ?? "in_stock", orderDays: str(p?.orderDays), stock: str(p?.stock), lowStock: str(p?.lowStock), weightG: str(p?.weightG), lengthCm: str(p?.lengthCm), widthCm: str(p?.widthCm), heightCm: str(p?.heightCm),
-  warrantyMonths: str(p?.warrantyMonths), attributes: p?.attributes ?? [], active: p?.active ?? true,
+  warrantyMonths: str(p?.warrantyMonths), attributes: p?.attributes ?? [], active: p?.active ?? true, promote: p?.promote ?? null,
 });
 
 /**
@@ -223,7 +224,7 @@ function Gallery({ photos, queued, loading, onAdd, onOrder }: { photos: Photo[];
   );
 }
 
-function Editor({ site, product, cats, finance, onSaved, onCancel }: { site: SiteInfo; product: Product | null; cats: Category[]; finance: boolean; onSaved: (id: string) => void; onCancel: () => void }) {
+function Editor({ site, product, cats, finance, content, onSaved, onCancel }: { site: SiteInfo; product: Product | null; cats: Category[]; finance: boolean; content: boolean; onSaved: (id: string) => void; onCancel: () => void }) {
   const d = useDict();
   const t = d.app.products;
   const lang = useLang();
@@ -261,6 +262,7 @@ function Editor({ site, product, cats, finance, onSaved, onCancel }: { site: Sit
       stock: f.availability === "to_order" ? null : num(f.stock), lowStock: num(f.lowStock),
       weightG: num(f.weightG), lengthCm: num(f.lengthCm), widthCm: num(f.widthCm), heightCm: num(f.heightCm), warrantyMonths: num(f.warrantyMonths),
       attributes: f.attributes.filter((a) => a.name.trim()).map((a) => ({ name: a.name.trim(), value: a.value.trim() })), active: f.active,
+      ...(content ? { promote: f.promote } : {}),
     };
     setBusy(true);
     const r = product ? await api<Product>(`/shop/products/${product.id}`, { method: "PATCH", body }) : await api<Product>(`/shop/sites/${site.id}/products`, { method: "POST", body: { ...body, ...(queued[0] ? { photo: queued[0] } : {}) } });
@@ -335,6 +337,16 @@ function Editor({ site, product, cats, finance, onSaved, onCancel }: { site: Sit
         {numInput("warrantyMonths", t.warranty, t.warrantyHint)}
       </fieldset>
 
+      {content && (
+        <fieldset className="app-q">
+          <legend>{t.promote}</legend>
+          <div className="ok-chips" role="radiogroup" aria-label={t.promote}>
+            {([null, "yes", "no"] as const).map((v) => <button key={String(v)} type="button" role="radio" className="ok-chip" aria-checked={f.promote === v} aria-pressed={f.promote === v} onClick={() => set("promote", v)}>{t.promotes[v ?? "auto"]}</button>)}
+          </div>
+          <p className="ok-muted">{t.promoteHint}</p>
+        </fieldset>
+      )}
+
       <fieldset className="app-q">
         <legend>{t.attributes}</legend>
         {f.attributes.map((a, i) => (
@@ -357,7 +369,7 @@ function Editor({ site, product, cats, finance, onSaved, onCancel }: { site: Sit
 }
 
 /** The product card: numbers of sales, the editor, history and the actions. */
-function ProductCard({ id, site, cats, finance, onChanged, onClose, onOpen, onDelete }: { id: string; site: SiteInfo; cats: Category[]; finance: boolean; onChanged: () => void; onClose: () => void; onOpen: (id: string) => void; onDelete: (p: Product) => void }) {
+function ProductCard({ id, site, cats, finance, content, onChanged, onClose, onOpen, onDelete }: { id: string; site: SiteInfo; cats: Category[]; finance: boolean; content: boolean; onChanged: () => void; onClose: () => void; onOpen: (id: string) => void; onDelete: (p: Product) => void }) {
   const d = useDict();
   const t = d.app.products;
   const lang = useLang();
@@ -416,7 +428,7 @@ function ProductCard({ id, site, cats, finance, onChanged, onClose, onOpen, onDe
           <button type="button" className="ok-link ok-danger" onClick={remove}>{t.delete}</button>
         </div>
       ) : (
-        <Editor key={card.id + card.photos.length} site={site} product={card} cats={cats} finance={finance} onSaved={() => { toast.show(t.saved); onChanged(); void load(); }} onCancel={onClose} />
+        <Editor key={card.id + card.photos.length} site={site} product={card} cats={cats} finance={finance} content={content} onSaved={() => { toast.show(t.saved); onChanged(); void load(); }} onCancel={onClose} />
       )}
       {!card.archived && (
         <div className="ok-actions">
@@ -526,7 +538,7 @@ function ImportDialog({ site, onClose, onDone }: { site: SiteInfo; onClose: () =
  * «Товари»: catalogue of a site. Categories on the left, a table or tiles, the card on the right. `tab`: "new" opens
  * the form (Home quick action), "p-<id>" one product (search), "low" / "out" the stock filters (Home).
  */
-export function ProductsScreen({ tab, finance }: { tab?: string | null; finance: boolean }) {
+export function ProductsScreen({ tab, finance, content = false }: { tab?: string | null; finance: boolean; content?: boolean }) {
   const d = useDict();
   const t = d.app.products;
   const lang = useLang();
@@ -692,10 +704,10 @@ export function ProductsScreen({ tab, finance }: { tab?: string | null; finance:
             </Panel>
             {open === "new" && (
               <Panel className="ok-detail" title={t.add} action={<button type="button" className="btn btn-sm btn-ghost btn-icon" aria-label={d.app.toast.close} onClick={() => setOpen(null)}><Icon name="close" size={16} /></button>}>
-                <Editor site={site} product={null} cats={categories} finance={finance} onSaved={(id) => { toast.show(t.saved); setOpen(id); void load(); }} onCancel={() => setOpen(null)} />
+                <Editor site={site} product={null} cats={categories} finance={finance} content={content} onSaved={(id) => { toast.show(t.saved); setOpen(id); void load(); }} onCancel={() => setOpen(null)} />
               </Panel>
             )}
-            {open && open !== "new" && <ProductCard key={open} id={open} site={site} cats={categories} finance={finance} onChanged={load} onClose={() => setOpen(null)} onOpen={setOpen} onDelete={remove} />}
+            {open && open !== "new" && <ProductCard key={open} id={open} site={site} cats={categories} finance={finance} content={content} onChanged={load} onClose={() => setOpen(null)} onOpen={setOpen} onDelete={remove} />}
           </div>
         </div>
       </div>

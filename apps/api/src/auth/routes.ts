@@ -45,7 +45,7 @@ async function me(user: Auth["user"], activeOrgId: string | null = null, viewOrg
   const active = all.find((m) => m.orgId === activeOrgId) ?? all[0] ?? null;
   // Installed modules of the active business: the menu shows a lock on sections whose module is not connected.
   const modules = active ? (await db.select({ id: moduleInstalls.moduleId }).from(moduleInstalls).where(eq(moduleInstalls.organizationId, active.orgId))).map((m) => m.id) : [];
-  const [org] = active ? await db.select({ onboarding: organizations.onboarding }).from(organizations).where(eq(organizations.id, active.orgId)) : [];
+  const [org] = active ? await db.select({ onboarding: organizations.onboarding, features: organizations.features }).from(organizations).where(eq(organizations.id, active.orgId)) : [];
   const [sub] = active ? await db.select({ status: subscriptions.status, periodEnd: subscriptions.periodEnd }).from(subscriptions).where(eq(subscriptions.organizationId, active.orgId)) : [];
   return {
     id: user.id,
@@ -63,13 +63,15 @@ async function me(user: Auth["user"], activeOrgId: string | null = null, viewOrg
     onboarded: active?.role !== "owner" || !!org?.onboarding,
     // The business requires 2FA and this person has not turned it on: the panel asks for it first.
     twofaRequired: !!active?.require2fa && !user.totpEnabled,
+    /** Beta features opened for this business (e.g. "content"). */
+    features: org?.features ?? [],
     subscription: sub ?? null,
   };
 }
 
 /** The admin in a client's panel: the business as its owner sees it, marked as viewing (read only). */
 async function viewedMe(user: Auth["user"], orgId: string) {
-  const [org] = await db.select({ id: organizations.id, name: organizations.name, onboarding: organizations.onboarding }).from(organizations).where(eq(organizations.id, orgId));
+  const [org] = await db.select({ id: organizations.id, name: organizations.name, onboarding: organizations.onboarding, features: organizations.features }).from(organizations).where(eq(organizations.id, orgId));
   const modules = (await db.select({ id: moduleInstalls.moduleId }).from(moduleInstalls).where(eq(moduleInstalls.organizationId, orgId))).map((m) => m.id);
   const [sub] = await db.select({ status: subscriptions.status, periodEnd: subscriptions.periodEnd }).from(subscriptions).where(eq(subscriptions.organizationId, orgId));
   return {
@@ -86,6 +88,7 @@ async function viewedMe(user: Auth["user"], orgId: string) {
     modules,
     onboarded: true,
     subscription: sub ?? null,
+    features: org?.features ?? [],
     viewing: { orgId, name: org?.name ?? "" },
   };
 }

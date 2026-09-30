@@ -250,6 +250,44 @@ function TodoList({ todo, go, onChange }: { todo: Todo[]; go: Go; onChange: () =
   );
 }
 
+type TodayIdea = { id: string; time: string; channel: string; title: string; status: string };
+/** «Сьогодні запостити»: today's ideas of the content plan, marked «Опубліковано» right here. */
+function PostToday({ go }: { go: Go }) {
+  const d = useDict();
+  const t = d.app.home;
+  const c = d.app.content;
+  const [list, setList] = useState<TodayIdea[] | null>(null);
+  const load = useCallback(async () => {
+    const r = await api<TodayIdea[]>("/content/today");
+    if (r.ok) setList(r.data.filter((i) => i.status !== "skipped"));
+  }, []);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  if (!list) return null;
+  return (
+    <Panel title={t.postToday} action={<button type="button" className="ok-link" onClick={() => go("content")}>{d.app.dash.all}</button>}>
+      {list.length === 0 ? (
+        <p className="ok-muted">{t.postTodayEmpty}</p>
+      ) : (
+        <ul className="ok-list">
+          {list.map((i) => (
+            <li key={i.id}>
+              <span className="num ok-muted">{i.time}</span>
+              <span className="ok-grow app-cell-main"><b>{i.title}</b><small>{(c.channels as Record<string, string>)[i.channel] ?? i.channel}</small></span>
+              {i.status === "published" ? (
+                <span className="ok-pill" data-s="done">{c.statuses.published}</span>
+              ) : (
+                <button type="button" className="btn btn-sm btn-ghost" onClick={async () => { await api(`/content/ideas/${i.id}`, { method: "PATCH", body: { status: "published" } }); void load(); }}><Icon name="check" size={15} />{c.published}</button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
 export function HomeScreen({ me, go }: { me: Me; go: Go }) {
   const d = useDict();
   const t = d.app;
@@ -365,6 +403,7 @@ export function HomeScreen({ me, go }: { me: Me; go: Go }) {
           )}
         </div>
       )}
+      {me.modules.includes("content") && me.permissions.includes("content") && <PostToday go={go} />}
       <MyLeads />
       {flash}
     </div>

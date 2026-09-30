@@ -48,6 +48,8 @@ export type Me = {
   subscription: { status: "trial" | "active" | "grace" | "suspended" | "cancelled"; periodEnd: string } | null;
   /** The business requires 2FA and this person has not turned it on yet. */
   twofaRequired?: boolean;
+  /** Beta features opened for this business (e.g. "content"). */
+  features?: string[];
   /** The admin is looking at this business's panel (read only). */
   viewing?: { orgId: string; name: string };
 };

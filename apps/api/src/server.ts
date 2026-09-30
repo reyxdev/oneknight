@@ -17,9 +17,13 @@ import { downloadPendingPhotos } from "./products/photos.ts";
 import { runMorningReport } from "./admin/overview.ts";
 import { runAdminReminders } from "./projects/routes.ts";
 import { runWeeklyAudits } from "./sites/audit.ts";
+import { runContentMorning, runContentWeekly } from "./content/jobs.ts";
+import { ensureContentSeed } from "./content/seed.ts";
 import { notifyOwner } from "./notify/telegram.ts";
 
 const app = await buildApp();
+// Starter templates and holidays of «Контент-план» (added once; admin edits are kept).
+await ensureContentSeed().catch((e) => app.log.error(e));
 const stopMonitor = startMonitor(app.log, env.MONITOR_INTERVAL_MIN);
 // Billing: renewals, grace periods and suspensions, hourly (idempotent, row-locked).
 const billingTimer = setInterval(() => {
@@ -30,6 +34,9 @@ const billingTimer = setInterval(() => {
   void runAdminReminders(app.log).catch((e) => app.log.error(e));
   // «Перевірка якості» of every confirmed site once a week.
   void runWeeklyAudits(app.log).catch((e) => app.log.error(e));
+  // «Контент-план»: today's ideas in the morning, a new week on Sunday evening.
+  void runContentMorning().catch((e) => app.log.error(e));
+  void runContentWeekly().catch((e) => app.log.error(e));
 }, 3600_000);
 void runBilling().catch((e) => app.log.error(e));
 void runMorningReport((text) => notifyOwner(text, app.log)).catch((e) => app.log.error(e));

@@ -44,7 +44,7 @@ export const adminClientRoutes: FastifyPluginAsync = async (app) => {
   /** The card: team, billing (balance, next charge, ledger), notes. */
   app.get<{ Params: { id: string } }>("/clients/:id", async (req, reply) => {
     if (!uuid.safeParse(req.params.id).success) return reply.code(400).send({ error: "invalid_input" });
-    const [org] = await db.select({ id: organizations.id, name: organizations.name, tags: organizations.adminTags, contract: organizations.supportContract, createdAt: organizations.createdAt, purgedAt: organizations.purgedAt }).from(organizations).where(eq(organizations.id, req.params.id));
+    const [org] = await db.select({ id: organizations.id, name: organizations.name, tags: organizations.adminTags, contract: organizations.supportContract, features: organizations.features, createdAt: organizations.createdAt, purgedAt: organizations.purgedAt }).from(organizations).where(eq(organizations.id, req.params.id));
     if (!org) return reply.code(404).send({ error: "not_found" });
     const team = await db
       .select({ name: users.name, email: users.email, phone: users.phone, role: memberships.role, lastSeen: dsql<Date | null>`(select max(s.last_seen_at) from sessions s where s.user_id = ${users.id})` })
@@ -59,13 +59,13 @@ export const adminClientRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.patch<{ Params: { id: string } }>("/clients/:id", async (req, reply) => {
-    const p = z.object({ tags: z.array(z.string().trim().min(1).max(30)).max(10).optional(), contract: z.boolean().optional() }).safeParse(req.body);
+    const p = z.object({ tags: z.array(z.string().trim().min(1).max(30)).max(10).optional(), contract: z.boolean().optional(), features: z.array(z.enum(["content"])).max(5).optional() }).safeParse(req.body);
     if (!p.success || !uuid.safeParse(req.params.id).success) return reply.code(400).send({ error: "invalid_input" });
     const [row] = await db
       .update(organizations)
-      .set({ ...(p.data.tags ? { adminTags: [...new Set(p.data.tags)] } : {}), ...(p.data.contract !== undefined ? { supportContract: p.data.contract } : {}) })
+      .set({ ...(p.data.tags ? { adminTags: [...new Set(p.data.tags)] } : {}), ...(p.data.contract !== undefined ? { supportContract: p.data.contract } : {}), ...(p.data.features ? { features: [...new Set(p.data.features)] } : {}) })
       .where(eq(organizations.id, req.params.id))
-      .returning({ id: organizations.id, tags: organizations.adminTags, contract: organizations.supportContract });
+      .returning({ id: organizations.id, tags: organizations.adminTags, contract: organizations.supportContract, features: organizations.features });
     if (!row) return reply.code(404).send({ error: "not_found" });
     if (p.data.contract !== undefined) await audit(req, "admin.support_contract", req.auth!.user.id, { contract: p.data.contract }, row.id);
     return row;

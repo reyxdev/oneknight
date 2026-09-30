@@ -79,6 +79,7 @@ type Card = {
   name: string;
   tags: string[];
   contract: boolean;
+  features: string[];
   createdAt: string;
   purgedAt: string | null;
   deletable: boolean;
@@ -151,6 +152,7 @@ function ClientCard({ id, onChanged, onClose }: { id: string; onChanged: () => v
             <button type="submit" className="btn btn-sm btn-secondary">{t.save}</button>
           </form>
           <Toggle checked={c.contract} onChange={(v) => patch({ contract: v })} label={t.contract} />
+          <Toggle checked={c.features.includes("content")} onChange={(v) => patch({ features: v ? [...c.features, "content"] : c.features.filter((x) => x !== "content") })} label={t.betaContent} />
           <div className="ok-actions">
             <button type="button" className="btn btn-sm" onClick={view}><Icon name="eye" size={15} />{t.view}</button>
             {(!c.billing.subscription || c.billing.subscription.status === "trial") && (

@@ -47,9 +47,9 @@ export const tgCall: TgCall = async (method, body) => {
   }
 };
 
-export const KINDS = ["order", "review", "site", "billing", "ticket", "team"] as const;
+export const KINDS = ["order", "review", "site", "billing", "ticket", "team", "content"] as const;
 /** Notification kinds that need a permission in the business; the rest go to every member who opted in. */
-export const KIND_PERM: Record<string, string> = { order: "orders", review: "reviews", billing: "billing", ticket: "support", team: "team" };
+export const KIND_PERM: Record<string, string> = { order: "orders", review: "reviews", billing: "billing", ticket: "support", team: "team", content: "content" };
 const LINK_MINUTES = 15;
 
 let botUsername: string | null = null;
@@ -151,6 +151,8 @@ export function notificationText(key: string, p: Record<string, any>, finance = 
     case "newReview": return `⭐ Новий відгук від ${p.name} (${p.rating}★)`;
     case "siteDown": return `⚠️ ${p.domain} недоступний${p.error ? ` (${p.error})` : ""}`;
     case "siteUp": return `✅ ${p.domain} знову працює`;
+    case "contentWeek": return `🗓 Новий тиждень ідей готовий: ${p.n} дописів на ${p.from} — ${p.to}. Відкрийте «Контент»`;
+    case "contentToday": return `📣 Сьогодні запостити (${p.n}):\n${p.list}`;
     case "auditDone": return `🔎 Перевірка якості ${p.domain}: пройдено ${p.passed} з ${p.total}. Поради — у розділі «Сайт»`;
     case "sslExpiring": return `🔒 SSL для ${p.domain} закінчується через ${p.days} дн.`;
     case "lowBalance": return `💳 Не вистачає ${money(p.amount)} грн для продовження ONEKNIGHT. Сервіс працює ще ${p.days} дн.`;

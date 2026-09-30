@@ -14,7 +14,8 @@ export const moduleCatalog: (ModuleDef & { live: boolean })[] = [
   { id: "olx", price: oneknightPricing.modulePerMonth, paid: true, availability: "available", live: false },
   { id: "prom", price: oneknightPricing.modulePerMonth, paid: true, availability: "available", live: true },
   { id: "rozetka", price: oneknightPricing.modulePerMonth, paid: true, availability: "available", live: true },
-  { id: "ai-content", price: oneknightPricing.modulePerMonth, paid: true, availability: "soon", live: false },
+  // «Контент-план» (replaces the planned «AI Контент»): for beta businesses first (admin switch).
+  { id: "content", price: oneknightPricing.modulePerMonth, paid: true, availability: "available", live: true },
   { id: "zadarma", price: oneknightPricing.modulePerMonth, paid: true, availability: "soon", live: false },
 ];
 

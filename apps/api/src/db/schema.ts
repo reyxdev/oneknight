@@ -69,6 +69,8 @@ export const organizations = pgTable("organizations", {
   supportContract: boolean("support_contract").notNull().default(false),
   /** The owner requires 2FA from the whole team: without it a member sees nothing of the business. */
   require2fa: boolean("require_2fa").notNull().default(false),
+  /** Features opened for this business before everyone (beta), switched by the admin: e.g. "content". */
+  features: text("features").array().notNull().default(sql`'{}'::text[]`),
   /** Answers to the questions after sign-up (owner). Null = not answered yet: the panel asks first. */
   /** Numbering of orders: the last number given (the first order gets 1001). */
   orderSeq: integer("order_seq").notNull().default(1000),
@@ -438,6 +440,8 @@ export const products = pgTable(
     heightCm: integer("height_cm"),
     /** Warranty in months, counted from the day the buyer received the order. */
     warrantyMonths: integer("warranty_months"),
+    /** «Контент-план»: "yes" — promote more, "no" — never in the plan, null — as the data says. */
+    promote: text("promote"),
     /** Характеристики: name and value pairs. */
     attributes: jsonb("attributes").notNull().default(sql`'[]'::jsonb`).$type<{ name: string; value: string }[]>(),
     createdAt: createdAt(),
@@ -859,7 +863,7 @@ export const telegramLinks = pgTable("telegram_links", {
   username: text("username"),
   linkTokenHash: text("link_token_hash").unique(),
   linkExpiresAt: timestamp("link_expires_at", { withTimezone: true }),
-  kinds: text("kinds").array().notNull().default(sql`'{order,review,site,billing,ticket,team}'::text[]`),
+  kinds: text("kinds").array().notNull().default(sql`'{order,review,site,billing,ticket,team,content}'::text[]`),
   linkedAt: timestamp("linked_at", { withTimezone: true }),
   createdAt: createdAt(),
 });
@@ -1062,4 +1066,112 @@ export const userDevices = pgTable(
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.deviceHash] })],
+);
+
+/**
+ * «Контент-план»: templates of ideas (the owner of ONEKNIGHT writes them in the admin; a business may save its own
+ * favourite idea as a template: `organizationId`). Texts use {placeholders} of real data and {{ви|ти}} forms.
+ */
+export const contentTemplates = pgTable(
+  "content_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    key: text("key").notNull().unique(),
+    organizationId: uuid("organization_id").references(() => organizations.id, { onDelete: "cascade" }),
+    bucket: text("bucket").notNull(), // sale | benefit | trust | fun
+    trigger: text("trigger").notNull(),
+    categories: text("categories").array().notNull().default(sql`'{}'::text[]`),
+    title: text("title").notNull(),
+    why: text("why").notNull(),
+    shot: text("shot").notNull(),
+    short: text("short").notNull(),
+    long: text("long").notNull(),
+    cta: text("cta").notNull(),
+    hashtags: text("hashtags").array().notNull().default(sql`'{}'::text[]`),
+    hooks: jsonb("hooks").notNull().default(sql`'[]'::jsonb`).$type<string[]>(),
+    stories: jsonb("stories").notNull().default(sql`'[]'::jsonb`).$type<{ text: string; sticker: string }[]>(),
+    slides: jsonb("slides").notNull().default(sql`'[]'::jsonb`).$type<{ heading: string; photo: string }[]>(),
+    article: jsonb("article").$type<{ topic: string; outline: string[] } | null>(),
+    light: boolean("light").notNull().default(false),
+    active: boolean("active").notNull().default(true),
+    createdAt: createdAt(),
+  },
+  (t) => [index("content_templates_trigger_idx").on(t.trigger)],
+);
+
+/** Holidays and trading dates for the plan: a rule (fixed:MM-DD, easter[+N], nth:M:W:N, blackfriday), editable in the admin. */
+export const contentHolidays = pgTable("content_holidays", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  key: text("key").notNull().unique(),
+  name: text("name").notNull(),
+  rule: text("rule").notNull(),
+  /** sale — gifts and offers; greeting — congratulate, no selling; respect — a day of memory, no selling at all. */
+  kind: text("kind").notNull(),
+  prepDays: integer("prep_days").notNull().default(10),
+  active: boolean("active").notNull().default(true),
+});
+
+/** A business's own promotion: the plan announces it, reminds and says «останній день». */
+export const promos = pgTable(
+  "promos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    discount: integer("discount"),
+    productIds: uuid("product_ids").array().notNull().default(sql`'{}'::uuid[]`),
+    startsOn: text("starts_on").notNull(),
+    endsOn: text("ends_on").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("promos_org_idx").on(t.organizationId, t.endsOn)],
+);
+
+/** The module's settings of a business: channels, brief, brand voice, rhythm, balance, wholesale, own dates. */
+export const contentSettings = pgTable("content_settings", {
+  organizationId: uuid("organization_id").primaryKey().references(() => organizations.id, { onDelete: "cascade" }),
+  settings: jsonb("settings").notNull().default(sql`'{}'::jsonb`),
+  generatedAt: timestamp("generated_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** One idea of the plan (or a business's own). `locked`: touched by the team, so a refresh keeps it. */
+export const contentIdeas = pgTable(
+  "content_ideas",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    day: text("day").notNull(),
+    time: text("time").notNull(),
+    channel: text("channel").notNull(),
+    also: text("also").array().notNull().default(sql`'{}'::text[]`),
+    format: text("format").notNull(),
+    bucket: text("bucket").notNull(),
+    templateId: uuid("template_id").references(() => contentTemplates.id, { onDelete: "set null" }),
+    trigger: text("trigger").notNull(),
+    productId: uuid("product_id").references(() => products.id, { onDelete: "set null" }),
+    reviewId: uuid("review_id").references(() => reviews.id, { onDelete: "set null" }),
+    promoId: uuid("promo_id").references(() => promos.id, { onDelete: "set null" }),
+    holiday: text("holiday"),
+    siteId: uuid("site_id").references(() => sites.id, { onDelete: "set null" }),
+    title: text("title").notNull(),
+    why: text("why").notNull(),
+    shot: text("shot").notNull(),
+    textShort: text("text_short").notNull(),
+    textLong: text("text_long").notNull(),
+    cta: text("cta").notNull(),
+    hashtags: text("hashtags").array().notNull().default(sql`'{}'::text[]`),
+    extra: jsonb("extra").notNull().default(sql`'{}'::jsonb`).$type<{ hooks?: string[]; stories?: { text: string; sticker: string }[]; slides?: { heading: string; photo: string }[]; article?: { topic: string; outline: string[] } | null }>(),
+    link: text("link"),
+    /** todo | published | skipped | awaiting (approval on) */
+    status: text("status").notNull().default("todo"),
+    custom: boolean("custom").notNull().default(false),
+    locked: boolean("locked").notNull().default(false),
+    feedback: smallint("feedback"),
+    assigneeId: uuid("assignee_id").references(() => users.id, { onDelete: "set null" }),
+    photos: uuid("photos").array().notNull().default(sql`'{}'::uuid[]`),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("content_ideas_org_day_idx").on(t.organizationId, t.day)],
 );

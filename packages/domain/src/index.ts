@@ -53,7 +53,7 @@ export type Review = {
 };
 export type Moderation = "off" | "manual";
 
-export type ModuleId = "novaposhta" | "ukrposhta" | "analytics" | "reviews" | "olx" | "prom" | "rozetka" | "ai-content" | "zadarma";
+export type ModuleId = "novaposhta" | "ukrposhta" | "analytics" | "reviews" | "olx" | "prom" | "rozetka" | "content" | "zadarma";
 export type ModuleDef = { id: ModuleId; price: Money; paid: boolean; availability: "available" | "soon" };
 export type InstalledModule = { id: ModuleId; installedAt: number; free: boolean };
 

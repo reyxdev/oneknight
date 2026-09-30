@@ -16,6 +16,7 @@ import { overview } from "./overview.ts";
 import { projectAdminRoutes } from "../projects/routes.ts";
 import { adminClientRoutes } from "./clients.ts";
 import { commsAdminRoutes } from "./comms.ts";
+import { contentAdminRoutes } from "./content.ts";
 
 async function requireAdmin(req: FastifyRequest, reply: FastifyReply) {
   await requireAuth(req, reply);
@@ -35,6 +36,7 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
   await app.register(projectAdminRoutes);
   await app.register(adminClientRoutes);
   await app.register(commsAdminRoutes);
+  await app.register(contentAdminRoutes);
 
   /** «Огляд»: Ivan's to-do first, then the numbers and «Ризик відтоку». */
   app.get("/overview", async () => overview());

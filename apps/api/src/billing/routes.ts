@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { ModuleId } from "@oneknight/domain";
 import { and, eq } from "drizzle-orm";
 import { db } from "../db/client.ts";
-import { moduleInstalls } from "../db/schema.ts";
+import { moduleInstalls, organizations } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
 import { orgScope } from "../auth/access.ts";
 import { audit } from "../audit.ts";
@@ -81,6 +81,11 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
   app.post<{ Params: { id: string } }>("/modules/:id", async (req, reply) => {
     const [org] = await orgScope(req, "modules");
     if (!org) return reply.code(404).send({ error: "not_found" });
+    // «Контент-план» opens for beta businesses first (the admin's switch).
+    if (req.params.id === "content") {
+      const [o] = await db.select({ features: organizations.features }).from(organizations).where(eq(organizations.id, org));
+      if (!o?.features.includes("content")) return reply.code(403).send({ error: "beta_only" });
+    }
     const r = await installModule(org, req.params.id as ModuleId);
     if (!r.ok) return reply.code(r.error === "not_found" ? 404 : 409).send({ error: r.error });
     await audit(req, "module.install", req.auth!.user.id, { module: req.params.id, free: r.free }, org);

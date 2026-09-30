@@ -32,18 +32,19 @@ import { OrdersScreen } from "./Orders";
 import { CustomersScreen } from "./Customers";
 import { ReviewsScreen } from "./Reviews";
 import { AnalyticsScreen } from "./Analytics";
+import { ContentScreen } from "./Content";
 import { HomeScreen } from "./Home";
 import { TeamScreen } from "./Team";
 import { READ_ONLY, VIEW_ONLY, api } from "@/lib/api";
 
-type ClientScreen = "home" | "orders" | "customers" | "products" | "reviews" | "analytics" | "site" | "modules" | "services" | "business" | "billing" | "team" | "profile" | "support";
+type ClientScreen = "home" | "content" | "orders" | "customers" | "products" | "reviews" | "analytics" | "site" | "modules" | "services" | "business" | "billing" | "team" | "profile" | "support";
 type AdminScreen = "overview" | "admin" | "projects" | "clients" | "tickets" | "topups" | "keys" | "news";
 type Screen = ClientScreen | AdminScreen;
 type Item = { id: Screen; icon: IconName };
 
 /** Menu groups (owner's decision): work, site, growth, settings. Profile and support sit at the bottom. */
 const GROUPS: { key: "work" | "site" | "growth" | "settings"; items: Item[] }[] = [
-  { key: "work", items: [{ id: "home", icon: "home" }, { id: "orders", icon: "cart" }, { id: "customers", icon: "person" }, { id: "products", icon: "box" }, { id: "reviews", icon: "star" }, { id: "analytics", icon: "chart" }] },
+  { key: "work", items: [{ id: "home", icon: "home" }, { id: "orders", icon: "cart" }, { id: "customers", icon: "person" }, { id: "products", icon: "box" }, { id: "reviews", icon: "star" }, { id: "analytics", icon: "chart" }, { id: "content", icon: "megaphone" }] },
   { key: "site", items: [{ id: "site", icon: "globe" }] },
   { key: "growth", items: [{ id: "modules", icon: "puzzle" }, { id: "services", icon: "layers" }] },
   { key: "settings", items: [{ id: "business", icon: "settings" }, { id: "billing", icon: "card" }, { id: "team", icon: "person" }] },
@@ -58,9 +59,9 @@ const ADMIN_SCREENS = new Set<Screen>(ADMIN.map((i) => i.id));
 /** Old links keep working. */
 const ALIASES: Record<string, string> = { account: "profile", security: "profile/security", integrations: "business/integrations" };
 /** Module a section needs; without it the menu shows a lock (the screen explains and offers to connect). */
-const MODULE_OF: Partial<Record<Screen, string>> = { reviews: "reviews", analytics: "analytics" };
+const MODULE_OF: Partial<Record<Screen, string>> = { reviews: "reviews", analytics: "analytics", content: "content" };
 /** Permission a section needs in the active business; the API enforces the same rules. */
-const NEEDS: Partial<Record<Screen, string>> = { orders: "orders", customers: "orders", products: "products", reviews: "reviews", analytics: "analytics", modules: "modules", billing: "billing", support: "support", team: "team" };
+const NEEDS: Partial<Record<Screen, string>> = { orders: "orders", customers: "orders", products: "products", reviews: "reviews", analytics: "analytics", content: "content", modules: "modules", billing: "billing", support: "support", team: "team" };
 
 type Route = { screen: Screen; tab: string | null };
 function readHash(isAdmin: boolean): Route {
@@ -121,7 +122,8 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
   const adminMode = me.isAdmin && !me.viewing && ADMIN_SCREENS.has(screen);
   const org = me.organizations.find((o) => o.id === me.activeOrgId) ?? me.organizations[0];
   // Orders: everything with `orders`, orders waiting to be sent with `shipping` («Комплектувальник»).
-  const allowed = (id: Screen) => (id === "business" ? me.role === "owner" : id === "orders" ? me.permissions.includes("orders") || me.permissions.includes("shipping") : !NEEDS[id] || me.permissions.includes(NEEDS[id]!));
+  // «Контент-план» opens for beta businesses first (or once installed).
+  const allowed = (id: Screen) => (id === "content" && !me.features?.includes("content") && !me.modules.includes("content") ? false : id === "business" ? me.role === "owner" : id === "orders" ? me.permissions.includes("orders") || me.permissions.includes("shipping") : !NEEDS[id] || me.permissions.includes(NEEDS[id]!));
   const locked = (id: Screen) => !!MODULE_OF[id] && !me.modules.includes(MODULE_OF[id]!);
   const view: Screen | null = allowed(screen) ? screen : null;
   const label = (id: Screen) =>
@@ -147,6 +149,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
       products: t.products.nav,
       reviews: t.reviews.nav,
       analytics: t.analytics.nav,
+      content: t.content.nav,
       profile: t.nav.myProfile,
     })[id];
   const navBtn = (n: Item) => (
@@ -317,9 +320,10 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             {view === "home" && <HomeScreen me={me} go={(id, tab) => go(id as Screen, tab ?? null)} />}
             {view === "orders" && <OrdersScreen tab={route.tab} shippingOnly={!me.permissions.includes("orders")} finance={me.permissions.includes("finance")} meName={me.name} />}
             {view === "customers" && <CustomersScreen tab={route.tab} finance={me.permissions.includes("finance")} go={(id, tab) => go(id as Screen, tab ?? null)} />}
-            {view === "products" && <ProductsScreen tab={route.tab} finance={me.permissions.includes("finance")} />}
+            {view === "products" && <ProductsScreen tab={route.tab} finance={me.permissions.includes("finance")} content={me.modules.includes("content")} />}
             {view === "reviews" && <ReviewsScreen goModules={() => go("modules")} />}
             {view === "analytics" && <AnalyticsScreen goModules={() => go("modules")} />}
+            {view === "content" && <ContentScreen me={me} goModules={() => go("modules")} />}
             {view === "site" && <SiteScreen canEdit={me.permissions.includes("site")} goServices={() => go("services")} />}
             {view === "modules" && <ModulesScreen />}
             {view === "services" && <ServicesScreen />}

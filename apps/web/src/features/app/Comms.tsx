@@ -7,10 +7,11 @@ import { Field } from "@/components/ui/Field";
 import { api } from "@/lib/api";
 import { Panel, useFormat } from "@/features/oneknight/ui/kit";
 import { AnnouncementsAdmin } from "./Announcements";
+import { ContentAdmin } from "./ContentAdmin";
 import { Tabs } from "./Tabs";
 import { useToast } from "./Toasts";
 
-const TABS = ["messages", "news", "ideas"] as const;
+const TABS = ["messages", "news", "ideas", "content"] as const;
 type Broadcast = { id: string; title: string; text: string; segment: string; recipients: number; createdAt: string };
 type Idea = { id: string; text: string; status: "new" | "planned" | "done" | "declined"; createdAt: string; org: string | null; by: string | null };
 
@@ -138,6 +139,7 @@ export function CommsAdmin() {
       {tab === "messages" && <Messages />}
       {tab === "news" && <AnnouncementsAdmin embedded />}
       {tab === "ideas" && <IdeasAdmin />}
+      {tab === "content" && <ContentAdmin />}
     </div>
   );
 }

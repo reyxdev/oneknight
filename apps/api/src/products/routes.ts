@@ -46,6 +46,8 @@ const ProductIn = z.object({
   warrantyMonths: z.number().int().min(0).max(240).nullable().optional(),
   attributes: z.array(z.object({ name: z.string().trim().min(1).max(100), value: z.string().trim().max(300) })).max(50).optional(),
   active: z.boolean().optional(),
+  /** «Контент-план»: promote more / never. */
+  promote: z.enum(["yes", "no"]).nullable().optional(),
   sort: z.number().int().optional(),
   photo: Upload.optional(),
 });
@@ -69,6 +71,7 @@ function columns(p: Partial<In>, finance: boolean) {
   for (const k of ["lowStock", "weightG", "lengthCm", "widthCm", "heightCm", "warrantyMonths"] as const) if (p[k] !== undefined) out[k] = p[k];
   if (p.attributes !== undefined) out.attributes = p.attributes;
   if (p.active !== undefined) out.active = p.active;
+  if (p.promote !== undefined) out.promote = p.promote;
   if (p.sort !== undefined) out.sort = p.sort;
   return out;
 }

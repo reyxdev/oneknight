@@ -10,7 +10,7 @@ import { useFormat } from "./kit";
 import type { ModuleDef, ModuleId } from "@oneknight/domain";
 
 export const moduleIcon: Record<ModuleId, IconName> = {
-  novaposhta: "truck", ukrposhta: "box", analytics: "chart", reviews: "star", olx: "cart", prom: "cart", rozetka: "cart", "ai-content": "bolt", zadarma: "phone",
+  novaposhta: "truck", ukrposhta: "box", analytics: "chart", reviews: "star", olx: "cart", prom: "cart", rozetka: "cart", content: "megaphone", zadarma: "phone",
 };
 
 /** One card, used in the playground Modules screen and in the public marketplace section. */

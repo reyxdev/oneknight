@@ -8,13 +8,13 @@ import { memberships, organizations } from "../db/schema.ts";
  * `finance`: sees money (revenue, order sums, the goal). `shipping`: only orders waiting to be sent: waybills,
  * printing, «Відправлено» (the «Комплектувальник» role); `orders` includes it.
  */
-export const PERMISSIONS = ["orders", "shipping", "finance", "products", "reviews", "analytics", "site", "modules", "billing", "team", "support"] as const;
+export const PERMISSIONS = ["orders", "shipping", "finance", "products", "reviews", "analytics", "site", "content", "modules", "billing", "team", "support"] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
 /** Suggested permissions when inviting someone with a role. */
 export const ROLE_DEFAULTS: Record<"manager" | "marketer" | "packer", Permission[]> = {
   manager: ["orders", "products", "reviews", "support"],
-  marketer: ["analytics", "reviews", "site"],
+  marketer: ["analytics", "reviews", "site", "content"],
   packer: ["shipping"],
 };
 export const INVITE_ROLES = ["manager", "marketer", "packer"] as const;

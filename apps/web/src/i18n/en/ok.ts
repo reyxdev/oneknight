@@ -182,7 +182,7 @@ export const ok: Dict["ok"] = {
       olx: { name: "OLX", desc: "OLX listings and orders in one place.", demo: "Requires your OLX API key." },
       prom: { name: "Prom", desc: "Products and orders from Prom.", demo: "Requires your Prom API key." },
       rozetka: { name: "Rozetka", desc: "Products and orders from Rozetka.", demo: "Requires your Rozetka API key." },
-      "ai-content": { name: "AI Content", desc: "Drafts of posts, ads and scripts.", demo: "For example: \"Write a post about the new collection\"." },
+      content: { name: "Content plan", desc: "A 30-day posting plan for Instagram, TikTok, Facebook, the site and messengers, from your products, reviews and promotions.", demo: "For example: «Tue 19:00, Instagram: the best seller close up»." },
       zadarma: { name: "Telephony", desc: "Number, calls and messages (Zadarma).", demo: "Planned, not available yet." },
     },
   },

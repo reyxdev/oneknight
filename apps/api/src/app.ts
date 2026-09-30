@@ -28,6 +28,7 @@ import { cartRoutes } from "./carts/routes.ts";
 import { productRoutes } from "./products/routes.ts";
 import { projectRoutes } from "./projects/routes.ts";
 import { ideaRoutes } from "./admin/comms.ts";
+import { contentRoutes } from "./content/routes.ts";
 import { referralRoutes } from "./billing/referrals.ts";
 import { announcementRoutes } from "./announcements/routes.ts";
 import { backupRoutes } from "./backups/routes.ts";
@@ -41,7 +42,7 @@ import type { UpFetch } from "./integrations/ukrposhta.ts";
 import { registerGuard } from "./security/guard.ts";
 
 /** Business data that cannot be changed while the subscription is suspended (backups stay: the data can be taken away). */
-const READ_ONLY_PREFIXES = ["/api/shop", "/api/customers", "/api/reviews/", "/api/integrations", "/api/business", "/api/dashboard", "/api/onboarding/examples", "/api/sites", "/api/team"];
+const READ_ONLY_PREFIXES = ["/api/shop", "/api/customers", "/api/reviews/", "/api/integrations", "/api/business", "/api/dashboard", "/api/onboarding/examples", "/api/sites", "/api/team", "/api/content"];
 
 /** Builds the app without listening, so tests can use app.inject(). All routes live under /api. */
 export async function buildApp(opts: FastifyServerOptions = {}, deps: { npCall?: NpCall; promFetch?: PromFetch; rozetkaFetch?: RozetkaFetch; printPdf?: PrintPdf; upFetch?: UpFetch; tgCall?: TgCall } = {}) {
@@ -93,6 +94,7 @@ export async function buildApp(opts: FastifyServerOptions = {}, deps: { npCall?:
   await app.register(productRoutes, { prefix: "/api/shop" });
   await app.register(projectRoutes, { prefix: "/api/projects" });
   await app.register(ideaRoutes, { prefix: "/api/ideas" });
+  await app.register(contentRoutes, { prefix: "/api/content" });
   await app.register(businessRoutes, { prefix: "/api/business" });
   await app.register(customerRoutes, { prefix: "/api/customers" });
   await app.register(referralRoutes, { prefix: "/api/referrals" });

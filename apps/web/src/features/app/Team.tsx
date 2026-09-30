@@ -16,7 +16,7 @@ type Member = { userId: string; name: string; email: string; role: Role; permiss
 type Invite = { id: string; role: Role; permissions: string[]; note: string | null; expiresAt: string };
 type Data = { members: Member[]; invites: Invite[]; all: string[]; require2fa: boolean };
 type LogItem = { at: string; userId: string | null; name: string | null; kind: "audit" | "order" | "product"; action: string; ref: string | null; meta: Record<string, unknown> };
-const DEFAULTS: Record<InviteRole, string[]> = { manager: ["orders", "products", "reviews", "support"], marketer: ["analytics", "reviews", "site"], packer: ["shipping"] };
+const DEFAULTS: Record<InviteRole, string[]> = { manager: ["orders", "products", "reviews", "support"], marketer: ["analytics", "reviews", "site", "content"], packer: ["shipping"] };
 
 export function TeamScreen({ me }: { me: Me }) {
   const d = useDict();
