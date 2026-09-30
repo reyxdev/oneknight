@@ -15,6 +15,7 @@ import { purgeCarts } from "./carts/routes.ts";
 import { downloadPendingPhotos } from "./products/photos.ts";
 import { runMorningReport } from "./admin/overview.ts";
 import { runAdminReminders } from "./projects/routes.ts";
+import { runWeeklyAudits } from "./sites/audit.ts";
 import { notifyOwner } from "./notify/telegram.ts";
 
 const app = await buildApp();
@@ -26,6 +27,8 @@ const billingTimer = setInterval(() => {
   void runMorningReport((text) => notifyOwner(text, app.log)).catch((e) => app.log.error(e));
   // Leads without an answer, lead reminders, project deadlines.
   void runAdminReminders(app.log).catch((e) => app.log.error(e));
+  // «Перевірка якості» of every confirmed site once a week.
+  void runWeeklyAudits(app.log).catch((e) => app.log.error(e));
 }, 3600_000);
 void runBilling().catch((e) => app.log.error(e));
 void runMorningReport((text) => notifyOwner(text, app.log)).catch((e) => app.log.error(e));

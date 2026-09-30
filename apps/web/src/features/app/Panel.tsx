@@ -310,7 +310,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             {view === "products" && <ProductsScreen tab={route.tab} finance={me.permissions.includes("finance")} />}
             {view === "reviews" && <ReviewsScreen goModules={() => go("modules")} />}
             {view === "analytics" && <AnalyticsScreen goModules={() => go("modules")} />}
-            {view === "site" && <SiteScreen canEdit={me.permissions.includes("site")} />}
+            {view === "site" && <SiteScreen canEdit={me.permissions.includes("site")} goServices={() => go("services")} />}
             {view === "modules" && <ModulesScreen />}
             {view === "services" && <ServicesScreen />}
             {view === "business" && <BusinessScreen me={me} tab={businessTab} setTab={(tab) => go("business", tab)} onChange={onChange} />}

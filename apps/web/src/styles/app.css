@@ -428,3 +428,14 @@ dialog.modal:has(.app-dialog) { max-width: min(520px, calc(100vw - 1.5rem)); }
 .app-shell .ok-main { display: flex; flex-direction: column; }
 .app-shell .ok-main > * { flex: none; }
 .app-shell .ok-main > .ok-content { flex: 1 1 auto; min-height: 0; }
+
+/* Site: setup steps and the quality check */
+.app-setup-steps { display: grid; gap: 0.9rem; margin: 0; padding: 0; list-style: none; }
+.app-setup-steps li { display: grid; gap: 0.3rem; padding-left: 0.9rem; border-left: 3px solid var(--line-strong); }
+.app-setup-steps li[data-done] { border-left-color: var(--ok); }
+.app-setup-steps span { font-size: 0.875rem; color: var(--fg-muted); }
+.app-audit { display: grid; gap: 0.45rem; margin: 0; padding: 0; list-style: none; }
+.app-audit li { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.875rem; }
+.app-audit li > svg { flex: none; margin-top: 0.2rem; color: var(--ok); }
+.app-audit li[data-ok="false"] > svg { color: var(--bad); }
+.app-audit b { font-weight: 600; word-break: break-word; }

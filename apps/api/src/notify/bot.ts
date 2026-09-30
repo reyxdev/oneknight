@@ -137,6 +137,7 @@ export function notificationText(key: string, p: Record<string, any>, finance = 
     case "newReview": return `⭐ Новий відгук від ${p.name} (${p.rating}★)`;
     case "siteDown": return `⚠️ ${p.domain} недоступний${p.error ? ` (${p.error})` : ""}`;
     case "siteUp": return `✅ ${p.domain} знову працює`;
+    case "auditDone": return `🔎 Перевірка якості ${p.domain}: пройдено ${p.passed} з ${p.total}. Поради — у розділі «Сайт»`;
     case "sslExpiring": return `🔒 SSL для ${p.domain} закінчується через ${p.days} дн.`;
     case "lowBalance": return `💳 Не вистачає ${money(p.amount)} грн для продовження ONEKNIGHT. Сервіс працює ще ${p.days} дн.`;
     case "suspended": return `⛔ Підписку ONEKNIGHT призупинено: не вистачає ${money(p.amount)} грн`;

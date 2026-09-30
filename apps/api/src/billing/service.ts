@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { and, count, desc, eq, gt, inArray, isNull, lte, or, sql as dsql, sum } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNotNull, isNull, lte, ne, or, sql as dsql, sum } from "drizzle-orm";
 import { moduleById, oneknightPricing as P, type ModuleId } from "@oneknight/domain";
 import { db } from "../db/client.ts";
 import { ledgerEntries, moduleInstalls, notifications, orders, organizations, promoCodes, promoRedemptions, sites, subscriptions, topups } from "../db/schema.ts";
@@ -53,7 +53,8 @@ export async function monthlyKop(orgId: string, x: Exec = db, at = new Date()) {
   const [sub] = await x.select({ coveredUntil: subscriptions.coveredUntil }).from(subscriptions).where(eq(subscriptions.organizationId, orgId));
   const base = sub?.coveredUntil && sub.coveredUntil > at ? 0 : P.perMonth;
   const modules = await paidModules(orgId, x, at);
-  const [s] = await x.select({ n: count() }).from(sites).where(eq(sites.organizationId, orgId));
+  // Only confirmed websites count (ok.js found on the domain; owner's decision).
+  const [s] = await x.select({ n: count() }).from(sites).where(and(eq(sites.organizationId, orgId), isNotNull(sites.verifiedAt)));
   const extraSites = Math.max(0, (s?.n ?? 0) - 1);
   const parts = { baseKop: base * UAH, modules, modulesKop: modules * P.modulePerMonth * UAH, extraSites, sitesKop: extraSites * P.extraSitePerMonth * UAH };
   const full = parts.baseKop + parts.modulesKop + parts.sitesKop;
@@ -128,8 +129,13 @@ async function warnDeletion(now: Date) {
     const left = DELETE_AFTER_DAYS - (now.getTime() - s.suspendedAt.getTime()) / DAY;
     const step = [1, 7, 30].find((d) => left <= d);
     if (step === undefined || left <= 0 || (s.deletionWarned !== null && s.deletionWarned <= step)) continue;
-    await db.update(subscriptions).set({ deletionWarned: step }).where(eq(subscriptions.organizationId, s.organizationId));
-    await note(db, s.organizationId, "dataDeletionSoon", { days: Math.max(1, Math.ceil(left)) });
+    // Claimed in one statement: two runs at the same time never warn twice.
+    const [claimed] = await db
+      .update(subscriptions)
+      .set({ deletionWarned: step })
+      .where(and(eq(subscriptions.organizationId, s.organizationId), or(isNull(subscriptions.deletionWarned), gt(subscriptions.deletionWarned, step))))
+      .returning({ id: subscriptions.organizationId });
+    if (claimed) await note(db, s.organizationId, "dataDeletionSoon", { days: Math.max(1, Math.ceil(left)) });
   }
 }
 
@@ -161,16 +167,24 @@ async function remindRenewals(now: Date) {
       const { total } = await monthlyKop(s.organizationId, db, s.periodEnd);
       const bal = await balanceKop(s.organizationId);
       if (total > bal) {
-        await db.update(subscriptions).set({ renewRemindedFor: s.periodEnd }).where(eq(subscriptions.organizationId, s.organizationId));
-        await note(db, s.organizationId, "renewSoon", { amount: (total - bal) / UAH, until: s.periodEnd.toISOString() });
+        const [claimed] = await db
+          .update(subscriptions)
+          .set({ renewRemindedFor: s.periodEnd })
+          .where(and(eq(subscriptions.organizationId, s.organizationId), or(isNull(subscriptions.renewRemindedFor), ne(subscriptions.renewRemindedFor, s.periodEnd))))
+          .returning({ id: subscriptions.organizationId });
+        if (claimed) await note(db, s.organizationId, "renewSoon", { amount: (total - bal) / UAH, until: s.periodEnd.toISOString() });
       }
     }
     if (s.coveredUntil) {
       const yl = s.coveredUntil.getTime() - now.getTime();
       const [year] = await db.select({ id: ledgerEntries.id }).from(ledgerEntries).where(and(eq(ledgerEntries.organizationId, s.organizationId), eq(ledgerEntries.reason, "year"))).limit(1);
       if (year && yl > 0 && yl <= 14 * DAY && s.yearRemindedFor?.getTime() !== s.coveredUntil.getTime()) {
-        await db.update(subscriptions).set({ yearRemindedFor: s.coveredUntil }).where(eq(subscriptions.organizationId, s.organizationId));
-        await note(db, s.organizationId, "yearEnding", { until: s.coveredUntil.toISOString() });
+        const [claimed] = await db
+          .update(subscriptions)
+          .set({ yearRemindedFor: s.coveredUntil })
+          .where(and(eq(subscriptions.organizationId, s.organizationId), or(isNull(subscriptions.yearRemindedFor), ne(subscriptions.yearRemindedFor, s.coveredUntil))))
+          .returning({ id: subscriptions.organizationId });
+        if (claimed) await note(db, s.organizationId, "yearEnding", { until: s.coveredUntil.toISOString() });
       }
     }
   }
@@ -219,8 +233,13 @@ async function remindTrials(now: Date) {
     const left = (t.periodEnd.getTime() - now.getTime()) / DAY;
     const step = left <= 0 ? null : left <= 1 ? 1 : left <= 3 ? 3 : null;
     if (step === null || (t.trialReminded !== null && t.trialReminded <= step)) continue;
-    await db.update(subscriptions).set({ trialReminded: step }).where(eq(subscriptions.organizationId, t.organizationId));
-    await note(db, t.organizationId, "trialEnding", { days: Math.ceil(left), until: t.periodEnd.toISOString() });
+    // Claimed in one statement: two runs at the same time never remind twice.
+    const [claimed] = await db
+      .update(subscriptions)
+      .set({ trialReminded: step })
+      .where(and(eq(subscriptions.organizationId, t.organizationId), or(isNull(subscriptions.trialReminded), gt(subscriptions.trialReminded, step))))
+      .returning({ id: subscriptions.organizationId });
+    if (claimed) await note(db, t.organizationId, "trialEnding", { days: Math.ceil(left), until: t.periodEnd.toISOString() });
   }
 }
 

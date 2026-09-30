@@ -22,8 +22,20 @@ await pg.getByLabel("Електронна пошта").fill(email);
 await pg.getByLabel("Пароль").fill("site e2e pass");
 await pg.getByRole("button", { name: "Створити акаунт" }).click();
 await onboard(pg);
+// The client adds a website: it waits for ok.js (checked on the page), the code and the developer text are there.
 await go(pg, "Сайт");
-ok(await pg.getByText("Сайту поки немає").waitFor({ timeout: 5000 }).then(() => true, () => false), "empty site state before any site");
+await pg.getByLabel("Домен").fill("localhost");
+await pg.getByRole("button", { name: "Додати", exact: true }).click();
+ok(await pg.getByText("Вкажіть публічний домен").waitFor({ timeout: 5000 }).then(() => true, () => false), "the client: local domains are refused");
+await pg.getByLabel("Домен").fill("example.org");
+await pg.getByRole("button", { name: "Додати", exact: true }).click();
+ok(await pg.getByText("Сайт чекає на скрипт ONEKNIGHT").waitFor({ timeout: 5000 }).then(() => true, () => false), "a new site waits for ok.js");
+ok(/data-key="sk_[0-9a-f]{32}"/.test(await pg.locator(".app-code-block").first().innerText()), "the ok.js line with the site key");
+await pg.getByRole("button", { name: "Перевірити зараз" }).click();
+ok(await pg.getByText("Скрипт на головній сторінці не знайдено").waitFor({ timeout: 20000 }).then(() => true, () => false), "not confirmed: the real page has no ok.js");
+pg.once("dialog", (dlg) => dlg.accept());
+await pg.getByRole("button", { name: "Прибрати сайт" }).click();
+ok(await pg.getByRole("heading", { name: "Додати сайт" }).waitFor({ timeout: 5000 }).then(() => true, () => false), "an unconfirmed site can be removed");
 
 execSync(`npm run -s admin:grant -w @oneknight/api -- ${email}`);
 await pg.reload({ waitUntil: "networkidle" });
@@ -46,6 +58,12 @@ ok(/Працює|Недоступний/.test(status), `site status is a real pr
 const ssl = await pg.locator(".ok-stat", { hasText: "SSL" }).innerText();
 ok(/\d+ дн\./.test(ssl), `SSL days left are shown (${ssl.split("\n")[1]})`);
 await pg.screenshot({ path: process.env.SHOT ?? "/tmp/site-e2e.png" });
+// «Якість»: the real home page of the domain checked right now.
+await pg.getByRole("tab", { name: "Якість" }).click();
+await pg.getByRole("button", { name: "Перевірити зараз" }).click();
+ok(await pg.locator(".ok-stat", { hasText: "Пройдено" }).waitFor({ timeout: 60000 }).then(() => true, () => false), "the quality check ran on the real page");
+ok(await pg.locator(".app-audit li", { hasText: "Версія для телефону" }).isVisible(), "phone, search and links checks are listed");
+if (process.env.SHOTS) await pg.screenshot({ path: `${process.env.SHOTS}/site-quality.png`, fullPage: true });
 
 cleanupTestData();
 // Known, intermittent React #418 (hydration) seen only after a form sign-up + reloads; tracked in TODO.md.

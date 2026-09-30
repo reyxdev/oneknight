@@ -210,7 +210,7 @@ export const projectAdminRoutes: FastifyPluginAsync = async (app) => {
     if (!cur) return reply.code(404).send({ error: "not_found" });
     if (!cur.organizationId) return reply.code(409).send({ error: "no_client" });
     if (cur.launchedAt) return reply.code(409).send({ error: "already_launched" });
-    if (cur.domain) await db.insert(sites).values({ organizationId: cur.organizationId, domain: cur.domain, name: cur.title, status: "live" }).onConflictDoNothing();
+    if (cur.domain) await db.insert(sites).values({ organizationId: cur.organizationId, domain: cur.domain, name: cur.title, status: "live", verifiedAt: new Date() }).onConflictDoNothing();
     const until = await startTrial(cur.organizationId);
     await db.update(projects).set({ stage: "done", awaiting: false, launchedAt: new Date(), updatedAt: new Date() }).where(eq(projects.id, cur.id));
     await db.insert(projectComments).values({ projectId: cur.id, userId: req.auth!.user.id, fromAdmin: true, kind: "launched", text: cur.domain ?? "" });

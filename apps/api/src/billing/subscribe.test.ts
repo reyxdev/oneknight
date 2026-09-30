@@ -48,7 +48,8 @@ test("«Почати підписку» from the balance, «Оплатити р�
   assert.equal(o2.parts.baseKop, 0, "renewals within the year do not charge ONEKNIGHT");
 
   // Each website after the first: +149.
-  await db.insert(sites).values([{ organizationId: org, domain: `${tag}a.shop.com.ua`, name: "A" }, { organizationId: org, domain: `${tag}b.shop.com.ua`, name: "B" }]);
+  // Confirmed websites (ok.js found): only these are charged.
+  await db.insert(sites).values([{ organizationId: org, domain: `${tag}a.shop.com.ua`, name: "A", verifiedAt: new Date() }, { organizationId: org, domain: `${tag}b.shop.com.ua`, name: "B", verifiedAt: new Date() }]);
   const o3 = await overview();
   assert.deepEqual([o3.parts.extraSites, o3.parts.sitesKop, o3.monthlyKop], [1, 14900, 14900]);
 

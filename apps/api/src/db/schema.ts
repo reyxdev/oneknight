@@ -214,9 +214,30 @@ export const sites = pgTable(
     lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
     /** Last time anything with the site's public key (ok.js) called the public API: proves it is installed. */
     okSeenAt: timestamp("ok_seen_at", { withTimezone: true }),
+    /**
+     * When ok.js with this site's key was found in the page of the domain. Until then the site is «чекає ok.js»:
+     * no monitoring, not charged as an extra website, and it can be removed by the client.
+     */
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    /** Site settings: «Зроблено на ONEKNIGHT», widgets of ok.js (social proof, reviews, stars) and «вимкнути всі». */
+    settings: jsonb("settings").notNull().default(sql`'{}'::jsonb`).$type<{ poweredBy?: boolean; widgetsOff?: boolean; socialProof?: boolean; reviewsBlock?: boolean; stars?: boolean }>(),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("sites_domain_uq").on(t.domain), index("sites_org_idx").on(t.organizationId)],
+);
+
+/** «Перевірка якості»: weekly (and on demand) own checks of the home page — speed, mobile, SEO, broken links. */
+export const siteAudits = pgTable(
+  "site_audits",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    siteId: uuid("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+    passed: integer("passed").notNull(),
+    total: integer("total").notNull(),
+    checks: jsonb("checks").notNull().$type<{ id: string; group: string; ok: boolean; value?: string | number | null; items?: string[] }[]>(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("site_audits_site_idx").on(t.siteId, t.createdAt)],
 );
 
 /** One monitoring probe: HTTPS availability, response time, TLS certificate expiry. */

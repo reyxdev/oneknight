@@ -41,6 +41,7 @@ await pg.getByLabel("Ціна, грн", { exact: true }).fill("350");
 await pg.getByRole("button", { name: "Зберегти" }).click();
 await pg.locator(".app-table tbody tr", { hasText: "Свічка «Лаванда»" }).waitFor();
 await nav("Сайт");
+await pg.getByRole("tab", { name: "API й ok.js" }).click();
 const key = (await pg.locator(".app-key").first().innerText()).trim();
 const [product] = await (await fetch(`${BASE}/api/public/products`, { headers: { "x-site-key": key } })).json();
 

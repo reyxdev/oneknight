@@ -41,6 +41,7 @@ await pg.locator(".ok-module", { hasText: "Відгуки" }).getByText("Під�
 ok(true, "reviews module connected free in the trial");
 
 await nav("Сайт");
+await pg.getByRole("tab", { name: "API й ok.js" }).click();
 const key = (await pg.locator(".app-key").first().innerText()).trim();
 const res = await fetch(`${BASE}/api/public/reviews`, { method: "POST", headers: { "content-type": "application/json", "x-site-key": key }, body: JSON.stringify({ name: "Оксана", rating: 5, text: "Замовляла хлібницю в подарунок мамі, вона в захваті. Дякую!", consent: true }) });
 ok(res.status === 201, "website visitor leaves a review");

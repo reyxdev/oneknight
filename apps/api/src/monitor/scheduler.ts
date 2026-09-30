@@ -1,9 +1,10 @@
 import type { FastifyBaseLogger } from "fastify";
-import { and, desc, eq, gt, lt } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull, lt } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { monitorChecks, notifications, sites } from "../db/schema.ts";
 import { notifyOrg } from "../notify/notify.ts";
 import { probe } from "./probe.ts";
+import { verifyPending } from "../sites/audit.ts";
 
 const RETENTION_DAYS = 90;
 const SSL_WARN_DAYS = 14;
@@ -42,7 +43,9 @@ export async function checkSite(site: Site, log: FastifyBaseLogger | Console) {
 }
 
 async function runAll(log: FastifyBaseLogger) {
-  const list = await db.select().from(sites).where(eq(sites.status, "live"));
+  // Unconfirmed sites are not watched: first the client installs ok.js (looked for each round).
+  await verifyPending().catch((e) => log.warn({ err: String(e) }, "verify failed"));
+  const list = await db.select().from(sites).where(and(eq(sites.status, "live"), isNotNull(sites.verifiedAt)));
   for (let i = 0; i < list.length; i += CONCURRENCY) {
     await Promise.all(list.slice(i, i + CONCURRENCY).map((s) => checkSite(s, log).catch((e) => log.warn({ err: String(e), site: s.domain }, "check failed"))));
   }

@@ -64,7 +64,7 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     const domain = p.success ? normalizeDomain(p.data.domain) : null;
     if (!p.success || !domain) return reply.code(400).send({ error: "invalid_domain" });
     try {
-      const [site] = await db.insert(sites).values({ organizationId: p.data.organizationId, domain, name: p.data.name || domain }).returning();
+      const [site] = await db.insert(sites).values({ organizationId: p.data.organizationId, domain, name: p.data.name || domain, verifiedAt: new Date() }).returning();
       await audit(req, "site.create", req.auth!.user.id, { site: site!.id, domain }, p.data.organizationId);
       void checkSite(site!, req.log).catch(() => {});
       return reply.code(201).send(site);

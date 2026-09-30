@@ -48,6 +48,7 @@ await pg.locator(".app-table tbody tr", { hasText: "Хлібниця «Маки�
 ok(await pg.locator(".app-table .app-thumb").count() === 1, "product with photo saved");
 
 await nav("Сайт");
+await pg.getByRole("tab", { name: "API й ok.js" }).click();
 const key = (await pg.locator(".app-key").first().innerText()).trim();
 ok(/^sk_[0-9a-f]{32}$/.test(key), "site key is shown");
 
