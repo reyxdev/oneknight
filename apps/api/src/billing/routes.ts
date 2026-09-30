@@ -1,13 +1,14 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import type { ModuleId } from "@oneknight/domain";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql as dsql } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { moduleInstalls } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
 import { orgScope } from "../auth/access.ts";
 import { audit } from "../audit.ts";
 import { redeem } from "./keys.ts";
+import { rewardReferral } from "./referrals.ts";
 import { billingOverview, createTopup, installModule, payYear, paymentsConfigured, requisites, startSelfTrial, startSubscription } from "./service.ts";
 
 const Topup = z.object({ amountUah: z.number().int().min(50).max(100_000) });
@@ -19,6 +20,14 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
   app.post("/trial", async (req, reply) => {
     const [org] = await orgScope(req, "billing");
     if (!org) return reply.code(403).send({ error: "forbidden" });
+    // One free trial per phone number: another business of the same person (or the same phone) already had one.
+    const [used] = await db.execute<{ n: number }>(dsql`
+      select count(*)::int as n from subscriptions s
+      join memberships m on m.organization_id = s.organization_id and m.role = 'owner'
+      join users u on u.id = m.user_id
+      where s.trial_ends_at is not null and s.organization_id <> ${org}
+        and ok_phone_key(u.phone) = ok_phone_key(${req.auth!.user.phone})`);
+    if ((used?.n ?? 0) > 0) return reply.code(409).send({ error: "trial_used" });
     const until = await startSelfTrial(org);
     if (!until) return reply.code(409).send({ error: "already_started" });
     await audit(req, "billing.trial_started", req.auth!.user.id, { until: until.toISOString() }, org);
@@ -31,6 +40,7 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
     if (!org) return reply.code(403).send({ error: "forbidden" });
     const r = await startSubscription(org);
     if (!r.ok) return reply.code(409).send(r);
+    await rewardReferral(org);
     await audit(req, "billing.subscribe", req.auth!.user.id, { until: r.until.toISOString() }, org);
     return r;
   });
@@ -41,6 +51,7 @@ export const billingRoutes: FastifyPluginAsync = async (app) => {
     if (!org) return reply.code(403).send({ error: "forbidden" });
     const r = await payYear(org);
     if (!r.ok) return reply.code(409).send(r);
+    await rewardReferral(org);
     await audit(req, "billing.year", req.auth!.user.id, { until: r.until.toISOString() }, org);
     return r;
   });

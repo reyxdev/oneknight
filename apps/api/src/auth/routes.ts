@@ -11,6 +11,7 @@ import { clearCookies, createSession, isComplete, loadAuth, type Auth } from "./
 import { isLockedOut } from "./limits.ts";
 import { audit } from "../audit.ts";
 import { membershipsOf } from "./access.ts";
+import { referrerOf } from "../billing/referrals.ts";
 
 const email = z.string().trim().toLowerCase().email().max(254);
 const password = z.string().min(8).max(200);
@@ -19,6 +20,8 @@ const Register = z.object({
   phone: z.string().trim().regex(/^\+?[0-9\s()-]{9,20}$/),
   email,
   password,
+  /** Referral code from «/app/?start=register&ref=CODE». */
+  ref: z.string().trim().max(20).optional(),
 });
 const Login = z.object({ email, password: z.string().min(1).max(200) });
 const Code = z.object({ code: z.string().trim() });
@@ -79,9 +82,10 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     if (!p.success) return bad(reply, 400, "invalid_input");
     const { name, phone, email: mail, password: pw } = p.data;
     const passwordHash = await hashPassword(pw);
+    const referredBy = await referrerOf(p.data.ref?.toUpperCase());
     try {
       const user = await db.transaction(async (tx) => {
-        const [u] = await tx.insert(users).values({ name, phone, email: mail, passwordHash }).returning();
+        const [u] = await tx.insert(users).values({ name, phone, email: mail, passwordHash, referredBy }).returning();
         const [org] = await tx.insert(organizations).values({ name }).returning();
         await tx.insert(memberships).values({ userId: u!.id, organizationId: org!.id, role: "owner", permissions: [] });
         return u!;

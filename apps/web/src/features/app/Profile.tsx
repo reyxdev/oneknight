@@ -7,14 +7,15 @@ import { api, type Me } from "@/lib/api";
 import { playSound } from "@/lib/sound";
 import { Panel, useFlash } from "@/features/oneknight/ui/kit";
 import { TelegramPanel } from "./TelegramPanel";
+import { Referrals } from "./Referrals";
 import { Security } from "./Security";
 import { Tabs } from "./Tabs";
 import { orderSoundOn, setOrderSound } from "./NewOrders";
 import { readTextSize, setTextSize, type TextSize } from "./textSize";
 import { Segmented, Toggle } from "@/components/ui/Toggle";
 
-export type ProfileTab = "profile" | "security" | "notifications";
-export const PROFILE_TABS: ProfileTab[] = ["profile", "security", "notifications"];
+export type ProfileTab = "profile" | "security" | "notifications" | "referrals";
+export const PROFILE_TABS: ProfileTab[] = ["profile", "security", "notifications", "referrals"];
 
 /** «Мій профіль»: personal things only; business settings live in «Бізнес». */
 export function ProfileScreen({ me, tab, setTab, onChange }: { me: Me; tab: ProfileTab; setTab: (t: ProfileTab) => void; onChange: () => void }) {
@@ -58,6 +59,7 @@ export function ProfileScreen({ me, tab, setTab, onChange }: { me: Me; tab: Prof
       <div className="ok-h"><h3>{d.app.nav.myProfile}</h3></div>
       <Tabs label={d.app.nav.myProfile} value={tab} onChange={setTab} tabs={PROFILE_TABS.map((id) => ({ id, label: d.app.profileTabs[id] }))} />
       {tab === "security" && <Security me={me} onChange={onChange} embedded />}
+      {tab === "referrals" && <Referrals />}
       {tab === "notifications" && (
         <>
           <TelegramPanel />

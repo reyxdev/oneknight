@@ -54,6 +54,23 @@ ok(await seen(pg.getByText("Замовлень поки немає", { exact: fa
 await pg.reload({ waitUntil: "networkidle" });
 ok(await seen(pg.getByText("Вітаємо")) || (await pg.locator(".ok-h h3").count()) > 0, "no questions again after answering");
 
+// Referral link: another person signs up through it and appears in the list.
+await pg.locator(".ok-side").getByRole("button", { name: "Мій профіль", exact: true }).click();
+await pg.getByRole("tab", { name: "Реферали" }).click();
+const refLink = (await pg.locator(".app-ref code").innerText()).trim();
+ok(/\/app\/\?start=register&ref=[A-Z0-9]{8}$/.test(refLink), "personal referral link");
+const other = await (await b.newContext()).newPage();
+await other.goto(refLink, { waitUntil: "networkidle" });
+await other.getByLabel("Ім'я").fill("Запрошена Людина");
+await other.getByLabel("Телефон").fill("+380670004466");
+await other.getByLabel("Електронна пошта").fill(`onb-ref${Date.now()}@test.oneknight.local`);
+await other.getByLabel("Пароль", { exact: true }).fill("invited person pass");
+await other.getByRole("button", { name: "Створити акаунт" }).click();
+await other.getByRole("heading", { name: /кілька питань/ }).waitFor();
+await pg.reload({ waitUntil: "networkidle" });
+await pg.getByRole("tab", { name: "Реферали" }).click();
+ok(await seen(pg.locator(".ok-list li", { hasText: "Запрошена" }).getByText("чекає першої оплати")), "the invited person is in the list, first name only");
+
 errs.splice(0, errs.length, ...errs.filter((e) => !e.includes("React error #418")));
 console.log("errors:", errs.length ? errs.join("\n") : "none");
 await b.close();

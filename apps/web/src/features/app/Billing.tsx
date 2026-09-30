@@ -172,7 +172,7 @@ export function BillingScreen({ onChange }: { onChange?: () => void }) {
       {!s && (
         <Panel>
           <p className="ok-muted">{t.none}</p>
-          <button type="button" className="btn btn-sm" style={{ justifySelf: "start" }} onClick={async () => { const r = await api("/billing/trial", { method: "POST" }); if (r.ok) { playSound("success"); void load(); onChange?.(); } }}>{t.startTrial}</button>
+          <button type="button" className="btn btn-sm" style={{ justifySelf: "start" }} onClick={async () => { const r = await api("/billing/trial", { method: "POST" }); if (r.ok) { playSound("success"); void load(); onChange?.(); } else if (r.error === "trial_used") show(d.app.onboarding.trialUsed, "warn"); }}>{t.startTrial}</button>
         </Panel>
       )}
       <Panel title={t.planTitle}>

@@ -35,7 +35,7 @@ export function Onboarding({ me, onDone }: { me: Me; onDone: (go?: [string, stri
   const [err, setErr] = useState<string | null>(null);
   const [step, setStep] = useState<"questions" | "advice">("questions");
   const [busy, setBusy] = useState(false);
-  const [trial, setTrial] = useState<"none" | "started" | "had">(me.subscription ? "had" : "none");
+  const [trial, setTrial] = useState<"none" | "started" | "had" | "used">(me.subscription ? "had" : "none");
 
   const toggle = (k: "sells" | "delivery" | "channels", v: string) =>
     setA((x) => {
@@ -75,6 +75,7 @@ export function Onboarding({ me, onDone }: { me: Me; onDone: (go?: [string, stri
       playSound("success");
       setTrial("started");
     } else if (r.error === "already_started") setTrial("had");
+    else if (r.error === "trial_used") setTrial("used");
   };
 
   const recs = recommend(a);
@@ -141,6 +142,7 @@ export function Onboarding({ me, onDone }: { me: Me; onDone: (go?: [string, stri
               {trial === "none" && <><p className="small">{t.trialLead}</p><button type="button" className="btn" style={{ justifySelf: "start" }} onClick={startTrial}>{t.trialCta}</button></>}
               {trial === "started" && <p className="ok-note" role="status"><Icon name="check" size={15} />{t.trialStarted}</p>}
               {trial === "had" && <p className="small">{t.trialHad}</p>}
+              {trial === "used" && <p className="small">{t.trialUsed}</p>}
             </section>
             <TelegramPanel />
             <button type="button" className="btn btn-lg" onClick={() => onDone()}>{t.toPanel}</button>

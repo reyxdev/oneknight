@@ -228,7 +228,12 @@ export async function runBilling(now = new Date()) {
     .from(subscriptions)
     .where(inArray(subscriptions.status, ["trial", "active", "grace"]));
   const results: string[] = [];
-  for (const { org } of due) results.push(await settle(org, now));
+  for (const { org } of due) {
+    const r = await settle(org, now);
+    results.push(r);
+    // The first real payment of an invited business: a month for both (imported here: referrals.ts uses this file).
+    if (r === "renewed") await (await import("./referrals.ts")).rewardReferral(org, now);
+  }
   return results;
 }
 

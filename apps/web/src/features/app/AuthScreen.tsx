@@ -73,11 +73,13 @@ export function AuthScreen({ initial, onDone, onMfa, note }: { initial: Mode; on
       return;
     }
     setBusy(true);
+    // A referral code from «?ref=» (kept for the session): both get a month after the first payment.
+    const ref = new URLSearchParams(location.search).get("ref") ?? sessionStorage.getItem("ok_ref");
     // The invitation is accepted right after the account exists (AppRoot), like an invite link.
     if (mode === "register" && f.invite.trim()) sessionStorage.setItem("ok_invite", inviteToken(f.invite));
     const r =
       mode === "register"
-        ? await api<Me>("/auth/register", { method: "POST", body: { name: f.name, phone: f.phone.replace(/\s/g, ""), email: f.email, password: f.password } })
+        ? await api<Me>("/auth/register", { method: "POST", body: { name: f.name, phone: f.phone.replace(/\s/g, ""), email: f.email, password: f.password, ...(ref ? { ref } : {}) } })
         : await api<{ mfaRequired: boolean; user?: Me }>("/auth/login", { method: "POST", body: { email: f.email, password: f.password } });
     setBusy(false);
     if (!r.ok) {

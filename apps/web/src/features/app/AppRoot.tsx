@@ -54,6 +54,10 @@ export function AppRoot() {
     }
   }, []);
   useEffect(() => {
+    const ref = new URLSearchParams(location.search).get("ref");
+    if (ref) sessionStorage.setItem("ok_ref", ref);
+  }, []);
+  useEffect(() => {
     const token = new URLSearchParams(location.search).get("invite");
     if (token) {
       sessionStorage.setItem("ok_invite", token);

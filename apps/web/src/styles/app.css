@@ -307,3 +307,4 @@ dialog.modal:has(.app-dialog) { max-width: min(520px, calc(100vw - 1.5rem)); }
 .app-bill-parts { display: grid; gap: 0.2rem; margin: 0 0 0.75rem; padding: 0; list-style: none; }
 .app-bill-parts > li { display: flex; align-items: center; gap: 0.75rem; padding: 0.35rem 0; border-bottom: 1px solid var(--line); }
 .app-bill-total { border-bottom: 0 !important; font-weight: 700; }
+.app-ref { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; } .app-ref code { padding: 0.45rem 0.7rem; border-radius: 10px; background: var(--surface-2); font-size: 0.85rem; word-break: break-all; }

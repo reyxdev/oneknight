@@ -39,10 +39,16 @@ export const users = pgTable(
     totpLastStep: integer("totp_last_step"),
     /** Platform administrator (Ivan). Not an organization role. */
     isAdmin: boolean("is_admin").notNull().default(false),
+    /** Own referral code (link «/app/?start=register&ref=CODE»); made on first request. */
+    refCode: text("ref_code"),
+    /** Who invited this person (set at sign-up from a referral link). */
+    referredBy: uuid("referred_by"),
+    /** When both got their free month (after this person's business paid for the first time). */
+    referralRewardedAt: timestamp("referral_rewarded_at", { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("users_email_uq").on(t.email)],
+  (t) => [uniqueIndex("users_email_uq").on(t.email), uniqueIndex("users_ref_code_uq").on(t.refCode), index("users_referred_by_idx").on(t.referredBy)],
 );
 
 export const organizations = pgTable("organizations", {
