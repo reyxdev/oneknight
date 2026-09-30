@@ -5,7 +5,9 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import { playSound } from "@/lib/sound";
 
 export type OrderStart = "choose" | "call" | "brief";
-export type OrderOptions = { siteType?: string; service?: "website" | "automation" | "analytics" | "advertising" | "seo" };
+/** «Замовити з цим розрахунком»: what the calculator showed goes with the lead. */
+export type Estimate = { siteType: "card" | "service" | "shop" | "corporate"; products: string; design: "ready" | "custom"; languages: number; content: number; from: number; to: number };
+export type OrderOptions = { siteType?: string; service?: "website" | "automation" | "analytics" | "advertising" | "seo"; estimate?: Estimate };
 
 type Ctx = {
   openOrder: (start?: OrderStart, opts?: OrderOptions) => void;

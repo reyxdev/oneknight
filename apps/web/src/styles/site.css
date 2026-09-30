@@ -1,0 +1,36 @@
+/* FAQ, cookies, «Написати», the invitation strip, «Що далі» in the order form. */
+.faq-grid { display: grid; gap: 2.5rem; }
+@media (min-width: 960px) { .faq-grid { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); align-items: start; } }
+.faq-list { display: grid; gap: 0.75rem; }
+.faq-item { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); padding: 0 1.25rem; }
+.faq-item[open] { padding-bottom: 1rem; }
+.faq-item summary { display: flex; justify-content: space-between; gap: 1rem; padding: 1.1rem 0; font-weight: 650; font-size: 1.0625rem; cursor: pointer; list-style: none; }
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::after { content: "+"; font-weight: 400; font-size: 1.4rem; line-height: 1; color: var(--fg-muted); transition: transform var(--dur-fast) var(--ease-out); }
+.faq-item[open] summary::after { transform: rotate(45deg); }
+.faq-item p { margin: 0 0 0.6rem; color: var(--fg-muted); line-height: 1.6; }
+
+.site-bottom { position: fixed; z-index: 60; left: 1rem; bottom: 1rem; display: grid; gap: 0.5rem; max-width: 32rem; pointer-events: none; }
+.site-bottom > * { pointer-events: auto; }
+@media (max-width: 767px) { .site-bottom { right: 1rem; bottom: calc(4.5rem + env(safe-area-inset-bottom)); max-width: none; } }
+.site-cookies { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0.9rem; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); box-shadow: var(--shadow-md); font-size: 0.875rem; }
+.site-cookies p { margin: 0; color: var(--fg-muted); }
+
+.site-fab { display: none; }
+@media (max-width: 767px) {
+  .site-fab { position: fixed; z-index: 61; right: 1rem; bottom: calc(1rem + env(safe-area-inset-bottom)); display: grid; justify-items: end; gap: 0.5rem; }
+  .site-fab-btn { box-shadow: var(--shadow-md); gap: 0.4rem; }
+  .site-fab-menu { display: grid; min-width: 12rem; padding: 0.4rem; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); box-shadow: var(--shadow-md); }
+  .site-fab-menu a { padding: 0.7rem 0.8rem; border-radius: 10px; font-weight: 600; color: var(--fg); }
+  .site-fab-menu a:active { background: var(--surface-2); }
+}
+html.modal-open .site-fab, html.modal-open .site-bottom { display: none; }
+
+.site-invite { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; padding: 0.8rem 3rem 0.8rem 1rem; border-radius: var(--r-md); background: var(--inverse-bg); color: var(--inverse-fg); box-shadow: var(--shadow-md); font-size: 0.9rem; }
+.site-invite p { margin: 0; }
+.site-invite .btn-icon { position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%); color: inherit; }
+.site-invite .btn:not(.btn-icon) { --_bg: var(--inverse-fg); --_fg: var(--inverse-bg); }
+
+.order-next { display: grid; gap: 0.75rem; margin: 0; padding: 0; list-style: none; counter-reset: step; }
+.order-next li { position: relative; display: grid; gap: 0.15rem; padding-left: 2.4rem; counter-increment: step; }
+.order-next li::before { content: counter(step); position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 1.7rem; height: 1.7rem; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 0.85rem; }

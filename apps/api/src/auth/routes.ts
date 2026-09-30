@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
+import { claimLead } from "../leads/routes.ts";
 import { and, desc, eq, isNull, ne } from "drizzle-orm";
 import QRCode from "qrcode";
 import { z } from "zod";
@@ -22,6 +23,8 @@ const Register = z.object({
   password,
   /** Referral code from «/app/?start=register&ref=CODE». */
   ref: z.string().trim().max(20).optional(),
+  /** The key of a lead sent from the site before the account existed («Створіть кабінет, щоб бачити статус»). */
+  lead: z.string().trim().max(100).optional(),
 });
 const Login = z.object({ email, password: z.string().min(1).max(200) });
 const Code = z.object({ code: z.string().trim() });
@@ -117,8 +120,9 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         const [u] = await tx.insert(users).values({ name, phone, email: mail, passwordHash, referredBy }).returning();
         const [org] = await tx.insert(organizations).values({ name }).returning();
         await tx.insert(memberships).values({ userId: u!.id, organizationId: org!.id, role: "owner", permissions: [] });
-        return u!;
+        return { ...u!, orgId: org!.id };
       });
+      await claimLead(p.data.lead, user.id, user.orgId);
       await createSession(req, reply, user.id, true);
       await logAttempt(req, mail, user.id, true, "register");
       await audit(req, "user.register", user.id);

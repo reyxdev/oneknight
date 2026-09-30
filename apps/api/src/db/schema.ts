@@ -192,6 +192,9 @@ export const leads = pgTable(
     /** «Без відповіді 4 робочі години» already reported to Telegram. */
     lateNotified: boolean("late_notified").notNull().default(false),
     lostReason: text("lost_reason"),
+    /** A visitor's lead: the brief (step 2) and «Створіть кабінет» use this one-time key (hash here), for 7 days. */
+    claimTokenHash: text("claim_token_hash"),
+    claimExpiresAt: timestamp("claim_expires_at", { withTimezone: true }),
     source: text("source").notNull(),
     locale: text("locale").notNull(),
     ip: inet("ip"),

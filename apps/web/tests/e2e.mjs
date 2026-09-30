@@ -13,10 +13,8 @@ await pg.locator("header .btn", { hasText: "Замовити сайт" }).click(
 await pg.waitForTimeout(400);
 ok(await pg.locator("dialog[open]").count() === 1, "modal opens");
 const D = pg.locator("dialog[open]");
-await D.getByRole("button", { name: /Замовити через ONEKNIGHT/ }).click();
-await pg.waitForURL(/\/app\/\?start=register/);
-ok(true, "Замовити через ONEKNIGHT leads to real registration");
-await pg.goto(`${BASE}/`, { waitUntil: "networkidle" });
+ok(await D.getByLabel("Телефон").count() === 1 && await D.getByLabel("Чим займається бізнес?").count() === 0, "step 1 asks only name, phone and what is needed");
+await pg.keyboard.press("Escape");
 // pricing -> brief with type preselected
 await pg.evaluate(() => document.querySelector("#pricing").scrollIntoView());
 await pg.getByRole("radio", { name: /Корпоративний сайт/ }).click();
@@ -24,12 +22,11 @@ await pg.getByRole("button", { name: /Розрахувати мій сайт/ })
 await pg.waitForTimeout(300);
 const B = pg.locator("dialog[open]");
 await B.getByRole("button", { name: "Надіслати заявку" }).click();
-ok(await B.getByText("Опишіть коротко").count() === 1, "brief validation");
-await B.getByLabel("Чим займається бізнес?").fill("Робимо сувеніри з дерева");
+ok(await B.getByText("Вкажіть ім'я").count() === 1, "step 1 validation");
 await B.getByRole("button", { name: "Або надіслати бриф у месенджер" }).click();
 await pg.waitForTimeout(300);
 const tg = await B.getByRole("link", { name: "Відкрити Telegram" }).getAttribute("href");
-ok(tg?.startsWith("https://t.me/poulpefounder?text=") && decodeURIComponent(tg).includes("сувеніри"), "messenger hand-off link prefilled");
+ok(tg?.startsWith("https://t.me/poulpefounder?text=") && decodeURIComponent(tg).includes("Корпоративний"), "messenger hand-off link prefilled");
 await B.getByRole("button", { name: "Назад" }).click();
 ok((await pg.locator("dialog[open]").getByLabel("Який сайт потрібен?").inputValue()) === "corporate", "calculator preselects site type");
 await pg.keyboard.press("Escape");

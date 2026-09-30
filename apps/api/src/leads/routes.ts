@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { and, count, desc, eq, gt } from "drizzle-orm";
+import { and, count, desc, eq, gt, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client.ts";
 import { leads, memberships } from "../db/schema.ts";
@@ -7,13 +7,21 @@ import { loadAuth, isComplete } from "../auth/session.ts";
 import { requireAuth } from "../auth/routes.ts";
 import { isTestContact, notifyOwner } from "../notify/telegram.ts";
 import { audit } from "../audit.ts";
+import { randomToken, sha256 } from "../security/crypto.ts";
+
+const CLAIM_DAYS = 7;
+
+/** «Створіть кабінет, щоб бачити статус»: the new account takes the visitor's lead with its key. */
+export async function claimLead(token: string | undefined, userId: string, orgId: string) {
+  if (!token) return;
+  await db.update(leads).set({ userId, organizationId: orgId, claimTokenHash: null, claimExpiresAt: null }).where(and(eq(leads.claimTokenHash, sha256(token)), gt(leads.claimExpiresAt, new Date()), isNull(leads.userId)));
+}
 
 const short = z.string().trim().max(300);
 const long = z.string().trim().max(3000);
-const Lead = z.object({
-  service: z.enum(["website", "automation", "analytics", "advertising", "seo"]),
-  siteType: z.enum(["card", "service", "shop", "corporate", "unsure"]).optional(),
-  business: z.string().trim().min(3).max(500),
+/** Step 2 (optional): the brief. */
+const Brief = z.object({
+  business: z.string().trim().max(500).optional(),
   about: long.optional(),
   audience: short.optional(),
   logo: z.enum(["have", "need", "no", ""]).optional(),
@@ -21,6 +29,22 @@ const Lead = z.object({
   features: z.array(z.string().max(40)).max(20).optional(),
   references: short.optional(),
   special: long.optional(),
+});
+/** «Замовити з цим розрахунком»: the calculator's choice and its range, as the visitor saw it. */
+const Estimate = z.object({
+  siteType: z.enum(["card", "service", "shop", "corporate"]),
+  products: z.string().max(20),
+  design: z.enum(["ready", "custom"]),
+  languages: z.number().int().min(1).max(5),
+  content: z.number().int().min(0).max(1000),
+  from: z.number().int().min(0).max(10_000_000),
+  to: z.number().int().min(0).max(10_000_000),
+});
+/** Step 1: who and what; the brief may come with it or later (step 2). */
+const Lead = Brief.extend({
+  service: z.enum(["website", "automation", "analytics", "advertising", "seo"]),
+  siteType: z.enum(["card", "service", "shop", "corporate", "unsure"]).optional(),
+  estimate: Estimate.optional(),
   locale: z.enum(["uk", "en"]).default("uk"),
   // Only for visitors without an account:
   name: z.string().trim().min(2).max(100).optional(),
@@ -49,6 +73,8 @@ export const leadRoutes: FastifyPluginAsync = async (app) => {
     const org = user ? (await db.select({ id: memberships.organizationId }).from(memberships).where(eq(memberships.userId, user.id)).limit(1))[0] : undefined;
 
     const { service, siteType, locale, name, phone, email, website: _hp, ...brief } = b;
+    // The key for step 2 (the brief) and, for a visitor, for taking the lead into a new account.
+    const token = randomToken();
     const [lead] = await db
       .insert(leads)
       .values({
@@ -63,16 +89,31 @@ export const leadRoutes: FastifyPluginAsync = async (app) => {
         source: user ? "app" : "site",
         locale,
         ip: req.ip,
+        claimTokenHash: sha256(token),
+        claimExpiresAt: new Date(Date.now() + CLAIM_DAYS * 86_400_000),
       })
       .returning({ id: leads.id, number: leads.number, status: leads.status, createdAt: leads.createdAt });
 
     await audit(req, "lead.create", user?.id ?? null, { lead: lead!.id });
     void notifyOwner(
-      [`Нова заявка #${lead!.number}`, `${user?.name ?? name} · ${user?.phone ?? phone}`, `Напрям: ${service}${siteType ? ` (${siteType})` : ""}`, `Бізнес: ${b.business}`].join("\n"),
+      [`Нова заявка #${lead!.number}`, `${user?.name ?? name} · ${user?.phone ?? phone}`, `Напрям: ${service}${siteType ? ` (${siteType})` : ""}`, ...(b.business ? [`Бізнес: ${b.business}`] : []), ...(b.estimate ? [`Розрахунок: ${b.estimate.from}–${b.estimate.to} грн`] : [])].join("\n"),
       req.log,
       { testContact: isTestContact(user?.email ?? email) },
     );
-    return reply.code(201).send(lead);
+    return reply.code(201).send({ ...lead, token });
+  });
+
+  /** Step 2: the visitor adds the brief to their lead with the key from step 1 (7 days). */
+  app.patch("/brief", { config: { rateLimit: { max: 10, timeWindow: "10 minutes" } } }, async (req, reply) => {
+    const p = Brief.extend({ token: z.string().min(20).max(100) }).safeParse(req.body);
+    if (!p.success) return reply.code(400).send({ error: "invalid_input" });
+    const { token, ...brief } = p.data;
+    const [lead] = await db.select().from(leads).where(and(eq(leads.claimTokenHash, sha256(token)), gt(leads.claimExpiresAt, new Date())));
+    if (!lead) return reply.code(404).send({ error: "not_found" });
+    const clean = Object.fromEntries(Object.entries(brief).filter(([, v]) => (Array.isArray(v) ? v.length : v)));
+    await db.update(leads).set({ brief: { ...(lead.brief as object), ...clean }, updatedAt: new Date() }).where(eq(leads.id, lead.id));
+    void notifyOwner([`Бриф до заявки #${lead.number}`, ...(brief.business ? [`Бізнес: ${brief.business}`] : []), ...(brief.about ? [brief.about.slice(0, 500)] : [])].join("\n"), req.log, { testContact: isTestContact(lead.email) });
+    return { ok: true, number: lead.number };
   });
 
   app.get("/mine", { preHandler: requireAuth }, async (req) => {

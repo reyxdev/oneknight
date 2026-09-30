@@ -316,6 +316,13 @@
       "when": 1790744659935,
       "tag": "0044_content_team",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1790746679432,
+      "tag": "0045_lead_claim",
+      "breakpoints": true
     }
   ]
 }

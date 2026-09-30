@@ -5,6 +5,7 @@ import { buildApp } from "../app.ts";
 import { cleanupTestUsers } from "../test-utils.ts";
 import { db, sql } from "../db/client.ts";
 import { leads, loginEvents, users } from "../db/schema.ts";
+import { refCodeOf } from "../billing/referrals.ts";
 
 const app = await buildApp({ logger: false });
 const ORIGIN = "http://localhost:3000";
@@ -52,4 +53,36 @@ test("signed-in lead uses the account contact and is listed in /mine; admin rout
   assert.equal(all.statusCode, 200);
   const upd = await app.inject({ method: "PATCH", url: `/api/admin/leads/${mine[0].id}`, payload: { status: "contacted" }, headers: { cookie, origin: ORIGIN } });
   assert.equal(upd.json().status, "contacted");
+});
+
+test("two steps: contact and type first, the brief later with the key; «Створіть кабінет» takes the lead; invite name", async () => {
+  const other = { origin: ORIGIN };
+  const send = (url: string, payload: object, method: "POST" | "PATCH" = "POST") => app.inject({ method, url, payload, remoteAddress: "203.0.113.9", headers: other });
+  const r = await send("/api/leads", { service: "website", siteType: "service", name: "LeadTest Two", phone: "+380671112299", estimate: { siteType: "service", products: "50", design: "custom", languages: 2, content: 10, from: 20000, to: 26000 } });
+  assert.equal(r.statusCode, 201);
+  const { token, id } = r.json();
+  assert.ok(typeof token === "string" && token.length > 20, "a key for the brief and the account");
+  const [row] = await db.select().from(leads).where(eq(leads.id, id));
+  assert.equal((row!.brief as { estimate?: { to: number } }).estimate?.to, 26000, "the calculator's range goes with the lead");
+
+  assert.equal((await send("/api/leads/brief", { token: "x".repeat(30), business: "Ні" }, "PATCH")).statusCode, 404);
+  const b = await send("/api/leads/brief", { token, business: "Студія манікюру", about: "Запис онлайн", features: ["booking"] }, "PATCH");
+  assert.deepEqual(b.json(), { ok: true, number: r.json().number });
+  const [after2] = await db.select().from(leads).where(eq(leads.id, id));
+  assert.equal((after2!.brief as { business: string }).business, "Студія манікюру");
+  assert.ok((after2!.brief as { estimate?: object }).estimate, "the brief adds, never drops what was sent");
+
+  // The account made with the key takes the lead; the key then stops working.
+  const reg = await app.inject({ method: "POST", url: "/api/auth/register", payload: { name: "LeadTest Two", phone: "+380671112299", email: `two.${mail}`, password: "long enough", lead: token }, headers: other });
+  assert.equal(reg.statusCode, 201);
+  const cookie = `ok_session=${reg.cookies.find((c) => c.name === "ok_session")!.value}`;
+  const mine = (await app.inject({ url: "/api/leads/mine", headers: { cookie } })).json();
+  assert.deepEqual(mine.map((l: { id: string; business: string }) => [l.id, l.business]), [[id, "Студія манікюру"]]);
+  assert.equal((await send("/api/leads/brief", { token, about: "ще" }, "PATCH")).statusCode, 404);
+
+  // Invite strip: the business name by a referral code.
+  const [u] = await db.select({ id: users.id }).from(users).where(eq(users.email, `two.${mail}`));
+  const code = await refCodeOf(u!.id);
+  assert.equal((await app.inject({ url: `/api/site/invite/${code}` })).json().business, "LeadTest Two");
+  assert.equal((await app.inject({ url: "/api/site/invite/ZZZZZZZZ" })).statusCode, 404);
 });

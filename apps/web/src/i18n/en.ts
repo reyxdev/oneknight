@@ -6,6 +6,7 @@ import { karpatu } from "./en/karpatu";
 import { ok } from "./en/ok";
 import { offer, trust, process, supportPlan, about, final } from "./en/rest";
 import { app } from "./en/app";
+import { faq, siteBits } from "./en/site";
 
 export const en: Dict = {
   services,
@@ -19,6 +20,8 @@ export const en: Dict = {
   supportPlan,
   about,
   final,
+  faq,
+  siteBits,
   app,
   meta: {
     title: "ONEKNIGHT: websites and a system to run your business",
@@ -107,8 +110,18 @@ export const en: Dict = {
     loading: "Loading",
   },
   order: {
-    title: "How would you like to start?",
-    lead: "Pick whichever suits you. Both lead to a conversation about your project.",
+    title: "Request",
+    lead: "Name, phone and what you need are enough to start. You can add a brief right after.",
+    estimateNote: "With the calculator's estimate: {type}, {from} — {to}.",
+    callInstead: "Call or message yourself",
+    next: {
+      title: "What happens next",
+      steps: [
+        { h: "We get in touch", p: "Ivan calls or writes during working hours, Mon–Fri 10:00–18:00." },
+        { h: "We clarify the task", p: "After the talk you get a proposal with the price and timeline — no obligation." },
+        { h: "We start", p: "After the prepayment — stages, approvals and messages in your ONEKNIGHT account." },
+      ],
+    },
     viaOk: "Order through ONEKNIGHT",
     viaOkText: "Create an account, fill in a short brief and manage your order in one place.",
     call: "Call",
@@ -131,8 +144,8 @@ export const en: Dict = {
       seoText: "Visibility in Google and in AI search.",
     },
     brief: {
-      title: "Short brief",
-      lead: "Only what helps start the conversation. We will clarify the rest together.",
+      title: "Tell us more (optional)",
+      lead: "It is added to your request and helps prepare for the talk.",
       business: "What does the business do?",
       businessHint: "For example: we make wooden souvenirs",
       siteType: "Which website do you need?",
@@ -167,6 +180,14 @@ export const en: Dict = {
       phone: "Phone",
       email: "Email",
       submit: "Send request",
+      errName: "Enter your name",
+      errPhone: "Enter a phone, for example +380 67 123 45 67",
+      privacy: "By sending the request you agree to the",
+      privacyLink: "privacy policy",
+      briefSubmit: "Add to the request",
+      briefDone: "Thank you, the brief is added to the request.",
+      createAccount: "Create an account",
+      createAccountText: "Your ONEKNIGHT account shows the request status, the proposal and the work stages.",
       orMessenger: "Or send the brief to a messenger",
       doneTitle: "Request no. {n} received",
       doneText: "We can already see your brief. Ivan will contact you to discuss the project.",

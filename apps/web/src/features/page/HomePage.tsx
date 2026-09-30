@@ -15,6 +15,7 @@ import { ProcessTimeline } from "@/features/process/ProcessTimeline";
 import { SupportSection } from "@/features/support/SupportSection";
 import { AboutSection } from "@/features/about/AboutSection";
 import { FinalSection } from "@/features/cta/FinalSection";
+import { FaqSection } from "@/features/faq/FaqSection";
 
 export function HomePage({ lang }: { lang: Lang }) {
   const dict = getDict(lang);
@@ -36,6 +37,7 @@ export function HomePage({ lang }: { lang: Lang }) {
       <ProcessTimeline dict={dict} />
       <SupportSection dict={dict} lang={lang} />
       <AboutSection dict={dict} lang={lang} />
+      <FaqSection dict={dict} lang={lang} />
       <FinalSection dict={dict} />
     </>
   );

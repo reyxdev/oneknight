@@ -71,11 +71,13 @@ ok((await pg.getByText("Невірний пароль").count()) >= 1, "login hi
 await pg.locator(".ok-side .ok-navbtn", { hasText: "Головна" }).click();
 await pg.getByRole("button", { name: "Нова заявка" }).click();
 const M = pg.locator("dialog[open]");
-await M.getByLabel("Напрям").selectOption("seo");
-await M.getByLabel("Чим займається бізнес?").fill("Кав'ярня в Івано-Франківську");
-ok(await M.getByLabel("Телефон").count() === 0, "signed-in brief does not ask for contacts again");
+await M.getByText("SEO / GEO / AI").click();
+ok(await M.getByLabel("Телефон").count() === 0, "signed-in request does not ask for contacts again");
 await M.getByRole("button", { name: "Надіслати заявку" }).click();
 await M.getByText(/Заявку №\d+ отримано/).waitFor();
+await M.getByLabel("Чим займається бізнес?").fill("Кав'ярня в Івано-Франківську");
+await M.getByRole("button", { name: "Додати до заявки" }).click();
+await M.getByText("Дякуємо, бриф додано до заявки.").waitFor();
 await M.getByRole("button", { name: "Готово" }).click();
 await pg.getByText("Кав'ярня в Івано-Франківську").waitFor();
 ok(true, "account request is stored and listed with status");
@@ -83,7 +85,7 @@ ok(true, "account request is stored and listed with status");
 // «Послуги»: ordering a service opens the brief with that service already chosen.
 await pg.locator(".ok-side .ok-navbtn", { hasText: "Послуги" }).click();
 await pg.locator(".ok-svc", { hasText: "Автоматизація" }).getByRole("button", { name: "Замовити" }).click();
-ok(await pg.locator("dialog[open]").getByLabel("Напрям").inputValue() === "automation", "services screen preselects the service in the brief");
+ok(await pg.locator("dialog[open]").getByRole("radio", { name: "Автоматизація" }).isChecked(), "services screen preselects the service in the request");
 await pg.keyboard.press("Escape");
 await pg.locator("dialog[open]").waitFor({ state: "detached", timeout: 3000 }).catch(() => {});
 
@@ -93,15 +95,18 @@ await anon.goto(`${BASE}/`, { waitUntil: "networkidle" });
 await anon.evaluate(() => document.querySelector("#pricing").scrollIntoView());
 await anon.getByRole("button", { name: /Розрахувати мій сайт/ }).click();
 const A = anon.locator("dialog[open]");
-await A.getByLabel("Чим займається бізнес?").fill("Магазин меду");
 await A.getByRole("button", { name: "Надіслати заявку" }).click();
-ok(await A.getByText("Вкажіть ім'я й телефон").count() >= 1, "anonymous brief requires contacts");
+ok(await A.getByText("Вкажіть ім'я").count() >= 1, "anonymous request requires contacts");
 await A.getByLabel("Ім'я").fill("Анонім E2E");
 await A.getByLabel("Телефон").fill("+380 93 000 11 22");
-await A.getByLabel("Пошта").fill(`anon${Date.now()}@test.oneknight.local`);
 await A.getByRole("button", { name: "Надіслати заявку" }).click();
 await A.getByText(/Заявку №\d+ отримано/).waitFor();
-ok(true, "anonymous request from the site is stored");
+ok(await A.getByText("Що далі").count() === 1, "«Що далі» after the request");
+await A.getByLabel("Чим займається бізнес?").fill("Магазин меду");
+await A.getByRole("button", { name: "Додати до заявки" }).click();
+await A.getByText("Дякуємо, бриф додано до заявки.").waitFor();
+ok(/lead=/.test(await A.getByRole("link", { name: "Створити кабінет" }).getAttribute("href")), "«Створити кабінет» carries the request");
+ok(true, "anonymous request from the site is stored, brief added in step 2");
 await anon.close();
 
 cleanupTestData();

@@ -56,6 +56,9 @@ export function AppRoot() {
   useEffect(() => {
     const ref = new URLSearchParams(location.search).get("ref");
     if (ref) sessionStorage.setItem("ok_ref", ref);
+    // A request sent from the site before the account: the new account takes it («Створіть кабінет»).
+    const lead = new URLSearchParams(location.search).get("lead");
+    if (lead) sessionStorage.setItem("ok_lead", lead);
   }, []);
   useEffect(() => {
     const token = new URLSearchParams(location.search).get("invite");

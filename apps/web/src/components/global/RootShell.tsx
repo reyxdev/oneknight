@@ -12,6 +12,7 @@ import { ModalProvider } from "./ModalProvider";
 import { ToastProvider } from "@/components/ui/Toast";
 import { MotionRuntime } from "@/components/motion/MotionRuntime";
 import { ReducedMotionHint } from "./ReducedMotionHint";
+import { ContactFab, CookieNotice, InviteStrip } from "./SiteBits";
 
 export function RootShell({ lang, chapters, children }: { lang: Lang; chapters: readonly ChapterId[]; children: ReactNode }) {
   const dict = getDict(lang);
@@ -32,6 +33,11 @@ export function RootShell({ lang, chapters, children }: { lang: Lang; chapters: 
               <Cursor />
               <MotionRuntime />
               <ReducedMotionHint />
+              <div className="site-bottom">
+                <InviteStrip />
+                <CookieNotice />
+              </div>
+              <ContactFab />
             </ModalProvider>
           </ToastProvider>
         </I18nProvider>

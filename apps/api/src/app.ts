@@ -11,6 +11,7 @@ import { supportRoutes } from "./support/routes.ts";
 import { fileRoutes } from "./files/routes.ts";
 import { shopRoutes } from "./shop/routes.ts";
 import { publicRoutes } from "./public/routes.ts";
+import { landingRoutes } from "./site/landing.ts";
 import { reviewRoutes } from "./reviews/routes.ts";
 import { analyticsRoutes } from "./analytics/routes.ts";
 import { dashboardRoutes } from "./dashboard/routes.ts";
@@ -100,6 +101,7 @@ export async function buildApp(opts: FastifyServerOptions = {}, deps: { npCall?:
   await app.register(referralRoutes, { prefix: "/api/referrals" });
   await app.register(announcementRoutes, { prefix: "/api/announcements" });
   await app.register(publicRoutes, { prefix: "/api/public" });
+  await app.register(landingRoutes, { prefix: "/api/site" });
   await app.register(reviewRoutes, { prefix: "/api/reviews" });
   await app.register(analyticsRoutes, { prefix: "/api/analytics" });
   await app.register(dashboardRoutes, { prefix: "/api/dashboard" });
