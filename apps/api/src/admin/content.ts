@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "../db/client.ts";
 import { contentHolidays, contentTemplates, platformState } from "../db/schema.ts";
 import { CHANNELS, rhythmBase } from "../content/engine.ts";
+import { calculatorConfig } from "../site/landing.ts";
 import { audit } from "../audit.ts";
 import { holidayDate } from "../content/holidays.ts";
 
@@ -54,6 +55,27 @@ export const contentAdminRoutes: FastifyPluginAsync = async (app) => {
     if (!p.success || !uuid.safeParse(req.params.id).success) return reply.code(400).send({ error: "invalid_input" });
     const [row] = await db.update(contentTemplates).set(p.data).where(and(eq(contentTemplates.id, req.params.id), isNull(contentTemplates.organizationId))).returning();
     return row ?? reply.code(404).send({ error: "not_found" });
+  });
+
+  /** The website calculator on the public site: base prices, product tiers, design, languages, content, range. */
+  app.get("/site/calculator", async () => calculatorConfig());
+  app.put("/site/calculator", async (req, reply) => {
+    const money = z.number().int().min(0).max(1_000_000);
+    const p = z
+      .object({
+        base: z.object({ card: money, service: money, shop: money, corporate: money }),
+        products: z.array(z.object({ max: z.number().int().min(1).max(1_000_000).nullable(), add: money })).min(1).max(8).refine((t) => t.filter((x) => x.max === null).length <= 1),
+        customDesignPct: z.number().int().min(0).max(300),
+        languagePct: z.number().int().min(0).max(300),
+        contentPer10: money,
+        contentMax: money,
+        spreadPct: z.number().int().min(0).max(300),
+      })
+      .safeParse(req.body);
+    if (!p.success) return reply.code(400).send({ error: "invalid_input" });
+    await db.insert(platformState).values({ key: "calculator", value: p.data }).onConflictDoUpdate({ target: platformState.key, set: { value: p.data, updatedAt: new Date() } });
+    await audit(req, "admin.calculator", req.auth!.user.id, p.data);
+    return p.data;
   });
 
   /** «Звичайний» ритм каналів (posts a week); «Легкий» / «Активний» are half / one and a half of it. */

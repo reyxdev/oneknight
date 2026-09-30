@@ -75,6 +75,50 @@ await desk.goto(`${BASE}/`, { waitUntil: "networkidle" });
 ok(!(await desk.getByRole("button", { name: "Написати" }).isVisible()), "no «Написати» button on desktop");
 await desk.close();
 
+// Calculator → «Замовити з цим розрахунком»: the lead gets the estimate.
+const calc = await b.newPage({ viewport: { width: 1366, height: 900 } });
+await calc.goto(`${BASE}/`, { waitUntil: "networkidle" });
+await calc.evaluate(() => document.querySelector("#pricing").scrollIntoView());
+await calc.getByRole("radio", { name: /Інтернет-магазин/ }).click();
+await calc.locator("#calculator").waitFor();
+await calc.locator("#calculator select").selectOption("300");
+await calc.locator("#calculator").getByText("З нуля").click();
+await calc.locator("#calculator").getByText("2", { exact: true }).click();
+const sum = (await calc.locator(".calc-sum").innerText()).replace(/\s/g, "");
+// 14 000 + 3 000 = 17 000; +30% design = 5 100; +20% language = 3 400 → 25 500; «до» +30% = 33 150 → 33 200.
+ok(sum === "25500грн—33200грн", `calculator range (${sum})`);
+await calc.locator("#calculator").screenshot({ path: `${SHOTS}/site-calculator.png` });
+await calc.getByRole("button", { name: "Замовити з цим розрахунком" }).click();
+const C = calc.locator("dialog[open]");
+ok(await seen(C.getByText(/З розрахунком калькулятора: Інтернет-магазин, 25\s500\sгрн/)), "the request shows the estimate");
+await C.getByLabel("Ім'я").fill("Калькулятор E2E");
+await C.getByLabel("Телефон").fill("+380 93 000 44 55");
+await C.getByRole("button", { name: "Надіслати заявку" }).click();
+ok(await seen(C.getByText(/Заявку №\d+ отримано/)), "request with the estimate sent");
+await calc.close();
+
+// /panel: headline, the day, comparison, price, sample week, FAQ; the menu and the ONEKNIGHT block lead here.
+const p = await b.newPage({ viewport: { width: 1366, height: 900 } });
+await p.goto(`${BASE}/`, { waitUntil: "networkidle" });
+ok((await p.locator("header nav").getByRole("link", { name: "ONEKNIGHT" }).getAttribute("href")) === "/panel/", "menu «ONEKNIGHT» leads to /panel");
+await p.goto(`${BASE}/panel/`, { waitUntil: "networkidle" });
+ok(await seen(p.getByRole("heading", { level: 1, name: "Замовлення, клієнти й доставка в одному місці" })), "/panel headline");
+ok((await p.getByRole("link", { name: "Спробувати 30 днів" }).first().getAttribute("href")).includes("start=register"), "«Спробувати 30 днів» leads to sign-up");
+ok((await p.getByRole("link", { name: "Запитати в Telegram" }).first().getAttribute("href")).startsWith("https://t.me/"), "«Запитати в Telegram»");
+ok((await p.locator(".panel-timeline li").count()) === 6, "a day with ONEKNIGHT");
+ok((await p.locator(".compare-table [role=row]").count()) === 7, "comparison without names");
+ok(await seen(p.getByRole("heading", { name: "149 грн на місяць" })), "price from the price list");
+ok((await p.locator(".faq-item").count()) === 6, "FAQ for /panel");
+ok((await p.locator(".ok-rail").count()) === 0, "no home chapters rail on /panel");
+ok((await p.title()).includes("CRM для інтернет-магазину"), "SEO title of /panel");
+await p.screenshot({ path: `${SHOTS}/panel-top.png` });
+await p.evaluate(() => document.querySelector(".panel-compare").scrollIntoView());
+await p.waitForTimeout(600);
+await p.screenshot({ path: `${SHOTS}/panel-compare.png` });
+await p.goto(`${BASE}/en/panel/`, { waitUntil: "networkidle" });
+ok(await seen(p.getByRole("heading", { level: 1, name: "Orders, customers and delivery in one place" })), "/en/panel");
+await p.close();
+
 cleanupTestData();
 errs.splice(0, errs.length, ...errs.filter((e) => !e.includes("React error #418")));
 console.log("errors:", errs.length ? errs : "none");

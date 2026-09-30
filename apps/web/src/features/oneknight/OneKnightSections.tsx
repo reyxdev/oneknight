@@ -1,13 +1,16 @@
 import dynamic from "next/dynamic";
 import type { Dict } from "@/i18n";
+import type { Lang } from "@/config";
+import { withLang } from "@/i18n";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { KnightMark } from "@/components/global/Logo";
 import { PlaygroundMount } from "./PlaygroundMount";
+import type { ReactNode } from "react";
 import { OrderButton } from "@/features/cta/OrderButton";
 
 const Marketplace = dynamic(() => import("./Marketplace"));
 
-export function OneKnightIntro({ dict }: { dict: Dict }) {
+export function OneKnightIntro({ dict, lang }: { dict: Dict; lang: Lang }) {
   const t = dict.ok.intro;
   return (
     <section id="oneknight" data-chapter data-scene data-stops="0.1,0.4,0.72" className="okx scheme-dark" aria-labelledby="okx-title">
@@ -28,14 +31,14 @@ export function OneKnightIntro({ dict }: { dict: Dict }) {
               </li>
             ))}
           </ul>
-          <a href="#playground" className="btn btn-lg okx-cta" data-cursor="link">{t.cta}<Icon name="arrow" size={18} /></a>
+          <a href={withLang(lang, "/panel/")} className="btn btn-lg okx-cta" data-cursor="link">{t.cta}<Icon name="arrow" size={18} /></a>
         </div>
       </div>
     </section>
   );
 }
 
-export function OneKnightPlayground({ dict }: { dict: Dict }) {
+export function OneKnightPlayground({ dict, cta }: { dict: Dict; cta?: ReactNode }) {
   const t = dict.ok;
   return (
     <section id="playground" data-chapter className="section okpg" aria-labelledby="okpg-title">
@@ -48,7 +51,7 @@ export function OneKnightPlayground({ dict }: { dict: Dict }) {
         </div>
         <PlaygroundMount />
         <div className="okpg-cta" data-reveal="up">
-          <OrderButton authAware={false} className="btn btn-lg">{dict.nav.order}</OrderButton>
+          {cta ?? <OrderButton authAware={false} className="btn btn-lg">{dict.nav.order}</OrderButton>}
         </div>
       </div>
     </section>

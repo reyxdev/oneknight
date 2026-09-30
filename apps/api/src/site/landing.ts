@@ -1,10 +1,22 @@
 import type { FastifyPluginAsync } from "fastify";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "../db/client.ts";
-import { memberships, organizations, users } from "../db/schema.ts";
+import { memberships, organizations, platformState, users } from "../db/schema.ts";
+import { DEFAULT_CALCULATOR, type CalculatorConfig } from "@oneknight/domain";
+
+/** The calculator's numbers: the owner's (platform_state `calculator`) or the draft. */
+export async function calculatorConfig(): Promise<CalculatorConfig> {
+  const [row] = await db.select().from(platformState).where(eq(platformState.key, "calculator"));
+  return { ...DEFAULT_CALCULATOR, ...((row?.value ?? {}) as Partial<CalculatorConfig>) };
+}
 
 /** /api/site: what the public site oneknight.pro reads (no session, no site key). */
 export const landingRoutes: FastifyPluginAsync = async (app) => {
+  app.get("/calculator", async (_req, reply) => {
+    reply.header("cache-control", "public, max-age=300");
+    return calculatorConfig();
+  });
+
   /** «Вас запросив бізнес X»: the business of the person whose referral link was opened. */
   app.get<{ Params: { code: string } }>("/invite/:code", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req, reply) => {
     const code = req.params.code.toUpperCase();

@@ -22,7 +22,7 @@ export function Header() {
 
   const home = withLang(lang, "/");
   const isHome = pathname === "/" || pathname === "/en" || pathname === "/en/";
-  const href = (hash: string) => (isHome ? hash : `${home}${hash}`);
+  const href = (to: string) => (to.startsWith("/") ? withLang(lang, to) : isHome ? to : `${home}${to}`);
 
   useEffect(() => {
     document.documentElement.classList.toggle("modal-open", menu);

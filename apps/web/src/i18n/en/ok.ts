@@ -13,7 +13,7 @@ export const ok: Dict["ok"] = {
       { icon: "puzzle", t: "Modules", d: "Delivery, marketplaces and more, when you need them" },
       { icon: "bell", t: "Notifications", d: "What matters comes to you" },
     ],
-    cta: "Try the demo",
+    cta: "Try ONEKNIGHT",
   },
   demoBadge: "Demo: all data is made up",
   demoLive: "New events arrive by themselves",

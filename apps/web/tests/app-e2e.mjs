@@ -93,7 +93,7 @@ await pg.locator("dialog[open]").waitFor({ state: "detached", timeout: 3000 }).c
 const anon = await b.newPage({ viewport: { width: 1280, height: 860 } });
 await anon.goto(`${BASE}/`, { waitUntil: "networkidle" });
 await anon.evaluate(() => document.querySelector("#pricing").scrollIntoView());
-await anon.getByRole("button", { name: /Розрахувати мій сайт/ }).click();
+await anon.getByRole("button", { name: /Замовити з цим розрахунком/ }).click();
 const A = anon.locator("dialog[open]");
 await A.getByRole("button", { name: "Надіслати заявку" }).click();
 ok(await A.getByText("Вкажіть ім'я").count() >= 1, "anonymous request requires contacts");

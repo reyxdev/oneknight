@@ -65,3 +65,72 @@ export const siteBits: Dict["siteBits"] = {
     close: "Close",
   },
 };
+
+export const panelPage: Dict["panelPage"] = {
+  meta: {
+    title: "Order management and CRM for an online shop | ONEKNIGHT",
+    description: "Orders from your website, Prom and Rozetka, customers, Nova Poshta and Ukrposhta waybills, products and reviews in one panel. 30 days free.",
+  },
+  eyebrow: "ONEKNIGHT for your business",
+  title: "Orders, customers and delivery in one place",
+  lead: "A panel for online shops and service businesses: orders from the website, Prom and Rozetka, a customer base, Nova Poshta and Ukrposhta waybills, products, reviews and analytics. On phone and desktop.",
+  cta: "Try 30 days",
+  ctaNote: "30 days free, no card needed",
+  ask: "Ask in Telegram",
+  day: {
+    eyebrow: "A day with ONEKNIGHT",
+    title: "One day of a shop",
+    steps: [
+      { time: "09:00", h: "Morning", p: "Home shows what to do: new orders, parcels to send, carts to call." },
+      { time: "10:00", h: "Orders", p: "Confirm and create a Nova Poshta or Ukrposhta waybill: the buyer, address and product weight fill in by themselves." },
+      { time: "13:00", h: "Abandoned cart", p: "A buyer left a phone and did not order — a call and an order from the same cart." },
+      { time: "16:00", h: "Shipping", p: "All of today's waybills — one PDF to print." },
+      { time: "19:00", h: "Content", p: "A post idea from your best sellers and reviews, the text is ready («Content plan» module)." },
+      { time: "21:00", h: "Evening", p: "A new review — publish and reply. Parcels are tracked by themselves: received orders close automatically." },
+    ],
+  },
+  compare: {
+    eyebrow: "Comparison",
+    title: "Spreadsheets and messengers or ONEKNIGHT",
+    before: "Spreadsheets and messengers",
+    after: "ONEKNIGHT",
+    rows: [
+      { h: "Orders", a: "In chats, a spreadsheet and a notebook", b: "One list: from the website, Prom, Rozetka and by hand" },
+      { h: "Customers", a: "Search chats for who bought what", b: "A customer card: orders, total, tags, «sleeping»" },
+      { h: "Delivery", a: "Waybills by hand in the carrier's account", b: "Waybills from the order, all printed in one PDF, statuses by themselves" },
+      { h: "Stock", a: "Count by hand and sell what is gone", b: "Stock goes down with the order, «running out» on Home" },
+      { h: "Team", a: "One password for everyone", b: "Roles and permissions, an action log, two-step sign-in" },
+      { h: "Figures", a: "Unknown what sells and where buyers come from", b: "Revenue, sources, funnel, ad payback" },
+    ],
+  },
+  price: {
+    eyebrow: "Price",
+    title: "{month} a month",
+    points: [
+      "30 days free — with everything",
+      "Modules — {module} a month each, only the ones you need",
+      "A year ahead — {gift} months cheaper",
+      "Every further website — {site} a month",
+      "Ordered a website from us — {freeMonths} months of ONEKNIGHT free and up to {freeModules} modules",
+    ],
+  },
+  content: {
+    eyebrow: "«Content plan» module",
+    title: "What to post — a plan for every day",
+    lead: "The plan is made from your products, sales, reviews, promotions and holidays. Here is a sample week for a made-up candle shop.",
+    badge: "Sample, made-up data",
+    week: [
+      { day: "Mon", ch: "Instagram", t: "Best seller close up: «Lavender candle», bought 14 times in 30 days" },
+      { day: "Tue", ch: "Telegram", t: "What is in the box besides the product" },
+      { day: "Wed", ch: "Website", t: "Article: how to care for a candle so it burns evenly" },
+      { day: "Thu", ch: "Instagram", t: "Olena's 5★ review — in the buyer's words" },
+      { day: "Fri", ch: "Facebook", t: "New: «Cedar candle» — why we added it" },
+      { day: "Sat", ch: "Instagram", t: "3 left: «Set of three candles»" },
+      { day: "Sun", ch: "Instagram", t: "Stories poll: which scent for autumn" },
+    ],
+  },
+  final: {
+    title: "Try it on your own data",
+    lead: "Signing up takes a minute, 30 days are free. Questions — in Telegram.",
+  },
+};

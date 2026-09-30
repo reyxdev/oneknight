@@ -18,7 +18,7 @@ await pg.keyboard.press("Escape");
 // pricing -> brief with type preselected
 await pg.evaluate(() => document.querySelector("#pricing").scrollIntoView());
 await pg.getByRole("radio", { name: /Корпоративний сайт/ }).click();
-await pg.getByRole("button", { name: /Розрахувати мій сайт/ }).click();
+await pg.getByRole("button", { name: /Замовити з цим розрахунком/ }).click();
 await pg.waitForTimeout(300);
 const B = pg.locator("dialog[open]");
 await B.getByRole("button", { name: "Надіслати заявку" }).click();

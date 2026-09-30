@@ -29,7 +29,7 @@ export function HomePage({ lang }: { lang: Lang }) {
       <PricingSection dict={dict} />
       <NotTemplate dict={dict} />
       <CaseStudy dict={dict} lang={lang} />
-      <OneKnightIntro dict={dict} />
+      <OneKnightIntro dict={dict} lang={lang} />
       <OneKnightPlayground dict={dict} />
       <ModulesSection dict={dict} />
       <OfferSection dict={dict} lang={lang} />

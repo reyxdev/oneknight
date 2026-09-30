@@ -7,6 +7,8 @@ import { loadAuth, isComplete } from "../auth/session.ts";
 import { requireAuth } from "../auth/routes.ts";
 import { isTestContact, notifyOwner } from "../notify/telegram.ts";
 import { audit } from "../audit.ts";
+import { estimateSite } from "@oneknight/domain";
+import { calculatorConfig } from "../site/landing.ts";
 import { randomToken, sha256 } from "../security/crypto.ts";
 
 const CLAIM_DAYS = 7;
@@ -72,6 +74,8 @@ export const leadRoutes: FastifyPluginAsync = async (app) => {
     }
     const org = user ? (await db.select({ id: memberships.organizationId }).from(memberships).where(eq(memberships.userId, user.id)).limit(1))[0] : undefined;
 
+    // The range is computed again from the owner's numbers: the lead keeps what the calculator really gives.
+    if (b.estimate) b.estimate = { ...b.estimate, ...estimateSite(await calculatorConfig(), b.estimate) };
     const { service, siteType, locale, name, phone, email, website: _hp, ...brief } = b;
     // The key for step 2 (the brief) and, for a visitor, for taking the lead into a new account.
     const token = randomToken();

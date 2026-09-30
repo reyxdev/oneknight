@@ -7,15 +7,14 @@ import { fmt } from "@/i18n";
 import { formatUAH, websiteTypes, type WebsiteTypeId } from "@/data/pricing";
 import { featureIcon, typeFeatures } from "@/data/website-types";
 import { Icon } from "@/components/ui/Icon";
-import { useModal } from "@/components/global/ModalProvider";
 
 const StoreDemo = dynamic(() => import("./StoreDemo").then((m) => m.StoreDemo));
+const Calculator = dynamic(() => import("./Calculator").then((m) => m.Calculator));
 
 export function PricingPicker() {
   const dict = useDict();
   const lang = useLang();
   const p = dict.pricing;
-  const { openOrder } = useModal();
   const [sel, setSel] = useState<WebsiteTypeId>("shop");
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -72,13 +71,7 @@ export function PricingPicker() {
 
       {sel === "shop" && <StoreDemo />}
 
-      <div className="price-cta">
-        <button type="button" className="btn btn-lg" data-magnetic onClick={() => openOrder("brief", { siteType: sel })}>
-          {p.cta}
-          <Icon name="arrow" size={18} />
-        </button>
-        <span className="small">{fmt(dict.common.from, { price: formatUAH(websiteTypes.find((t) => t.id === sel)!.from, lang) })}. {p.note}</span>
-      </div>
+      <Calculator siteType={sel} />
     </div>
   );
 }

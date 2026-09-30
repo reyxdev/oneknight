@@ -4,7 +4,7 @@ import { eq, like } from "drizzle-orm";
 import { buildApp } from "../app.ts";
 import { cleanupTestUsers } from "../test-utils.ts";
 import { db, sql } from "../db/client.ts";
-import { leads, loginEvents, users } from "../db/schema.ts";
+import { leads, loginEvents, platformState, users } from "../db/schema.ts";
 import { refCodeOf } from "../billing/referrals.ts";
 
 const app = await buildApp({ logger: false });
@@ -63,7 +63,10 @@ test("two steps: contact and type first, the brief later with the key; «Ств�
   const { token, id } = r.json();
   assert.ok(typeof token === "string" && token.length > 20, "a key for the brief and the account");
   const [row] = await db.select().from(leads).where(eq(leads.id, id));
-  assert.equal((row!.brief as { estimate?: { to: number } }).estimate?.to, 26000, "the calculator's range goes with the lead");
+  // The range is computed again on the server (the visitor sent 20 000 — 26 000): 12 000 + 30% design + 20% for the
+  // second language + 1 500 for 10 pages of content = 19 500, and +30% = 25 350 → 25 400.
+  assert.deepEqual([(row!.brief as { estimate: { from: number; to: number } }).estimate.from, (row!.brief as { estimate: { to: number } }).estimate.to], [19500, 25400]);
+  assert.equal((await app.inject({ url: "/api/site/calculator" })).json().base.card, 7000);
 
   assert.equal((await send("/api/leads/brief", { token: "x".repeat(30), business: "Ні" }, "PATCH")).statusCode, 404);
   const b = await send("/api/leads/brief", { token, business: "Студія манікюру", about: "Запис онлайн", features: ["booking"] }, "PATCH");
@@ -85,4 +88,16 @@ test("two steps: contact and type first, the brief later with the key; «Ств�
   const code = await refCodeOf(u!.id);
   assert.equal((await app.inject({ url: `/api/site/invite/${code}` })).json().business, "LeadTest Two");
   assert.equal((await app.inject({ url: "/api/site/invite/ZZZZZZZZ" })).statusCode, 404);
+
+  // The owner changes the calculator in the admin; the site and new leads use the new numbers.
+  await db.update(users).set({ isAdmin: true }).where(eq(users.id, u!.id));
+  const [saved] = await db.select().from(platformState).where(eq(platformState.key, "calculator"));
+  const cfg = (await app.inject({ url: "/api/admin/site/calculator", headers: { cookie } })).json();
+  const put = await app.inject({ method: "PUT", url: "/api/admin/site/calculator", headers: { cookie, origin: ORIGIN }, payload: { ...cfg, base: { ...cfg.base, card: 8000 } } });
+  assert.equal(put.statusCode, 200);
+  assert.equal((await app.inject({ url: "/api/site/calculator" })).json().base.card, 8000);
+  assert.equal((await app.inject({ method: "PUT", url: "/api/admin/site/calculator", headers: { cookie, origin: ORIGIN }, payload: { ...cfg, spreadPct: -1 } })).statusCode, 400);
+  // The shared database keeps the owner's own numbers.
+  if (saved) await db.update(platformState).set({ value: saved.value }).where(eq(platformState.key, "calculator"));
+  else await db.delete(platformState).where(eq(platformState.key, "calculator"));
 });

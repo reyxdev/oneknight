@@ -6,7 +6,7 @@ import { karpatu } from "./en/karpatu";
 import { ok } from "./en/ok";
 import { offer, trust, process, supportPlan, about, final } from "./en/rest";
 import { app } from "./en/app";
-import { faq, siteBits } from "./en/site";
+import { faq, siteBits, panelPage } from "./en/site";
 
 export const en: Dict = {
   services,
@@ -22,6 +22,7 @@ export const en: Dict = {
   final,
   faq,
   siteBits,
+  panelPage,
   app,
   meta: {
     title: "ONEKNIGHT: websites and a system to run your business",
