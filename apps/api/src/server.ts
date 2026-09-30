@@ -17,7 +17,7 @@ import { downloadPendingPhotos } from "./products/photos.ts";
 import { runMorningReport } from "./admin/overview.ts";
 import { runAdminReminders } from "./projects/routes.ts";
 import { runWeeklyAudits } from "./sites/audit.ts";
-import { runContentMorning, runContentWeekly } from "./content/jobs.ts";
+import { purgeContentHistory, runContentMorning, runContentWeekly } from "./content/jobs.ts";
 import { ensureContentSeed } from "./content/seed.ts";
 import { notifyOwner } from "./notify/telegram.ts";
 
@@ -37,6 +37,7 @@ const billingTimer = setInterval(() => {
   // «Контент-план»: today's ideas in the morning, a new week on Sunday evening.
   void runContentMorning().catch((e) => app.log.error(e));
   void runContentWeekly().catch((e) => app.log.error(e));
+  void purgeContentHistory().catch((e) => app.log.error(e));
 }, 3600_000);
 void runBilling().catch((e) => app.log.error(e));
 void runMorningReport((text) => notifyOwner(text, app.log)).catch((e) => app.log.error(e));

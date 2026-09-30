@@ -2,7 +2,8 @@ import type { FastifyPluginAsync } from "fastify";
 import { and, asc, eq, ilike, isNull, or, sql as dsql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client.ts";
-import { contentHolidays, contentTemplates } from "../db/schema.ts";
+import { contentHolidays, contentTemplates, platformState } from "../db/schema.ts";
+import { CHANNELS, rhythmBase } from "../content/engine.ts";
 import { audit } from "../audit.ts";
 import { holidayDate } from "../content/holidays.ts";
 
@@ -53,6 +54,17 @@ export const contentAdminRoutes: FastifyPluginAsync = async (app) => {
     if (!p.success || !uuid.safeParse(req.params.id).success) return reply.code(400).send({ error: "invalid_input" });
     const [row] = await db.update(contentTemplates).set(p.data).where(and(eq(contentTemplates.id, req.params.id), isNull(contentTemplates.organizationId))).returning();
     return row ?? reply.code(404).send({ error: "not_found" });
+  });
+
+  /** «Звичайний» ритм каналів (posts a week); «Легкий» / «Активний» are half / one and a half of it. */
+  app.get("/content/rhythm", async () => rhythmBase());
+  app.put("/content/rhythm", async (req, reply) => {
+    const p = z.partialRecord(z.enum(CHANNELS), z.number().int().min(0).max(14)).safeParse(req.body);
+    if (!p.success) return reply.code(400).send({ error: "invalid_input" });
+    const value = { ...(await rhythmBase()), ...p.data };
+    await db.insert(platformState).values({ key: "contentRhythm", value }).onConflictDoUpdate({ target: platformState.key, set: { value, updatedAt: new Date() } });
+    await audit(req, "admin.content_rhythm", req.auth!.user.id, value);
+    return value;
   });
 
   const Holiday = z.object({ name: z.string().trim().min(2).max(120), rule: z.string().trim().max(40).refine((r) => holidayDate(r, 2030) !== null), kind: z.enum(["sale", "greeting", "respect"]), prepDays: z.number().int().min(0).max(30), active: z.boolean() });

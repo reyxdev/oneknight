@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client.ts";
 import { notifications, siteAudits, sites } from "../db/schema.ts";
@@ -113,7 +113,7 @@ export const siteRoutes: FastifyPluginAsync = async (app) => {
     return db
       .select({ id: notifications.id, kind: notifications.kind, key: notifications.key, params: notifications.params, read: notifications.readAt, at: notifications.createdAt })
       .from(notifications)
-      .where(inArray(notifications.organizationId, orgs))
+      .where(and(inArray(notifications.organizationId, orgs), or(isNull(notifications.userId), eq(notifications.userId, req.auth!.user.id))))
       .orderBy(desc(notifications.createdAt))
       .limit(30)
       .then((rows) =>

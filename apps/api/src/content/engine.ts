@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, gte, inArray, isNull, lte, sql as dsql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, isNull, lte, sql as dsql } from "drizzle-orm";
 import { db } from "../db/client.ts";
-import { analyticsEvents, contentHolidays, contentIdeas, contentSettings, contentTemplates, orders, organizations, products, promos, reviews, sites } from "../db/schema.ts";
+import { analyticsEvents, contentHolidays, contentIdeas, contentSettings, contentTemplates, orders, organizations, platformState, products, promos, reviews, sites } from "../db/schema.ts";
 import { isLow } from "../products/routes.ts";
 import { holidaysBetween } from "./holidays.ts";
 
@@ -68,10 +68,84 @@ export async function settingsOf(orgId: string): Promise<Settings> {
   return { ...DEFAULT_SETTINGS, ...s, voice: { ...DEFAULT_SETTINGS.voice, ...(s.voice ?? {}) }, balance: { ...DEFAULT_SETTINGS.balance, ...(s.balance ?? {}) }, channels: s.channels ?? DEFAULT_SETTINGS.channels };
 }
 
-export function weeklyCount(s: Settings, c: Channel) {
-  if (s.rhythm === "custom") return Math.max(0, Math.min(14, s.custom[c] ?? RHYTHM[c]));
+export function weeklyCount(s: Settings, c: Channel, base: Record<Channel, number> = RHYTHM) {
+  if (s.rhythm === "custom") return Math.max(0, Math.min(14, s.custom[c] ?? base[c]));
   const k = s.rhythm === "light" ? 0.5 : s.rhythm === "active" ? 1.5 : 1;
-  return Math.max(1, Math.round(RHYTHM[c] * k));
+  return Math.max(1, Math.round(base[c] * k));
+}
+
+/** «Звичайний» ритм каналів: the admin can change it (platform_state `contentRhythm`), else RHYTHM. */
+export async function rhythmBase(): Promise<Record<Channel, number>> {
+  const [row] = await db.select().from(platformState).where(eq(platformState.key, "contentRhythm"));
+  return { ...RHYTHM, ...((row?.value ?? {}) as Partial<Record<Channel, number>>) };
+}
+
+/** How a published idea did: visits and orders from its UTM link (utm_content = the first 8 characters of its id). */
+export const RESULT_DAYS = 7;
+export async function resultsOf(orgId: string, ideas: { id: string; publishedAt: Date | null }[]) {
+  const out = new Map<string, { visits: number; orders: number; revenueKop: number }>();
+  if (!ideas.length) return out;
+  const rows = await db.execute<{ c: string; visits: number; orders: number; revenue: number; at: Date }>(dsql`
+    select ${analyticsEvents.content} as c, count(distinct ${analyticsEvents.session}) filter (where ${analyticsEvents.type} = 'pageview')::int as visits,
+      count(*) filter (where ${analyticsEvents.type} = 'order')::int as orders,
+      coalesce(sum(${analyticsEvents.valueKop}) filter (where ${analyticsEvents.type} = 'order'), 0)::bigint as revenue
+    from ${analyticsEvents}
+    where ${analyticsEvents.organizationId} = ${orgId} and ${analyticsEvents.campaign} = 'content' and ${inArray(analyticsEvents.content, ideas.map((i) => i.id.slice(0, 8)))}
+    group by 1`);
+  for (const r of rows) {
+    const idea = ideas.find((i) => i.id.startsWith(r.c));
+    if (idea) out.set(idea.id, { visits: Number(r.visits), orders: Number(r.orders), revenueKop: Number(r.revenue) });
+  }
+  return out;
+}
+
+/**
+ * «План вчиться на результатах» (owner's decision 30.09.2026): with 10+ published ideas, the bucket that brings the
+ * most (visits + 5 × orders per post) takes up to 10 points of the balance from the one that brings the least; the
+ * best format of Instagram and the best channel get one more place a week. 👎 removes a template for the business
+ * for good, 👍 brings it back twice as often.
+ */
+export async function learningOf(orgId: string, s: Settings) {
+  const published = await db
+    .select({ id: contentIdeas.id, bucket: contentIdeas.bucket, format: contentIdeas.format, channel: contentIdeas.channel, publishedAt: contentIdeas.publishedAt })
+    .from(contentIdeas)
+    .where(and(eq(contentIdeas.organizationId, orgId), eq(contentIdeas.status, "published"), gte(contentIdeas.day, addDays(kyivDay(), -180))));
+  const votes = await db.select({ templateId: contentIdeas.templateId, feedback: contentIdeas.feedback }).from(contentIdeas).where(and(eq(contentIdeas.organizationId, orgId), isNotNull(contentIdeas.feedback), isNotNull(contentIdeas.templateId)));
+  const disliked = new Set(votes.filter((v) => v.feedback === -1).map((v) => v.templateId!));
+  const liked = new Set(votes.filter((v) => v.feedback === 1 && !disliked.has(v.templateId!)).map((v) => v.templateId!));
+  const none = { balance: s.balance, shift: null as null | { from: Bucket; to: Bucket; points: number }, bestFormat: null as string | null, bestChannel: null as Channel | null, published: published.length, disliked, liked };
+  if (published.length < 10) return none;
+  const res = await resultsOf(orgId, published);
+  const score = (key: (i: (typeof published)[number]) => string) => {
+    const m = new Map<string, { n: number; sum: number }>();
+    for (const i of published) {
+      const r = res.get(i.id);
+      const k = key(i);
+      const cur = m.get(k) ?? { n: 0, sum: 0 };
+      m.set(k, { n: cur.n + 1, sum: cur.sum + (r ? r.visits + 5 * r.orders : 0) });
+    }
+    return [...m].filter(([, v]) => v.n >= 3).map(([k, v]) => ({ k, avg: v.sum / v.n })).sort((a, b) => b.avg - a.avg);
+  };
+  const buckets = score((i) => i.bucket).filter((x) => (BUCKETS as readonly string[]).includes(x.k));
+  const balance = { ...s.balance };
+  let shift: typeof none.shift = null;
+  if (buckets.length >= 2 && buckets[0]!.avg > 0) {
+    const best = buckets[0]!.k as Bucket;
+    const worst = buckets[buckets.length - 1]!.k as Bucket;
+    const points = Math.min(10, balance[worst], Math.round((10 * (buckets[0]!.avg - buckets[buckets.length - 1]!.avg)) / buckets[0]!.avg));
+    if (points > 0) {
+      balance[best] += points;
+      balance[worst] -= points;
+      shift = { from: worst, to: best, points };
+    }
+  }
+  const lead = (list: { k: string; avg: number }[]) => {
+    const mean = list.reduce((a, x) => a + x.avg, 0) / (list.length || 1);
+    return list.length >= 2 && list[0]!.avg > 0 && list[0]!.avg >= 1.3 * mean ? list[0]!.k : null;
+  };
+  const bestFormat = lead(score((i) => (i.channel === "instagram" ? i.format : "")).filter((x) => x.k));
+  const bestChannel = lead(score((i) => i.channel).filter((x) => s.channels[x.k as Channel]?.on)) as Channel | null;
+  return { balance, shift, bestFormat, bestChannel, published: published.length, disliked, liked };
 }
 
 /** {{ви-form|ти-form}} by the brand voice, emoji removed when the business does not want them. */
@@ -150,13 +224,14 @@ async function hoursOf(orgId: string) {
 }
 
 /** The format of an idea in a channel (K43–K49); days off get only light stories (K71). */
-function formatFor(c: Channel, light: boolean, turn: number): string {
+function formatFor(c: Channel, light: boolean, turn: number, best: string | null = null): string {
   if (c === "tiktok" || c === "youtube") return "reels";
   if (c === "site") return "article";
   if (c === "telegram" || c === "viber") return "message";
   if (c === "facebook") return "post";
   if (light) return "stories";
-  return ["post", "carousel", "reels", "stories"][turn % 4]!;
+  const turns = ["post", "carousel", "reels", "stories", ...(best ? [best] : [])];
+  return turns[turn % turns.length]!;
 }
 
 type Event = { day: string; trigger: string; promoId?: string; holiday?: { key: string; name: string; kind: string; date: string } };
@@ -209,6 +284,8 @@ export async function generatePlan(orgId: string, opts: { from?: string; days?: 
   );
   const holidays = await db.select().from(contentHolidays);
   const hours = await hoursOf(orgId);
+  const learned = await learningOf(orgId, s);
+  const base = await rhythmBase();
 
   // Keep what the team touched; the rest of the window is built again (days after it stay as they are).
   await db.delete(contentIdeas).where(and(eq(contentIdeas.organizationId, orgId), gte(contentIdeas.day, from), lte(contentIdeas.day, to), eq(contentIdeas.locked, false), eq(contentIdeas.custom, false), inArray(contentIdeas.status, ["todo", "awaiting"])));
@@ -232,7 +309,7 @@ export async function generatePlan(orgId: string, opts: { from?: string; days?: 
   const main: Channel = channels.includes("instagram") ? "instagram" : (channels[0] as Channel);
   for (const e of events) slots.push({ day: e.day, channel: main, light: e.trigger === "holidayReminder" || e.trigger.startsWith("holidayG") || e.trigger === "holidayRespect", event: e });
   channels.forEach((c, ci) => {
-    const n = weeklyCount(s, c);
+    const n = weeklyCount(s, c, base) + (learned.bestChannel === c ? 1 : 0);
     for (let d = 0; d < days; d++) {
       const day = addDays(from, d);
       const wd = weekday(day);
@@ -259,13 +336,13 @@ export async function generatePlan(orgId: string, opts: { from?: string; days?: 
   }
 
   function pick(slot: (typeof slots)[number]): (typeof contentIdeas.$inferInsert) | null {
-    const format = formatFor(slot.channel, slot.light, turn++);
+    const format = formatFor(slot.channel, slot.light, turn++, learned.bestFormat);
     const tries: { bucket: Bucket; trigger: string }[] = [];
     if (slot.event) tries.push({ bucket: BUCKET_OF[slot.event.trigger] ?? "sale", trigger: slot.event.trigger });
     else {
       // The bucket furthest below its share of the plan goes first (sale 40 · benefit 30 · trust 20 · fun 10).
       const total = Object.values(bucketCount).reduce((a, b) => a + b, 0) + 1;
-      const order = [...BUCKETS].sort((a, b) => bucketCount[a] / total - s.balance[a] / 100 - (bucketCount[b] / total - s.balance[b] / 100));
+      const order = [...BUCKETS].sort((a, b) => bucketCount[a] / total - learned.balance[a] / 100 - (bucketCount[b] / total - learned.balance[b] / 100));
       const site = slot.channel === "site";
       for (const b of site ? (["benefit", ...order.filter((x) => x !== "benefit")] as Bucket[]) : order) {
         const triggers =
@@ -329,7 +406,8 @@ export async function generatePlan(orgId: string, opts: { from?: string; days?: 
     const lastUse = (t: Template) => usedTemplate.get(t.id) ?? "";
     const fits = templates
       .filter((t) => t.trigger === trigger && t.bucket === bucket && (!slot.light || t.light) && (slot.channel !== "site" || !!t.article || trigger.startsWith("holiday") || trigger.startsWith("promo")))
-      .filter((t) => !lastUse(t) || daysBetween(lastUse(t), slot.day) >= TEMPLATE_GAP_DAYS || lastUse(t) < addDays(from, -TEMPLATE_GAP_DAYS))
+      .filter((t) => !learned.disliked.has(t.id))
+      .filter((t) => { const gap = learned.liked.has(t.id) ? TEMPLATE_GAP_DAYS / 2 : TEMPLATE_GAP_DAYS; return !lastUse(t) || daysBetween(lastUse(t), slot.day) >= gap || lastUse(t) < addDays(from, -gap); })
       .map((t) => ({ t, k: (lastUse(t) ? 1 : 0) + rnd() }))
       .sort((a, b) => a.k - b.k)
       .map((x) => x.t);

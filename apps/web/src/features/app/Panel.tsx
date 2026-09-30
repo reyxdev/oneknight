@@ -323,7 +323,7 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             {view === "products" && <ProductsScreen tab={route.tab} finance={me.permissions.includes("finance")} content={me.modules.includes("content")} />}
             {view === "reviews" && <ReviewsScreen goModules={() => go("modules")} />}
             {view === "analytics" && <AnalyticsScreen goModules={() => go("modules")} />}
-            {view === "content" && <ContentScreen me={me} goModules={() => go("modules")} />}
+            {view === "content" && <ContentScreen me={me} goModules={() => go("modules")} go={(id, tab) => go(id as Screen, tab ?? null)} />}
             {view === "site" && <SiteScreen canEdit={me.permissions.includes("site")} goServices={() => go("services")} />}
             {view === "modules" && <ModulesScreen />}
             {view === "services" && <ServicesScreen />}

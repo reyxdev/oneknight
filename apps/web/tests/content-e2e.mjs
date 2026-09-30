@@ -92,10 +92,10 @@ const detail = pg.locator(".ok-detail");
 ok(await seen(detail.getByText("Чому саме це")), "the card explains why");
 ok(await seen(detail.getByText("Посилання з міткою")), "the card has the tracked link");
 ok(/utm_campaign=content/.test(await detail.locator(".app-idea-link code").innerText()), "UTM link");
-const text = await detail.locator("textarea").inputValue();
+const text = await detail.locator("textarea.app-idea-text").inputValue();
 ok(text.length > 20 && !/\{\{/.test(text), "a ready text in «ти»");
 await detail.getByRole("tab", { name: "Розгорнуто" }).click();
-ok((await detail.locator("textarea").inputValue()).length >= text.length, "a long variant");
+ok((await detail.locator("textarea.app-idea-text").inputValue()).length >= text.length, "a long variant");
 await pg.screenshot({ path: `${SHOTS}/content-card.png` });
 await detail.getByRole("button", { name: "Опубліковано" }).click();
 await pg.getByText("Позначено як опубліковане").waitFor();
@@ -108,6 +108,32 @@ await second.click();
 await detail.getByRole("button", { name: "Інша ідея" }).click();
 await pg.waitForTimeout(800);
 ok((await detail.count()) === 0, `«Інша ідея» fills the slot of «${before}» and closes the card`);
+
+// Part 2 on the card: assign, comment, own photo, repeat; export links.
+const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+await pg.locator(".app-idea[data-status='todo']").first().click();
+await detail.getByLabel("Хто робить").selectOption({ label: "Свічкарня E2E" });
+await pg.getByText("Призначено: людина отримає сповіщення").waitFor();
+await detail.getByLabel("Коментар").fill("Зняти при денному світлі");
+await detail.getByRole("button", { name: "Надіслати", exact: true }).click();
+ok(await seen(detail.locator(".app-comments", { hasText: "Зняти при денному світлі" })), "comment on the idea");
+await detail.locator("input[type=file]").setInputFiles({ name: "shot.png", mimeType: "image/png", buffer: png });
+ok(await seen(detail.getByText("Ваші фото (1 з 10)")), "own photo on the idea");
+await detail.getByRole("button", { name: "Повторити", exact: true }).click();
+ok(await seen(pg.getByText(/Копію додано на/)), "repeat in 2 weeks");
+await detail.getByRole("button", { name: "Собі в Telegram" }).click();
+ok(await seen(pg.getByText("Спершу підключіть Telegram")), "Telegram to self asks to link first");
+await pg.screenshot({ path: `${SHOTS}/content-team.png`, fullPage: true });
+await pg.locator("body").click({ position: { x: 5, y: 500 } });
+await pg.keyboard.press("Escape");
+const xlsxHref = await pg.getByRole("link", { name: "Excel" }).getAttribute("href");
+const xlsx = await pg.evaluate(async (h) => { const r = await fetch(h); const b = new Uint8Array(await r.arrayBuffer()); return [r.status, String.fromCharCode(b[0], b[1])]; }, xlsxHref);
+ok(xlsx[0] === 200 && xlsx[1] === "PK", "Excel export");
+const ics = await pg.evaluate(async (h) => (await fetch(h)).text(), await pg.getByRole("link", { name: "Календар (.ics)" }).getAttribute("href"));
+ok(/BEGIN:VEVENT/.test(ics), "calendar export");
+const [popup] = await Promise.all([pg.waitForEvent("popup"), pg.getByRole("button", { name: "Друк A4 / PDF" }).click()]);
+ok(/Контент-план/.test(await popup.title()), "A4 print page");
+await popup.close();
 
 // Own idea.
 await pg.locator(".app-day").last().getByRole("button", { name: "Своя ідея" }).click();
@@ -131,6 +157,25 @@ ok(await seen(pg.getByText("Тиждень ароматів −15%")), "promotio
 await pg.getByRole("button", { name: "До плану" }).click();
 ok(await seen(pg.locator(".app-marker[data-kind='promo']", { hasText: "Тиждень ароматів" }).first()), "promotion marker in the plan");
 
+// Missed yesterday: «Перенести на сьогодні».
+const y = new Date(Date.now() - 86_400_000).toLocaleDateString("sv-SE", { timeZone: "Europe/Kyiv" });
+await call("/content/ideas", "POST", { day: y, channel: "instagram", title: "Вчорашній допис", text: "Текст" });
+await pg.getByRole("radio", { name: "Тиждень" }).click();
+await pg.reload({ waitUntil: "networkidle" });
+await nav("Контент");
+ok(await seen(pg.getByText(/Не опубліковано минулими днями: \d+/)), "missed ideas banner");
+await pg.getByRole("button", { name: "Перенести на сьогодні" }).click();
+ok(await seen(pg.locator(".app-day[data-today] .app-idea", { hasText: "Вчорашній допис" })), "moved to today");
+
+// «Що дав контент» and «Як складається план».
+await pg.getByRole("button", { name: "Що дав контент" }).click();
+ok(await seen(pg.getByText("Чого навчився план")), "«Що дав контент»");
+ok(await seen(pg.getByText(/План почне підлаштовуватись після 10/)), "learning waits for 10 published ideas");
+await pg.screenshot({ path: `${SHOTS}/content-stats.png`, fullPage: true });
+await pg.getByRole("button", { name: "Як складається план" }).click();
+ok(await seen(pg.getByText("Що ми не робимо")), "«Як складається план»");
+await pg.getByRole("button", { name: "До плану" }).click();
+
 // Home: «Сьогодні запостити».
 await nav("Головна");
 ok(await seen(pg.getByRole("heading", { name: "Сьогодні запостити" })), "Home card «Сьогодні запостити»");
@@ -141,6 +186,7 @@ await pg.getByRole("tab", { name: "Контент-план" }).click();
 const counts = await pg.getByText(/Увімкнено: \d+/).innerText();
 ok(Number(counts.match(/\d+/)[0]) >= 190, `starter templates (${counts})`);
 ok(await seen(pg.getByText("День захисників і захисниць України")), "holidays list");
+ok(await seen(pg.getByText("Ритм каналів")), "channel rhythm in the admin");
 await pg.screenshot({ path: `${SHOTS}/content-admin.png` });
 
 // Phone: today first.

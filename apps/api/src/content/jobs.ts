@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lt, lte, ne, or } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { contentIdeas, moduleInstalls, notifications, platformState, subscriptions } from "../db/schema.ts";
 import { addDays, generatePlan, kyivDay } from "./engine.ts";
@@ -62,8 +62,20 @@ export async function runContentMorning(now = new Date(), orgIds?: string[]) {
       const first = ideas[0] ? `\n\n${ideas[0].textShort}` : "";
       const late = missed.length ? `\n\nВчора не опубліковано: ${missed.length}. Перенести чи пропустити — у «Контенті».` : "";
       await db.insert(notifications).values({ organizationId: org, kind: "content", key: "contentToday", params: { n: ideas.length, list: `${list}${first}${late}`.trim() } });
+      // Each person with ideas assigned to them today gets their own list (owner's decision 30.09.2026).
+      const people = [...new Set(ideas.map((i) => i.assigneeId).filter((x): x is string => !!x))];
+      for (const userId of people) {
+        const mine = ideas.filter((i) => i.assigneeId === userId).sort((a, b) => a.time.localeCompare(b.time));
+        await db.insert(notifications).values({ organizationId: org, userId, kind: "content", key: "contentYours", params: { n: mine.length, list: mine.map((i) => `${i.time} ${CHANNEL_NAME[i.channel] ?? i.channel} — ${i.title}`).join("\n") } });
+      }
       n++;
     }
   });
   return n;
+}
+
+/** History is kept 12 months; an idea with 👎 stays (it keeps its template away from the business). */
+export async function purgeContentHistory(now = new Date()) {
+  const rows = await db.delete(contentIdeas).where(and(lt(contentIdeas.day, addDays(kyivDay(now), -365)), or(isNull(contentIdeas.feedback), ne(contentIdeas.feedback, -1)))).returning({ id: contentIdeas.id });
+  return rows.length;
 }

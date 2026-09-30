@@ -509,3 +509,13 @@ dialog.modal:has(.app-dialog) { max-width: min(520px, calc(100vw - 1.5rem)); }
 .ok-muted[data-bad] { color: var(--bad); }
 label.app-inline { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8125rem; color: var(--fg-muted); }
 .ok-list > li[data-off] { opacity: 0.55; }
+.app-idea-team { padding-top: 0.75rem; border-top: 1px solid var(--line); }
+.app-idea-photo { position: relative; }
+.app-idea-photo .btn { position: absolute; top: -6px; right: -6px; min-height: 0; width: 1.4rem; height: 1.4rem; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 50%; }
+.app-photo.app-photo-sm { width: 4.5rem; font-size: 0.7rem; gap: 0.2rem; }
+.app-comments { display: grid; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }
+.app-comments li { padding: 0.45rem 0.65rem; border-radius: 10px; background: var(--surface-2); }
+.app-comments p { margin: 0.15rem 0 0; white-space: pre-wrap; }
+.app-advice { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.app-export { align-items: center; }
+.app-learn { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.3rem; }

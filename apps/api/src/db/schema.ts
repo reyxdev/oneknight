@@ -269,6 +269,8 @@ export const notifications = pgTable(
     kind: text("kind").notNull(),
     key: text("key").notNull(),
     params: jsonb("params").notNull().default(sql`'{}'::jsonb`),
+    /** For one person only (an idea assigned to them, a mention); null = for everyone allowed to see the kind. */
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
     readAt: timestamp("read_at", { withTimezone: true }),
     /** Handed to the Telegram delivery worker (sent to linked chats, or nobody to send to). */
     telegramDone: boolean("telegram_done").notNull().default(false),
@@ -1170,8 +1172,25 @@ export const contentIdeas = pgTable(
     feedback: smallint("feedback"),
     assigneeId: uuid("assignee_id").references(() => users.id, { onDelete: "set null" }),
     photos: uuid("photos").array().notNull().default(sql`'{}'::uuid[]`),
+    /** A video for the idea, by link (videos are not uploaded). */
+    video: text("video"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     createdAt: createdAt(),
   },
   (t) => [index("content_ideas_org_day_idx").on(t.organizationId, t.day)],
+);
+
+/** Comments on an idea; `mentions` are the people named with @ (they get a notification). */
+export const contentComments = pgTable(
+  "content_comments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    ideaId: uuid("idea_id").notNull().references(() => contentIdeas.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    text: text("text").notNull(),
+    mentions: uuid("mentions").array().notNull().default(sql`'{}'::uuid[]`),
+    createdAt: createdAt(),
+  },
+  (t) => [index("content_comments_idea_idx").on(t.ideaId, t.createdAt)],
 );

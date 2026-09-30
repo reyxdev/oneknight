@@ -157,12 +157,38 @@ function Holidays() {
   );
 }
 
+const CHANNELS = ["instagram", "facebook", "tiktok", "site", "telegram", "youtube", "viber"] as const;
+/** «Звичайний» ритм каналів for every business (posts a week); «Легкий» and «Активний» are half and one and a half. */
+function Rhythm() {
+  const d = useDict();
+  const t = d.app.contentAdmin;
+  const c = d.app.content;
+  const toast = useToast();
+  const [r, setR] = useState<Record<string, number> | null>(null);
+  useEffect(() => {
+    void api<Record<string, number>>("/admin/content/rhythm").then((x) => x.ok && setR(x.data));
+  }, []);
+  if (!r) return null;
+  return (
+    <Panel title={t.rhythm}>
+      <p className="ok-muted">{t.rhythmLead}</p>
+      <form className="grid gap-3" onSubmit={async (e) => { e.preventDefault(); const x = await api<Record<string, number>>("/admin/content/rhythm", { method: "PUT", body: r }); toast.show(x.ok ? t.rhythmSaved : t.invalid, x.ok ? "ok" : "warn"); }}>
+        <div className="app-ch-counts">
+          {CHANNELS.map((ch) => <Field key={ch} label={c.channels[ch]}>{(p) => <input {...p} className="input" type="number" min={0} max={14} value={r[ch] ?? 0} onChange={(e) => setR({ ...r, [ch]: Number(e.target.value) })} />}</Field>)}
+        </div>
+        <button type="submit" className="btn btn-sm" style={{ justifySelf: "start" }}>{t.save}</button>
+      </form>
+    </Panel>
+  );
+}
+
 /** Admin «Контент-план»: the starter idea templates and the holidays of the calendar. */
 export function ContentAdmin() {
   return (
     <div className="grid gap-4">
       <Templates />
       <Holidays />
+      <Rhythm />
     </div>
   );
 }

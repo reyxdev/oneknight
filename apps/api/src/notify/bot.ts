@@ -153,6 +153,9 @@ export function notificationText(key: string, p: Record<string, any>, finance = 
     case "siteUp": return `✅ ${p.domain} знову працює`;
     case "contentWeek": return `🗓 Новий тиждень ідей готовий: ${p.n} дописів на ${p.from} — ${p.to}. Відкрийте «Контент»`;
     case "contentToday": return `📣 Сьогодні запостити (${p.n}):\n${p.list}`;
+    case "contentYours": return `📌 Ваші ідеї на сьогодні (${p.n}):\n${p.list}`;
+    case "contentAssigned": return `📌 Вам призначено ідею «${p.title}» на ${p.day}`;
+    case "contentMention": return `💬 ${p.name} згадав вас в ідеї «${p.title}»`;
     case "auditDone": return `🔎 Перевірка якості ${p.domain}: пройдено ${p.passed} з ${p.total}. Поради — у розділі «Сайт»`;
     case "sslExpiring": return `🔒 SSL для ${p.domain} закінчується через ${p.days} дн.`;
     case "lowBalance": return `💳 Не вистачає ${money(p.amount)} грн для продовження ONEKNIGHT. Сервіс працює ще ${p.days} дн.`;
@@ -210,12 +213,13 @@ export async function deliverTelegram(call: TgCall = tgCall, opts: { skipTestAcc
     if (!claimed) continue;
     if (!notificationText(n.key, n.params as Record<string, unknown>)) continue;
     const people = await db
-      .select({ chatId: telegramLinks.chatId, kinds: telegramLinks.kinds, role: memberships.role, permissions: memberships.permissions, org: organizations.name })
+      .select({ userId: telegramLinks.userId, chatId: telegramLinks.chatId, kinds: telegramLinks.kinds, role: memberships.role, permissions: memberships.permissions, org: organizations.name })
       .from(telegramLinks)
       .innerJoin(memberships, eq(memberships.userId, telegramLinks.userId))
       .innerJoin(organizations, eq(organizations.id, memberships.organizationId))
       .where(and(eq(memberships.organizationId, n.organizationId), isNotNull(telegramLinks.chatId)));
     for (const p of people) {
+      if (n.userId && p.userId !== n.userId) continue;
       if (!p.kinds.includes(n.kind)) continue;
       const perm = KIND_PERM[n.kind];
       if (perm && p.role !== "owner" && !p.permissions.includes(perm)) continue;

@@ -1,13 +1,13 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { and, eq } from "drizzle-orm";
+import { and, eq, gte } from "drizzle-orm";
 import { buildApp } from "../app.ts";
 import { cleanupTestUsers } from "../test-utils.ts";
 import { db, sql } from "../db/client.ts";
-import { contentIdeas, contentTemplates, notifications, organizations, reviews, sites } from "../db/schema.ts";
+import { analyticsEvents, contentIdeas, contentTemplates, memberships, notifications, organizations, reviews, sites } from "../db/schema.ts";
 import { ensureContentSeed } from "./seed.ts";
-import { addDays, generatePlan, MAX_PER_DAY } from "./engine.ts";
-import { runContentMorning, runContentWeekly } from "./jobs.ts";
+import { addDays, generatePlan, learningOf, MAX_PER_DAY, settingsOf } from "./engine.ts";
+import { purgeContentHistory, runContentMorning, runContentWeekly } from "./jobs.ts";
 import { holidayDate, easter } from "./holidays.ts";
 
 const app = await buildApp({ logger: false });
@@ -162,4 +162,113 @@ test("content plan: beta gate, preview, rules of the plan, holidays and promotio
   const [week] = await db.select().from(notifications).where(and(eq(notifications.organizationId, o.org), eq(notifications.key, "contentWeek")));
   assert.equal((week!.params as { from: string }).from, addDays(sunday, 1));
   assert.ok((week!.params as { n: number }).n > 0);
+});
+
+test("content plan, part 2: the team (assign, comments with @, own photos), repeat, missed, export, results, learning, 👎, history", async () => {
+  await ensureContentSeed();
+  const o = await register("p", "+380500000072");
+  const m = await register("q", "+380500000073");
+  const H = { cookie: o.cookie, origin: ORIGIN };
+  const [site] = await db.insert(sites).values({ organizationId: o.org, domain: `${tag}p.shop.com.ua`, name: "S", verifiedAt: new Date() }).returning();
+  await app.inject({ method: "POST", url: `/api/shop/sites/${site!.id}/products`, payload: { name: "Свічка", price: 250 }, headers: H });
+  await app.inject({ method: "POST", url: "/api/billing/trial", headers: H });
+  await db.update(organizations).set({ features: ["content"] }).where(eq(organizations.id, o.org));
+  assert.equal((await app.inject({ method: "POST", url: "/api/billing/modules/content", headers: H })).statusCode, 200);
+  await app.inject({ method: "PUT", url: "/api/content/settings", headers: H, payload: { channels: { instagram: { on: true }, telegram: { on: true } } } });
+  // A marketer of the business (and a person without «Контент», who cannot get ideas).
+  const [mUser] = await db.select({ userId: memberships.userId }).from(memberships).where(eq(memberships.organizationId, m.org));
+  await db.insert(memberships).values({ userId: mUser!.userId, organizationId: o.org, role: "marketer", permissions: ["content"] });
+  const team = (await app.inject({ url: "/api/content/team", headers: { cookie: o.cookie } })).json();
+  assert.equal(team.length, 2);
+
+  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Kyiv" });
+  const own = async (day: string, title: string) => (await app.inject({ method: "POST", url: "/api/content/ideas", headers: H, payload: { day, channel: "instagram", title, text: "Текст" } })).json();
+  const idea = await own(today, "Ідея для маркетолога");
+  const patch = (id: string, body: object) => app.inject({ method: "PATCH", url: `/api/content/ideas/${id}`, headers: H, payload: body });
+  assert.equal((await patch(idea.id, { assigneeId: "00000000-0000-4000-8000-000000000000" })).statusCode, 400, "only someone of the team");
+  assert.equal((await patch(idea.id, { assigneeId: mUser!.userId })).json().assigneeId, mUser!.userId);
+  const personal = await db.select().from(notifications).where(and(eq(notifications.organizationId, o.org), eq(notifications.key, "contentAssigned")));
+  assert.deepEqual(personal.map((n) => n.userId), [mUser!.userId]);
+  const bell = async (cookie: string) => (await app.inject({ url: "/api/notifications", headers: { cookie } })).json() as { key: string }[];
+  assert.ok(!(await bell(o.cookie)).some((n) => n.key === "contentAssigned"), "a personal notification is not in the others' bell");
+  assert.equal((await patch(idea.id, { video: "http://example.com/v" })).statusCode, 400, "video by an https link only");
+  assert.equal((await patch(idea.id, { video: "https://youtu.be/abc" })).json().video, "https://youtu.be/abc");
+
+  // Comments with @.
+  const c = await app.inject({ method: "POST", url: `/api/content/ideas/${idea.id}/comments`, headers: H, payload: { text: "Зніми при денному світлі", mentions: [mUser!.userId, "00000000-0000-4000-8000-000000000000"] } });
+  assert.equal(c.statusCode, 201);
+  assert.deepEqual(c.json().mentions, [mUser!.userId]);
+  assert.equal((await app.inject({ url: `/api/content/ideas/${idea.id}/comments`, headers: { cookie: o.cookie } })).json()[0].text, "Зніми при денному світлі");
+  assert.equal((await db.select().from(notifications).where(and(eq(notifications.organizationId, o.org), eq(notifications.key, "contentMention"), eq(notifications.userId, mUser!.userId)))).length, 1);
+
+  // Own photos (up to 10), removal.
+  const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const up = await app.inject({ method: "POST", url: `/api/content/ideas/${idea.id}/photos`, headers: H, payload: { photo: { name: "a.png", data: png } } });
+  assert.equal(up.json().photos.length, 1);
+  assert.equal((await app.inject({ method: "DELETE", url: `/api/content/ideas/${idea.id}/photos/${up.json().photos[0]}`, headers: H })).json().photos.length, 0);
+
+  // «Повторити через 2 тижні»: a copy with its own link.
+  const rep = await app.inject({ method: "POST", url: `/api/content/ideas/${idea.id}/repeat`, headers: H, payload: { weeks: 2 } });
+  assert.deepEqual([rep.statusCode, rep.json().day, rep.json().status, rep.json().custom], [201, addDays(today, 14), "todo", true]);
+  assert.equal((await app.inject({ method: "POST", url: `/api/content/ideas/${idea.id}/telegram`, headers: H })).json().error, "not_linked");
+
+  // Morning: the assignee gets their own list.
+  assert.equal(await runContentMorning(new Date(`${today}T08:00:00Z`), [o.org]), 1);
+  const [yours] = await db.select().from(notifications).where(and(eq(notifications.organizationId, o.org), eq(notifications.key, "contentYours")));
+  assert.equal(yours?.userId, mUser!.userId);
+  assert.ok(String((yours!.params as { list: string }).list).includes("Ідея для маркетолога"));
+
+  // Missed yesterday: «перенести на сьогодні».
+  const late = await own(addDays(today, -1), "Вчорашня");
+  const missed = (await app.inject({ url: "/api/content/missed", headers: { cookie: o.cookie } })).json();
+  assert.ok(missed.some((x: { id: string }) => x.id === late.id));
+  await app.inject({ method: "POST", url: "/api/content/missed", headers: H, payload: { action: "today" } });
+  assert.equal((await db.select().from(contentIdeas).where(eq(contentIdeas.id, late.id)))[0]!.day, today);
+
+  // Export: Excel and a calendar in UTC.
+  const xlsx = await app.inject({ url: `/api/content/export?format=xlsx&from=${today}&days=7`, headers: { cookie: o.cookie } });
+  assert.equal(xlsx.rawPayload.subarray(0, 2).toString(), "PK");
+  const ics = (await app.inject({ url: `/api/content/export?format=ics&from=${today}&days=7`, headers: { cookie: o.cookie } })).body;
+  assert.match(ics, /BEGIN:VEVENT/);
+  assert.match(ics, /DTSTART:\d{8}T\d{6}Z/);
+  assert.ok(ics.split("\r\n").every((l) => Buffer.byteLength(l) <= 75), "folded lines");
+
+  // Results and learning: 12 published ideas; «Довіра» brings visits and orders, «Настрій» nothing.
+  const pub: string[] = [];
+  for (let i = 0; i < 12; i++) {
+    const x = await own(addDays(today, -20 + i), `Опубліковане ${i}`);
+    await db.update(contentIdeas).set({ status: "published", publishedAt: new Date(Date.now() - (20 - i) * 86_400_000), bucket: i < 6 ? "trust" : "fun" }).where(eq(contentIdeas.id, x.id));
+    pub.push(x.id);
+  }
+  for (const id of pub.slice(0, 6))
+    await db.insert(analyticsEvents).values([
+      { organizationId: o.org, siteId: site!.id, type: "pageview", session: `s${id}`, channel: "instagram", campaign: "content", content: id.slice(0, 8) },
+      { organizationId: o.org, siteId: site!.id, type: "order", session: `s${id}`, channel: "instagram", campaign: "content", content: id.slice(0, 8), valueKop: 25000 },
+    ]);
+  const learned = await learningOf(o.org, await settingsOf(o.org));
+  assert.deepEqual(learned.shift, { from: "fun", to: "trust", points: 10 });
+  assert.deepEqual([learned.balance.trust, learned.balance.fun], [30, 0], "no more than 10 points");
+  const stats = (await app.inject({ url: "/api/content/stats", headers: { cookie: o.cookie } })).json();
+  assert.deepEqual([stats.total.posts, stats.total.visits, stats.total.orders, stats.total.revenueKop], [12, 6, 6, 150000]);
+  assert.equal(stats.top.length, 5);
+  assert.ok(stats.streak >= 1);
+  const result = (await app.inject({ url: `/api/content/ideas/${pub[0]}/result`, headers: { cookie: o.cookie } })).json();
+  assert.equal(result.final, true);
+
+  // 👎: that template is never offered again to this business.
+  await generatePlan(o.org, { from: "2027-03-01", days: 28 });
+  const gen = (await db.select().from(contentIdeas).where(and(eq(contentIdeas.organizationId, o.org), gte(contentIdeas.day, "2027-03-01")))).sort((x, y) => x.day.localeCompare(y.day)).find((i) => i.templateId);
+  await patch(gen!.id, { feedback: -1 });
+  await generatePlan(o.org, { from: addDays(gen!.day, 1), days: 28 });
+  const again = await db.select().from(contentIdeas).where(and(eq(contentIdeas.organizationId, o.org), eq(contentIdeas.templateId, gen!.templateId!)));
+  assert.deepEqual(again.map((i) => i.id), [gen!.id]);
+
+  // History: 12 months; an idea with 👎 stays.
+  const old = await own(addDays(today, -400), "Давня");
+  const oldBad = await own(addDays(today, -400), "Давня з 👎");
+  await db.update(contentIdeas).set({ feedback: -1 }).where(eq(contentIdeas.id, oldBad.id));
+  await purgeContentHistory();
+  assert.equal((await db.select().from(contentIdeas).where(eq(contentIdeas.id, old.id))).length, 0);
+  assert.equal((await db.select().from(contentIdeas).where(eq(contentIdeas.id, oldBad.id))).length, 1);
+  assert.ok(Array.isArray((await app.inject({ url: "/api/content/advice", headers: { cookie: o.cookie } })).json()));
 });
