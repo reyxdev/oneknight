@@ -60,12 +60,14 @@ export function Onboarding({ me, onDone }: { me: Me; onDone: (go?: [string, stri
       return setErr(fmt(t.answer, { q: missing }));
     }
     setBusy(true);
-    const r = await api("/onboarding", {
+    const r = await api<{ trialUntil: string | null }>("/onboarding", {
       method: "POST",
       body: { hasSite: a.hasSite, ...(a.siteUrl.trim() ? { siteUrl: a.siteUrl.trim() } : {}), sells: a.sells, ...(a.sells.includes("other") ? { sellsOther: a.sellsOther.trim() } : {}), delivery: a.delivery, channels: a.channels },
     });
     setBusy(false);
     if (!r.ok && r.error !== "already_answered") return setErr(d.app.auth.errors.server_error);
+    // The 30-day trial starts by itself; without it this phone already had one.
+    if (r.ok) setTrial(r.data.trialUntil ? "started" : me.subscription ? "had" : "used");
     playSound("success");
     setStep("advice");
   };

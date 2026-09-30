@@ -1,8 +1,8 @@
 import { randomBytes } from "node:crypto";
-import { and, count, desc, eq, gt, inArray, isNull, lte, or, sum } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNull, lte, or, sql as dsql, sum } from "drizzle-orm";
 import { moduleById, oneknightPricing as P, type ModuleId } from "@oneknight/domain";
 import { db } from "../db/client.ts";
-import { ledgerEntries, moduleInstalls, notifications, orders, promoCodes, promoRedemptions, sites, subscriptions, topups } from "../db/schema.ts";
+import { ledgerEntries, moduleInstalls, notifications, orders, organizations, promoCodes, promoRedemptions, sites, subscriptions, topups } from "../db/schema.ts";
 import { env } from "../config.ts";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -87,7 +87,7 @@ export async function startSubscription(orgId: string, now = new Date()): Promis
     await tx
       .insert(subscriptions)
       .values({ organizationId: orgId, status: "active", periodEnd })
-      .onConflictDoUpdate({ target: subscriptions.organizationId, set: { status: "active", periodEnd, graceUntil: null, updatedAt: now } });
+      .onConflictDoUpdate({ target: subscriptions.organizationId, set: { status: "active", periodEnd, graceUntil: null, suspendedAt: null, deletionWarned: null, updatedAt: now } });
     await note(tx, orgId, "subscriptionStarted", { amount: total / UAH, until: periodEnd.toISOString() });
     return { ok: true as const, until: periodEnd };
   });
@@ -110,11 +110,44 @@ export async function payYear(orgId: string, now = new Date()): Promise<{ ok: tr
     else
       await tx
         .update(subscriptions)
-        .set({ coveredUntil: until, ...(sub.status === "grace" || sub.status === "suspended" || sub.status === "cancelled" ? { status: "active" as const, periodEnd: now, graceUntil: null } : {}), updatedAt: now })
+        .set({ coveredUntil: until, ...(sub.status === "grace" || sub.status === "suspended" || sub.status === "cancelled" ? { status: "active" as const, periodEnd: now, graceUntil: null, suspendedAt: null, deletionWarned: null } : {}), updatedAt: now })
         .where(eq(subscriptions.organizationId, orgId));
     await note(tx, orgId, "yearPaid", { amount: YEAR_KOP / UAH, until: until.toISOString() });
     return { ok: true as const, until };
   });
+}
+
+/** After this many days of suspension the admin may delete the business data. */
+export const DELETE_AFTER_DAYS = 90;
+
+/** Warnings before the data of a suspended business may be deleted: 30, 7 and 1 day before, each once. */
+async function warnDeletion(now: Date) {
+  const subs = await db.select().from(subscriptions).where(eq(subscriptions.status, "suspended"));
+  for (const s of subs) {
+    if (!s.suspendedAt) continue;
+    const left = DELETE_AFTER_DAYS - (now.getTime() - s.suspendedAt.getTime()) / DAY;
+    const step = [1, 7, 30].find((d) => left <= d);
+    if (step === undefined || left <= 0 || (s.deletionWarned !== null && s.deletionWarned <= step)) continue;
+    await db.update(subscriptions).set({ deletionWarned: step }).where(eq(subscriptions.organizationId, s.organizationId));
+    await note(db, s.organizationId, "dataDeletionSoon", { days: Math.max(1, Math.ceil(left)) });
+  }
+}
+
+/**
+ * «Лише перегляд»: nothing can be changed in a business whose subscription is suspended or cancelled, or that
+ * went through the questions after sign-up without any subscription (its phone already had the free trial), or
+ * whose data was deleted. The website keeps working: the public API is not affected.
+ */
+export async function isReadOnly(orgId: string) {
+  const [o] = await db
+    .select({ status: subscriptions.status, onboarding: organizations.onboarding, purgedAt: organizations.purgedAt })
+    .from(organizations)
+    .leftJoin(subscriptions, eq(subscriptions.organizationId, organizations.id))
+    .where(eq(organizations.id, orgId));
+  if (!o) return false;
+  if (o.purgedAt) return true;
+  if (o.status === "suspended" || o.status === "cancelled") return true;
+  return !o.status && !!o.onboarding;
 }
 
 /**
@@ -156,6 +189,17 @@ export async function startTrial(orgId: string, now = new Date()) {
     .onConflictDoUpdate({ target: subscriptions.organizationId, set: { status: "trial", trialEndsAt, periodEnd: trialEndsAt, graceUntil: null, updatedAt: now } });
   await note(db, orgId, "trialStarted", { until: trialEndsAt.toISOString() });
   return trialEndsAt;
+}
+
+/** One free trial per phone number: another business of the same person (or the same phone) already had one. */
+export async function trialUsedByPhone(orgId: string, phone: string) {
+  const [used] = await db.execute<{ n: number }>(dsql`
+    select count(*)::int as n from subscriptions s
+    join memberships m on m.organization_id = s.organization_id and m.role = 'owner'
+    join users u on u.id = m.user_id
+    where s.trial_ends_at is not null and s.organization_id <> ${orgId}
+      and ok_phone_key(u.phone) = ok_phone_key(${phone})`);
+  return (used?.n ?? 0) > 0;
 }
 
 /** «Почати пробний період»: 30 days of ONEKNIGHT (up to 5 paid modules free) for a business that never had a subscription. */
@@ -200,7 +244,7 @@ export async function settle(orgId: string, now = new Date()): Promise<"renewed"
       if (discount) await tx.update(promoRedemptions).set({ monthsLeft: discount.monthsLeft - 1 }).where(and(eq(promoRedemptions.promoId, discount.promoId), eq(promoRedemptions.organizationId, orgId)));
       // After the free period every installed module is paid.
       await tx.update(moduleInstalls).set({ free: false }).where(eq(moduleInstalls.organizationId, orgId));
-      await tx.update(subscriptions).set({ status: "active", periodEnd, graceUntil: null, updatedAt: now }).where(eq(subscriptions.organizationId, orgId));
+      await tx.update(subscriptions).set({ status: "active", periodEnd, graceUntil: null, suspendedAt: null, deletionWarned: null, updatedAt: now }).where(eq(subscriptions.organizationId, orgId));
       await note(tx, orgId, "renewed", { amount: total / UAH, until: periodEnd.toISOString() });
       return "renewed";
     }
@@ -211,7 +255,7 @@ export async function settle(orgId: string, now = new Date()): Promise<"renewed"
       return "grace";
     }
     if (sub.status === "grace" && sub.graceUntil && sub.graceUntil <= now) {
-      await tx.update(subscriptions).set({ status: "suspended", updatedAt: now }).where(eq(subscriptions.organizationId, orgId));
+      await tx.update(subscriptions).set({ status: "suspended", suspendedAt: now, deletionWarned: null, updatedAt: now }).where(eq(subscriptions.organizationId, orgId));
       await note(tx, orgId, "suspended", { amount: (total - bal) / UAH });
       return "suspended";
     }
@@ -223,6 +267,7 @@ export async function settle(orgId: string, now = new Date()): Promise<"renewed"
 export async function runBilling(now = new Date()) {
   await remindTrials(now);
   await remindRenewals(now);
+  await warnDeletion(now);
   const due = await db
     .select({ org: subscriptions.organizationId })
     .from(subscriptions)

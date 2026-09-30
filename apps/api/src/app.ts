@@ -16,6 +16,9 @@ import { analyticsRoutes } from "./analytics/routes.ts";
 import { dashboardRoutes } from "./dashboard/routes.ts";
 import { teamRoutes } from "./team/routes.ts";
 import { resetRoutes } from "./auth/reset.ts";
+import { isComplete, loadAuth } from "./auth/session.ts";
+import { activeMembership } from "./auth/access.ts";
+import { isReadOnly } from "./billing/service.ts";
 import { onboardingRoutes } from "./onboarding/routes.ts";
 import { orderSettingsRoutes } from "./shop/settings.ts";
 import { orderWorkRoutes } from "./shop/work.ts";
@@ -33,6 +36,9 @@ import type { RozetkaFetch } from "./integrations/rozetka.ts";
 import type { UpFetch } from "./integrations/ukrposhta.ts";
 import { registerGuard } from "./security/guard.ts";
 
+/** Business data that cannot be changed while the subscription is suspended (backups stay: the data can be taken away). */
+const READ_ONLY_PREFIXES = ["/api/shop", "/api/customers", "/api/reviews/", "/api/integrations", "/api/business", "/api/dashboard", "/api/onboarding/examples", "/api/sites", "/api/team"];
+
 /** Builds the app without listening, so tests can use app.inject(). All routes live under /api. */
 export async function buildApp(opts: FastifyServerOptions = {}, deps: { npCall?: NpCall; promFetch?: PromFetch; rozetkaFetch?: RozetkaFetch; printPdf?: PrintPdf; upFetch?: UpFetch; tgCall?: TgCall } = {}) {
   const app = Fastify({
@@ -44,6 +50,16 @@ export async function buildApp(opts: FastifyServerOptions = {}, deps: { npCall?:
   await app.register(cookie);
   // Coarse per-IP limit for everything; auth routes set stricter limits per route.
   await app.register(rateLimit, { global: true, max: 300, timeWindow: "1 minute" });
+  // «Лише перегляд»: changes to a suspended business are refused (billing, support and the account stay open).
+  app.addHook("preHandler", async (req, reply) => {
+    if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return;
+    if (!READ_ONLY_PREFIXES.some((p) => req.url.startsWith(p))) return;
+    const auth = req.auth ?? (await loadAuth(req));
+    if (!auth || !isComplete(auth)) return;
+    req.auth = auth;
+    const m = await activeMembership(req);
+    if (m && (await isReadOnly(m.orgId))) return reply.code(402).send({ error: "read_only" });
+  });
   app.setErrorHandler((err: FastifyError, req, reply) => {
     const status = err.statusCode ?? 500;
     if (status >= 500) req.log.error(err);

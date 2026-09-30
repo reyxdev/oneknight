@@ -60,6 +60,8 @@ export const organizations = pgTable("organizations", {
   goalKop: integer("goal_kop"),
   /** When the «Перші кроки» reward (+7 days) was granted; granted once per business. */
   firstStepsRewardAt: timestamp("first_steps_reward_at", { withTimezone: true }),
+  /** Business data deleted after 90 days of suspension (the account and the login stay). */
+  purgedAt: timestamp("purged_at", { withTimezone: true }),
   /** Answers to the questions after sign-up (owner). Null = not answered yet: the panel asks first. */
   /** Numbering of orders: the last number given (the first order gets 1001). */
   orderSeq: integer("order_seq").notNull().default(1000),
@@ -253,6 +255,10 @@ export const subscriptions = pgTable("subscriptions", {
   renewRemindedFor: timestamp("renew_reminded_for", { withTimezone: true }),
   /** The paid year a «14 days left, renew the year» reminder was sent for. */
   yearRemindedFor: timestamp("year_reminded_for", { withTimezone: true }),
+  /** When the subscription was suspended: 90 days later the data can be deleted (by the admin, after warnings). */
+  suspendedAt: timestamp("suspended_at", { withTimezone: true }),
+  /** The last deletion warning sent (days before: 30, 7, 1). */
+  deletionWarned: smallint("deletion_warned"),
   createdAt: createdAt(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

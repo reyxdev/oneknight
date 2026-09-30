@@ -225,6 +225,13 @@
       "when": 1790728147101,
       "tag": "0031_announcements",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1790728668070,
+      "tag": "0032_suspension",
+      "breakpoints": true
     }
   ]
 }

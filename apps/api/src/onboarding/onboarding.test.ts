@@ -19,7 +19,7 @@ after(async () => {
 });
 
 async function register(n: string) {
-  const r = await app.inject({ method: "POST", url: "/api/auth/register", payload: { name: `Onb ${n}`, phone: "+380500000011", email: `${tag}${n}@test.oneknight.local`, password: "long enough" }, headers: { origin: ORIGIN } });
+  const r = await app.inject({ method: "POST", url: "/api/auth/register", payload: { name: `Onb ${n}`, phone: `+3805000001${{ a: 1, b: 2, c: 3 }[n] ?? 9}1`, email: `${tag}${n}@test.oneknight.local`, password: "long enough" }, headers: { origin: ORIGIN } });
   return { cookie: `ok_session=${r.cookies.find((c) => c.name === "ok_session")!.value}`, org: r.json().organizations[0].id as string };
 }
 const H = (cookie: string) => ({ cookie, origin: ORIGIN });
@@ -65,7 +65,7 @@ test("«Прибрати приклад»", async () => {
 test("«Почати пробний період»: 30 days once, free modules, reminders 3 and 1 day before, once each", async () => {
   const u = await register("c");
   const start = () => app.inject({ method: "POST", url: "/api/billing/trial", headers: H(u.cookie) });
-  assert.equal((await start()).statusCode, 200);
+  assert.equal((await start()).statusCode, 200, "without the questions the trial is started by the button");
   assert.equal((await start()).statusCode, 409, "only once");
   const me = (await app.inject({ url: "/api/auth/me", headers: { cookie: u.cookie } })).json();
   assert.equal(me.subscription.status, "trial");

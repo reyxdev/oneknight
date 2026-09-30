@@ -24,7 +24,7 @@ await pg.getByLabel("Пароль").fill("billing e2e pass");
 await pg.getByRole("button", { name: "Створити акаунт" }).click();
 await onboard(pg);
 await nav("Оплата");
-ok(await pg.getByText("Підписка ще не активна").waitFor({ timeout: 5000 }).then(() => true, () => false), "no subscription before the website launch");
+ok(await pg.getByRole("button", { name: /Пробний: (30|29) дн\./ }).waitFor({ timeout: 5000 }).then(() => true, () => false), "the 30-day trial started by itself after the questions");
 
 execSync(`npm run -s admin:grant -w @oneknight/api -- ${email}`);
 await pg.reload({ waitUntil: "networkidle" });

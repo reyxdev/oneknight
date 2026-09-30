@@ -2,14 +2,14 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { count, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client.ts";
-import { leads, memberships, organizations, sites, users } from "../db/schema.ts";
+import { analyticsEvents, customers, integrations, leads, memberships, moduleInstalls, orderStatuses, orders, organizations, products, reviews, sites, subscriptions, users } from "../db/schema.ts";
 import { normalizeDomain } from "../monitor/probe.ts";
 import { checkSite } from "../monitor/scheduler.ts";
-import { billingOverview, confirmTopup, startTrial } from "../billing/service.ts";
+import { DELETE_AFTER_DAYS, billingOverview, confirmTopup, startTrial } from "../billing/service.ts";
 import { supportAdminRoutes } from "../support/routes.ts";
 import { keyAdminRoutes } from "../billing/admin-keys.ts";
 import { createReset } from "../auth/reset.ts";
-import { subscriptions, topups } from "../db/schema.ts";
+import { topups } from "../db/schema.ts";
 import { requireAuth } from "../auth/routes.ts";
 import { audit } from "../audit.ts";
 
@@ -45,8 +45,13 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
       .orderBy(desc(organizations.createdAt));
     const counts = await db.select({ org: sites.organizationId, n: count() }).from(sites).groupBy(sites.organizationId);
     const siteList = await db.select({ id: sites.id, org: sites.organizationId, domain: sites.domain, status: sites.status, lastUp: sites.lastUp }).from(sites);
-    const subs = await db.select({ org: subscriptions.organizationId, status: subscriptions.status, periodEnd: subscriptions.periodEnd }).from(subscriptions);
-    return orgs.map((o) => ({ ...o, siteCount: counts.find((c) => c.org === o.id)?.n ?? 0, sites: siteList.filter((s) => s.org === o.id), subscription: subs.find((x) => x.org === o.id) ?? null }));
+    const subs = await db.select({ org: subscriptions.organizationId, status: subscriptions.status, periodEnd: subscriptions.periodEnd, suspendedAt: subscriptions.suspendedAt }).from(subscriptions);
+    const purged = new Map((await db.select({ id: organizations.id, at: organizations.purgedAt }).from(organizations)).map((x) => [x.id, x.at]));
+    const deletable = (s: (typeof subs)[number] | undefined) => !!s && s.status === "suspended" && !!s.suspendedAt && Date.now() - s.suspendedAt.getTime() >= DELETE_AFTER_DAYS * 86_400_000;
+    return orgs.map((o) => {
+      const sub = subs.find((x) => x.org === o.id);
+      return { ...o, siteCount: counts.find((c) => c.org === o.id)?.n ?? 0, sites: siteList.filter((s) => s.org === o.id), subscription: sub ?? null, deletable: deletable(sub) && !purged.get(o.id), purgedAt: purged.get(o.id) ?? null };
+    });
   });
 
   app.post("/sites", async (req, reply) => {
@@ -85,6 +90,32 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     const [site] = await db.select().from(sites).where(eq(sites.id, req.params.id)).limit(1);
     if (!site) return reply.code(404).send({ error: "not_found" });
     return checkSite(site, req.log);
+  });
+
+  /**
+   * «Видалити дані» (owner's decision: the admin confirms): a business suspended for 90+ days loses its orders,
+   * customers, products, websites, reviews, integrations and settings. The account, the login, the ledger and
+   * support requests stay.
+   */
+  app.post<{ Params: { id: string } }>("/organizations/:id/purge", async (req, reply) => {
+    if (!uuid.safeParse(req.params.id).success) return reply.code(400).send({ error: "invalid_input" });
+    const [s] = await db.select().from(subscriptions).where(eq(subscriptions.organizationId, req.params.id));
+    if (!s || s.status !== "suspended" || !s.suspendedAt || Date.now() - s.suspendedAt.getTime() < DELETE_AFTER_DAYS * 86_400_000) return reply.code(409).send({ error: "not_deletable" });
+    await db.transaction(async (tx) => {
+      const org = req.params.id;
+      await tx.delete(orders).where(eq(orders.organizationId, org));
+      await tx.delete(customers).where(eq(customers.organizationId, org));
+      await tx.delete(sites).where(eq(sites.organizationId, org));
+      await tx.delete(products).where(eq(products.organizationId, org));
+      await tx.delete(reviews).where(eq(reviews.organizationId, org));
+      await tx.delete(integrations).where(eq(integrations.organizationId, org));
+      await tx.delete(analyticsEvents).where(eq(analyticsEvents.organizationId, org));
+      await tx.delete(orderStatuses).where(eq(orderStatuses.organizationId, org));
+      await tx.delete(moduleInstalls).where(eq(moduleInstalls.organizationId, org));
+      await tx.update(organizations).set({ purgedAt: new Date(), requisites: null, onboarding: null, orderSettings: {}, customerSettings: {}, goalKop: null }).where(eq(organizations.id, org));
+    });
+    await audit(req, "admin.purge", req.auth!.user.id, {}, req.params.id);
+    return { ok: true };
   });
 
   /** Start the 3-month free period for a website customer. */

@@ -179,6 +179,10 @@ export const app: Dict["app"] = {
     loadError: "Could not load requests.",
   },
   admin: {
+    purge: "Delete data",
+    purgeConfirm: "Delete the data of «{name}»? Orders, customers, products, websites and settings are gone for good. The account stays.",
+    purged: "Business data deleted",
+    purgedPill: "data deleted",
     nav: "Requests",
     title: "All requests",
     empty: "No requests yet.",
@@ -970,6 +974,7 @@ export const app: Dict["app"] = {
     closed: "closed: {n}",
     remove: "Delete",
   },
+  readOnly: { title: "Read only.", suspended: "The subscription is suspended: data cannot be changed, the website works. Top up the balance and everything is back.", noTrial: "This phone number already had the free trial. Start the subscription to work.", pay: "To payment" },
   toast: { undo: "Undo", close: "Close" },
   table: { selectPage: "Choose all on the page", selectRow: "Choose the row", columns: "Columns", pages: "Pages", prev: "Previous", next: "Next", page: "Page {n}", pageOf: "Page {n} of {total}" },
   newOrders: { one: "New order", many: "New orders: {n}", confirm: "Confirm", open: "Open" },

@@ -316,3 +316,4 @@ dialog.modal:has(.app-dialog) { max-width: min(520px, calc(100vw - 1.5rem)); }
 .app-news li { display: grid; gap: 0.25rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--line); }
 .app-news p { margin: 0; }
 .app-news .btn { justify-self: start; }
+.app-readonly { background: color-mix(in srgb, var(--bad) 10%, var(--surface)); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }

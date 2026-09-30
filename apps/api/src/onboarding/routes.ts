@@ -2,7 +2,8 @@ import type { FastifyPluginAsync } from "fastify";
 import { and, count, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client.ts";
-import { orders, organizations } from "../db/schema.ts";
+import { orders, organizations, subscriptions } from "../db/schema.ts";
+import { startSelfTrial, trialUsedByPhone } from "../billing/service.ts";
 import { requireAuth } from "../auth/routes.ts";
 import { activeMembership } from "../auth/access.ts";
 import { audit } from "../audit.ts";
@@ -52,8 +53,11 @@ export const onboardingRoutes: FastifyPluginAsync = async (app) => {
     if (org?.onboarding) return reply.code(409).send({ error: "already_answered" });
     await db.update(organizations).set({ onboarding: { ...p.data, at: new Date().toISOString() } }).where(eq(organizations.id, m.orgId));
     await seedExamples(m.orgId);
+    // The 30-day trial starts by itself (owner's decision), unless this phone already had one.
+    const [sub] = await db.select({ status: subscriptions.status }).from(subscriptions).where(eq(subscriptions.organizationId, m.orgId));
+    const trial = !sub && !(await trialUsedByPhone(m.orgId, req.auth!.user.phone)) ? await startSelfTrial(m.orgId) : null;
     await audit(req, "business.onboarding", req.auth!.user.id, p.data, m.orgId);
-    return { ok: true };
+    return { ok: true, trialUntil: trial };
   });
 
   /** «Прибрати приклад». */

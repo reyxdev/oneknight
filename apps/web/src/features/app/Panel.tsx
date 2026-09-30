@@ -30,7 +30,7 @@ import { ReviewsScreen } from "./Reviews";
 import { AnalyticsScreen } from "./Analytics";
 import { HomeScreen } from "./Home";
 import { TeamScreen } from "./Team";
-import { api } from "@/lib/api";
+import { READ_ONLY, api } from "@/lib/api";
 
 type ClientScreen = "home" | "orders" | "customers" | "products" | "reviews" | "analytics" | "site" | "modules" | "services" | "business" | "billing" | "team" | "profile" | "support";
 type AdminScreen = "admin" | "clients" | "tickets" | "topups" | "keys" | "news";
@@ -92,6 +92,14 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
 
   const [newCount, setNewCount] = useState(0);
   const news = useAnnouncements();
+  // «Лише перегляд»: suspended or cancelled, or answered the questions without any subscription (trial used).
+  const [blocked, setBlocked] = useState(false);
+  useEffect(() => {
+    const on = () => setBlocked(true);
+    window.addEventListener(READ_ONLY, on);
+    return () => window.removeEventListener(READ_ONLY, on);
+  }, []);
+  const readOnly = blocked || me.subscription?.status === "suspended" || me.subscription?.status === "cancelled" || (!me.subscription && me.onboarded && me.role === "owner");
   const { screen } = route;
   const adminMode = me.isAdmin && ADMIN_SCREENS.has(screen);
   const org = me.organizations.find((o) => o.id === me.activeOrgId) ?? me.organizations[0];
@@ -260,6 +268,13 @@ export function AppPanel({ me, onLogout, onChange }: { me: Me; onLogout: () => v
             <span className="app-user"><Icon name="person" size={16} />{me.email}</span>
             <Bell />
           </header>
+          {!adminMode && readOnly && (
+            <div className="app-banner app-readonly" role="alert">
+              <Icon name="lock" size={18} />
+              <span className="ok-grow"><b>{t.readOnly.title}</b> {me.subscription ? t.readOnly.suspended : t.readOnly.noTrial}</span>
+              {allowed("billing") && <button type="button" className="btn btn-sm" onClick={() => go("billing")}>{t.readOnly.pay}</button>}
+            </div>
+          )}
           {!adminMode && news.data?.banner && <Banner item={news.data.banner} onClose={() => void news.load()} />}
           <div className="ok-content" key={`${me.activeOrgId}/${screen}/${route.tab ?? ""}`}>
             {!view && <p className="ok-muted">{screen === "business" ? t.business.ownerOnly : t.team.noAccess}</p>}

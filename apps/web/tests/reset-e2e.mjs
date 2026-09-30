@@ -18,7 +18,8 @@ async function signup(name, email) {
   pg.on("pageerror", (e) => errs.push(`${pg.url()} ${String(e).slice(0, 80)}`));
   await pg.goto(`${BASE}/app/?start=register`, { waitUntil: "networkidle" });
   await pg.getByLabel("Ім'я").fill(name);
-  await pg.getByLabel("Телефон").fill("+380670001133");
+  // Each person has their own phone: one free trial per number.
+  await pg.getByLabel("Телефон").fill(name.startsWith("Адмін") ? "+380670001133" : "+380670001134");
   await pg.getByLabel("Електронна пошта").fill(email);
   await pg.getByLabel("Пароль").fill("old e2e password");
   await pg.getByRole("button", { name: "Створити акаунт" }).click();

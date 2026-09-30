@@ -39,8 +39,7 @@ ok(await seen(pg.getByRole("heading", { name: "Що радимо" })), "advice a
 const recs = await pg.locator(".app-recs li").allInnerTexts();
 ok(recs.some((r) => r.includes("Нова пошта")) && recs.some((r) => r.includes("Prom")) && recs.some((r) => r.includes("Аналітика")), `modules follow the answers (${recs.length})`);
 ok(await pg.getByRole("button", { name: "До розділу «Сайт»" }).isVisible(), "has a website: the way to connect it");
-await pg.getByRole("button", { name: "Почати пробний період" }).click();
-ok(await seen(pg.getByText("Пробний період почався: 30 днів.")), "trial started with one button");
+ok(await seen(pg.getByText("Пробний період почався: 30 днів.")), "the 30-day trial started by itself");
 if (SHOTS) await pg.screenshot({ path: `${SHOTS}/onboarding-advice.png`, fullPage: true });
 await pg.getByRole("button", { name: "Перейти в кабінет" }).click();
 await pg.getByText("Вітаємо").waitFor();

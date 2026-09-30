@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { fmt } from "@/i18n";
 import { useDict } from "@/i18n/provider";
 import { Icon } from "@/components/ui/Icon";
 import { api } from "@/lib/api";
@@ -18,6 +19,8 @@ type Org = {
   createdAt: string;
   sites: { id: string; domain: string; status: "building" | "live" | "paused"; lastUp: boolean | null }[];
   subscription: { status: "trial" | "active" | "grace" | "suspended" | "cancelled"; periodEnd: string } | null;
+  deletable: boolean;
+  purgedAt: string | null;
 };
 
 /** Admin: clients (organizations) and their sites. Adding a site starts monitoring immediately. */
@@ -86,11 +89,19 @@ export function Clients() {
             </ul>
           )}
           <div className="ok-actions">
-            {o.subscription ? (
+            {o.subscription && (
               <span className="ok-pill" data-s={o.subscription.status === "trial" || o.subscription.status === "active" ? "done" : "cancelled"}>
                 {d.app.billing.status[o.subscription.status]} · {f.date(new Date(o.subscription.periodEnd).getTime())}
               </span>
-            ) : (
+            )}
+            {o.deletable && (
+              <button type="button" className="btn btn-sm btn-ghost ok-danger" onClick={async () => { if (!confirm(fmt(d.app.admin.purgeConfirm, { name: o.name }))) return; const r = await api(`/admin/organizations/${o.id}/purge`, { method: "POST", body: {} }); if (r.ok) { show(d.app.admin.purged); void load(); } }}>
+                {d.app.admin.purge}
+              </button>
+            )}
+            {o.purgedAt && <span className="ok-pill" data-s="cancelled">{d.app.admin.purgedPill}</span>}
+            {/* A website from us: 3 free months, also instead of the 30-day trial that started after sign-up. */}
+            {(!o.subscription || o.subscription.status === "trial") && (
               <button type="button" className="btn btn-sm btn-secondary" onClick={async () => { const r = await api(`/admin/organizations/${o.id}/trial`, { method: "POST", body: {} }); if (r.ok) { show(d.app.topupsAdmin.trialDone); void load(); } }}>
                 {d.app.topupsAdmin.trial}
               </button>
