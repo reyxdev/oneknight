@@ -1,6 +1,6 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "../db/client.ts";
-import { integrations } from "../db/schema.ts";
+import { integrations, reviews, sites } from "../db/schema.ts";
 import { hasModule } from "../billing/service.ts";
 import { decrypt } from "../security/crypto.ts";
 import { insertMarketOrder, kyivTime, type MarketOrder } from "./import.ts";
@@ -67,7 +67,74 @@ export const forgetRozetkaToken = (orgId: string) => tokens.delete(orgId);
 type Settings = { lastSyncAt?: string; lastOrderAt?: string; market?: string | null };
 const MAX_PAGES = 10;
 
-export async function syncRozetka(orgId: string, f: RozetkaFetch = rozetkaFetch): Promise<{ ok: true; imported: number } | { ok: false; error: string }> {
+/** A GET to the Seller API with the business's token (logged in again once when it expired). */
+export async function rozetkaGet(orgId: string, creds: RozetkaCreds, path: string, f: RozetkaFetch = rozetkaFetch): Promise<{ body: any } | { error: string }> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let token = tokens.get(orgId);
+    if (!token) {
+      const l = await rozetkaLogin(creds, f);
+      if (!l.ok) return { error: l.error };
+      token = l.token;
+      tokens.set(orgId, token);
+    }
+    const r = await f(path, { token });
+    if (r.status === 401) {
+      tokens.delete(orgId);
+      continue;
+    }
+    return r.status === 200 && r.body?.success ? { body: r.body.content } : { error: String(r.body?.errors?.message ?? `http_${r.status}`) };
+  }
+  return { error: "unauthorized" };
+}
+
+/** Rozetka's store rating → stars (owner's decision): like 5, middle 3, dislike 1. */
+export const ROZETKA_STARS: Record<string, number> = { like: 5, middle: 3, dislike: 1 };
+
+/**
+ * Reviews about the store on Rozetka → «Відгуки» of the business (its first website), each once, to moderation like
+ * every review. The text joins the general comment and the comments on choice, service and delivery; the store's
+ * reply on Rozetka comes as the reply.
+ */
+export async function importRozetkaReviews(orgId: string, creds: RozetkaCreds, f: RozetkaFetch = rozetkaFetch) {
+  const [site] = await db.select({ id: sites.id }).from(sites).where(eq(sites.organizationId, orgId)).orderBy(asc(sites.createdAt)).limit(1);
+  if (!site) return { imported: 0, error: "no_site" };
+  let imported = 0;
+  for (let page = 1; page <= 3; page++) {
+    const r = await rozetkaGet(orgId, creds, `/market-reviews/search?status_review=active&sort=desc&page=${page}`, f);
+    if ("error" in r) return { imported, error: r.error };
+    const list: any[] = Array.isArray(r.body?.marketReviews) ? r.body.marketReviews : [];
+    for (const x of list) {
+      const rating = ROZETKA_STARS[String(x.vote)];
+      if (!rating || !x.id) continue;
+      const text = [x.comment, x.review_convenience, x.review_manager, x.review_delivery].filter((t) => typeof t === "string" && t.trim()).map((t: string) => t.trim()).join("\n");
+      const name = String(x.user ?? "").replace(/^[#*\s]+/, "").trim().slice(0, 100) || "Покупець Rozetka";
+      const replyText = typeof x.reply?.comment === "string" && x.reply.comment.trim() ? x.reply.comment.trim() : null;
+      const [row] = await db
+        .insert(reviews)
+        .values({
+          organizationId: orgId,
+          siteId: site.id,
+          authorName: name,
+          rating,
+          text: text.slice(0, 5000),
+          consent: true,
+          status: "pending",
+          source: "rozetka",
+          externalId: String(x.id),
+          reply: replyText,
+          replyAt: replyText ? kyivTime(String(x.reply.created_at ?? x.created_at)) : null,
+          createdAt: x.created_at ? kyivTime(String(x.created_at)) : new Date(),
+        })
+        .onConflictDoNothing()
+        .returning({ id: reviews.id });
+      if (row) imported++;
+    }
+    if (page >= Number(r.body?._meta?.pageCount ?? 1)) break;
+  }
+  return { imported };
+}
+
+export async function syncRozetka(orgId: string, f: RozetkaFetch = rozetkaFetch): Promise<{ ok: true; imported: number; reviewsImported?: number } | { ok: false; error: string }> {
   const [row] = await db.select().from(integrations).where(and(eq(integrations.organizationId, orgId), eq(integrations.provider, "rozetka")));
   if (!row) return { ok: false, error: "not_connected" };
   if (!(await hasModule(orgId, "rozetka"))) return { ok: false, error: "module_not_active" };
@@ -79,24 +146,7 @@ export async function syncRozetka(orgId: string, f: RozetkaFetch = rozetkaFetch)
     return { ok: false as const, error };
   };
 
-  const get = async (path: string) => {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      let token = tokens.get(orgId);
-      if (!token) {
-        const l = await rozetkaLogin(creds, f);
-        if (!l.ok) return { error: l.error };
-        token = l.token;
-        tokens.set(orgId, token);
-      }
-      const r = await f(path, { token });
-      if (r.status === 401) {
-        tokens.delete(orgId);
-        continue;
-      }
-      return r.status === 200 && r.body?.success ? { body: r.body.content } : { error: String(r.body?.errors?.message ?? `http_${r.status}`) };
-    }
-    return { error: "unauthorized" };
-  };
+  const get = (path: string) => rozetkaGet(orgId, creds, path, f);
 
   // First sync: 30 days back; later ones from the day before the newest imported order (the date filter is by day).
   const from = settings.lastOrderAt ? new Date(new Date(settings.lastOrderAt).getTime() - 86_400_000) : new Date(Date.now() - 30 * 86_400_000);
@@ -115,11 +165,13 @@ export async function syncRozetka(orgId: string, f: RozetkaFetch = rozetkaFetch)
     }
     if (page >= Number(r.body?._meta?.pageCount ?? 1)) break;
   }
+  // Reviews about the store, when the business uses «Відгуки».
+  const reviewsImported = (await hasModule(orgId, "reviews")) ? (await importRozetkaReviews(orgId, creds, f)).imported : undefined;
   await db
     .update(integrations)
     .set({ settings: { ...settings, lastSyncAt: new Date().toISOString(), ...(newest ? { lastOrderAt: newest.toISOString() } : {}) }, status: "connected", lastError: null, updatedAt: new Date() })
     .where(where);
-  return { ok: true, imported };
+  return { ok: true, imported, ...(reviewsImported !== undefined ? { reviewsImported } : {}) };
 }
 
 export async function syncAllRozetka(log: { warn: (o: object, m: string) => void }, f: RozetkaFetch = rozetkaFetch) {

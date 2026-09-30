@@ -12,7 +12,7 @@ import { useSites } from "./SiteScreen";
 import { useToast } from "./Toasts";
 
 type Status = "pending" | "published" | "trash";
-type Review = { id: string; name: string; rating: number; text: string; verified: boolean; consent: boolean; product: { id: string; name: string | null } | null; photo: string | null; videoUrl: string | null; date: string; status: Status; trashedAt: string | null; domain: string };
+type Review = { id: string; name: string; rating: number; text: string; verified: boolean; consent: boolean; product: { id: string; name: string | null } | null; photo: string | null; videoUrl: string | null; date: string; status: Status; trashedAt: string | null; domain: string; reply: { text: string; date: string } | null; source: string };
 
 /** Draws a 1080×1080 social creative from a review, fully in the browser, and offers it as a PNG. */
 function drawCreative(canvas: HTMLCanvasElement, r: Review) {
@@ -68,6 +68,43 @@ function Creative({ r }: { r: Review }) {
       <p className="ok-muted">{t.creativeNote}</p>
       {url && <a className="btn btn-sm" href={url} download={`review-${r.id.slice(0, 8)}.png`}><Icon name="image" size={15} />{t.download}</a>}
     </div>
+  );
+}
+
+/** The business's public answer under the review (shown on the site with the review). */
+function ReplyBox({ r, onSaved }: { r: Review; onSaved: () => void }) {
+  const t = useDict().app.reviews;
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState(r.reply?.text ?? "");
+  const save = async (value: string) => {
+    const res = await api(`/reviews/${r.id}/reply`, { method: "PUT", body: { text: value } });
+    if (res.ok) {
+      setOpen(false);
+      onSaved();
+    }
+  };
+  if (!open)
+    return r.reply ? (
+      <div className="app-review-reply">
+        <small className="ok-muted">{t.yourReply}</small>
+        <p>{r.reply.text}</p>
+        <button type="button" className="ok-link" onClick={() => setOpen(true)}>{t.editReply}</button>
+      </div>
+    ) : (
+      <button type="button" className="ok-link" style={{ justifySelf: "start" }} onClick={() => setOpen(true)}>{t.reply}</button>
+    );
+  return (
+    <form className="grid gap-2" onSubmit={(e) => { e.preventDefault(); void save(text.trim()); }}>
+      <label className="field">
+        <span className="label">{t.replyLabel}</span>
+        <textarea className="input" rows={2} maxLength={2000} value={text} onChange={(e) => setText(e.target.value)} />
+      </label>
+      <div className="ok-actions">
+        <button type="submit" className="btn btn-sm" disabled={!text.trim()}>{t.replySave}</button>
+        {r.reply && <button type="button" className="btn btn-sm btn-ghost" onClick={() => save("")}>{t.replyRemove}</button>}
+        <button type="button" className="btn btn-sm btn-ghost" onClick={() => setOpen(false)}>{t.replyCancel}</button>
+      </div>
+    </form>
   );
 }
 
@@ -170,6 +207,7 @@ export function ReviewsScreen({ goModules }: { goModules: () => void }) {
                 <p>{r.text}</p>
                 {r.photo && <a href={r.photo} target="_blank" rel="noopener"><img className="app-review-photo" src={r.photo} alt="" loading="lazy" /></a>}
                 <div className="ok-tags">
+                  {r.source !== "site" && <span className="ok-tag">{fmt(t.fromSource, { s: r.source === "rozetka" ? "Rozetka" : r.source })}</span>}
                   {r.verified && <span className="ok-tag"><Icon name="shield" size={13} />{t.verified}</span>}
                   {r.product?.name && <span className="ok-tag"><Icon name="box" size={13} />{r.product.name}</span>}
                   <span className="ok-tag" data-bad={!r.consent}><Icon name={r.consent ? "check" : "close"} size={13} />{r.consent ? t.consent : t.noConsent}</span>
@@ -196,6 +234,7 @@ export function ReviewsScreen({ goModules }: { goModules: () => void }) {
                     </>
                   )}
                 </div>
+                <ReplyBox r={r} onSaved={refresh} />
                 {creative === r.id && <Creative r={r} />}
               </li>
             ))}

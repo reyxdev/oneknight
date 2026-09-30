@@ -1,8 +1,8 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, avg, count, desc, eq, gt, inArray, isNull, notInArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client.ts";
-import { productCategories, products, sites } from "../db/schema.ts";
+import { orders, productCategories, products, reviews, sites } from "../db/schema.ts";
 import { isLow, orderable, stateOf } from "../products/routes.ts";
 import { env } from "../config.ts";
 import { placeOrder } from "../shop/service.ts";
@@ -103,6 +103,73 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
       warrantyMonths: p.warrantyMonths,
       weightG: p.weightG,
     }));
+  });
+
+  /**
+   * What ok.js should switch on for this site (the site's settings; reviews need the module). Read by the
+   * widgets loader after the page has loaded.
+   */
+  app.get("/widgets", { preHandler: siteByKey }, async (req) => {
+    const st = req.site!.settings ?? {};
+    const reviewsOn = await hasModule(req.site!.organizationId, "reviews");
+    const on = !st.widgetsOff;
+    return { socialProof: on && !!st.socialProof, reviews: on && reviewsOn && !!st.reviewsBlock, stars: on && reviewsOn && !!st.stars, poweredBy: !!st.poweredBy };
+  });
+
+  /**
+   * «Соціальний доказ»: real orders of the site from the last 48 hours — the first name only, the city, one product
+   * with its photo. Nothing when the widget is off.
+   */
+  app.get("/social-proof", { preHandler: siteByKey }, async (req) => {
+    const st = req.site!.settings ?? {};
+    if (st.widgetsOff || !st.socialProof) return [];
+    const rows = await db
+      .select({ name: orders.customerName, delivery: orders.delivery, items: orders.items, at: orders.createdAt })
+      .from(orders)
+      .where(and(eq(orders.siteId, req.site!.id), eq(orders.isExample, false), gt(orders.createdAt, new Date(Date.now() - 48 * 3_600_000)), notInArray(orders.status, ["cancelled", "returned"])))
+      .orderBy(desc(orders.createdAt))
+      .limit(10);
+    const ids = [...new Set(rows.map((r) => r.items[0]?.productId).filter((x): x is string => !!x && /^[0-9a-f-]{36}$/.test(x)))];
+    const photos = ids.length ? await db.select({ id: products.id, photo: products.photoFileId }).from(products).where(and(eq(products.siteId, req.site!.id), inArray(products.id, ids))) : [];
+    return rows
+      .filter((r) => r.items[0])
+      .map((r) => ({
+        name: r.name.trim().split(/\s+/)[0]!.slice(0, 30),
+        city: (r.delivery.city ?? "").split(",")[0]!.trim().slice(0, 40) || null,
+        product: r.items[0]!.name,
+        photo: photos.find((p) => p.id === r.items[0]!.productId)?.photo ? `/api/files/${photos.find((p) => p.id === r.items[0]!.productId)!.photo}` : null,
+        minutes: Math.max(1, Math.round((Date.now() - r.at.getTime()) / 60_000)),
+      }));
+  });
+
+  /** Rating of the site: the number of published reviews and the average (stars on the site). */
+  app.get("/reviews/summary", { preHandler: siteByKey }, async (req, reply) => {
+    if (!(await hasModule(req.site!.organizationId, "reviews"))) return reply.code(403).send({ error: "module_not_active" });
+    const [r] = await db.select({ n: count(), avg: avg(reviews.rating) }).from(reviews).where(and(eq(reviews.siteId, req.site!.id), eq(reviews.status, "published")));
+    return { count: r?.n ?? 0, average: r?.avg ? Math.round(Number(r.avg) * 10) / 10 : null };
+  });
+
+  /**
+   * «Зірки для Google»: schema.org JSON-LD with the rating, to put into the page on the site's server
+   * (<script type="application/ld+json">). Google decides itself whether to show stars.
+   */
+  app.get("/reviews/schema", { preHandler: siteByKey }, async (req, reply) => {
+    if (!(await hasModule(req.site!.organizationId, "reviews"))) return reply.code(403).send({ error: "module_not_active" });
+    const [r] = await db.select({ n: count(), avg: avg(reviews.rating) }).from(reviews).where(and(eq(reviews.siteId, req.site!.id), eq(reviews.status, "published")));
+    const latest = await db.select().from(reviews).where(and(eq(reviews.siteId, req.site!.id), eq(reviews.status, "published"))).orderBy(desc(reviews.createdAt)).limit(5);
+    const site = req.site!;
+    return {
+      "@context": "https://schema.org",
+      "@type": "Store",
+      name: site.name,
+      url: `https://${site.domain}/`,
+      ...(r && r.n > 0
+        ? {
+            aggregateRating: { "@type": "AggregateRating", ratingValue: Math.round(Number(r.avg) * 10) / 10, reviewCount: r.n, bestRating: 5, worstRating: 1 },
+            review: latest.map((x) => ({ "@type": "Review", author: { "@type": "Person", name: x.authorName }, datePublished: x.createdAt.toISOString().slice(0, 10), reviewBody: x.text, reviewRating: { "@type": "Rating", ratingValue: x.rating, bestRating: 5, worstRating: 1 } })),
+          }
+        : {}),
+    };
   });
 
   /** Categories of the catalogue (a tree by `parentId`). */

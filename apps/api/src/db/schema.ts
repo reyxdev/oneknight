@@ -658,13 +658,23 @@ export const reviews = pgTable(
     consent: boolean("consent").notNull(),
     photoFileId: uuid("photo_file_id").references(() => files.id, { onDelete: "set null" }),
     videoUrl: text("video_url"),
+    /** The business's public answer, shown under the review on the site. */
+    reply: text("reply"),
+    replyAt: timestamp("reply_at", { withTimezone: true }),
+    /** "site" or where it was imported from ("rozetka"); `externalId` keeps imports from repeating. */
+    source: text("source").notNull().default("site"),
+    externalId: text("external_id"),
     status: reviewStatusEnum("status").notNull(),
     trashedAt: timestamp("trashed_at", { withTimezone: true }),
     ip: inet("ip"),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("reviews_site_status_idx").on(t.siteId, t.status, t.createdAt), index("reviews_org_idx").on(t.organizationId, t.createdAt)],
+  (t) => [
+    index("reviews_site_status_idx").on(t.siteId, t.status, t.createdAt),
+    index("reviews_org_idx").on(t.organizationId, t.createdAt),
+    uniqueIndex("reviews_external_uq").on(t.organizationId, t.source, t.externalId),
+  ],
 );
 
 /**
@@ -677,7 +687,11 @@ export const analyticsEvents = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
     siteId: uuid("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
-    type: text("type").notNull(), // pageview | lead | order
+    type: text("type").notNull(), // pageview | lead | order | product | cart | contact
+    /** product and cart: the product id; contact: phone | viber | telegram | whatsapp. */
+    ref: text("ref"),
+    /** mobile | tablet | desktop, from the browser's user agent (the agent itself is not stored). */
+    device: text("device"),
     session: text("session").notNull(),
     path: text("path"),
     /** Human channel: instagram, facebook, google, telegram, tiktok, youtube, email, direct, other:<host>. */
@@ -1014,4 +1028,20 @@ export const ideas = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("ideas_status_idx").on(t.status, t.createdAt)],
+);
+
+/** «Окупність реклами»: what the business spent on ads, entered by hand, per channel (and campaign) and period. */
+export const adSpend = pgTable(
+  "ad_spend",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    channel: text("channel").notNull(),
+    campaign: text("campaign"),
+    fromDate: text("from_date").notNull(),
+    toDate: text("to_date").notNull(),
+    amountKop: integer("amount_kop").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("ad_spend_org_idx").on(t.organizationId, t.fromDate)],
 );

@@ -315,6 +315,11 @@ export function SiteScreen({ canEdit = true, goServices }: { canEdit?: boolean; 
                 <p className="ok-muted">{cur.okSeenAt ? fmt(t.okSeen, { ago: new Date(cur.okSeenAt).toLocaleString("uk-UA", { timeZone: "Europe/Kyiv" }) }) : t.okNotSeen}</p>
               </Panel>
               {cur.publicKey && <SiteApiPanel site={cur} onRotated={load} />}
+              <Panel title={t.googleTitle}>
+                <p className="ok-muted">{t.googleLead}</p>
+                <pre className="app-code-block">{`GET ${typeof window !== "undefined" ? window.location.origin : ""}/api/public/reviews/schema\nx-site-key: ${cur.publicKey ?? ""}\n\n<script type="application/ld+json">{відповідь}</script>`}</pre>
+                <p className="ok-muted">{t.googleNote}</p>
+              </Panel>
             </div>
           )}
         </>

@@ -37,6 +37,9 @@ const publicView = (r: typeof reviews.$inferSelect & { productName?: string | nu
   photo: r.photoFileId ? `/api/files/${r.photoFileId}` : null,
   videoUrl: r.videoUrl,
   date: r.createdAt,
+  /** The business's public answer. */
+  reply: r.reply ? { text: r.reply, date: r.replyAt } : null,
+  source: r.source,
 });
 
 /** Public part (inside /api/public, site key already resolved in req.site). */
@@ -110,6 +113,21 @@ export const reviewRoutes: FastifyPluginAsync = async (app) => {
       .orderBy(desc(reviews.createdAt))
       .limit(200);
     return rows.map(({ r, productName, domain }) => ({ ...publicView({ ...r, productName }), status: r.status, consent: r.consent, trashedAt: r.trashedAt, domain, photo: r.photoFileId ? `/api/files/${r.photoFileId}` : null }));
+  });
+
+  /** The business's public answer under the review (empty text removes it). */
+  app.put<{ Params: { id: string } }>("/:id/reply", async (req, reply) => {
+    const p = z.object({ text: z.string().trim().max(2000) }).safeParse(req.body);
+    const orgs = await orgScope(req, "reviews");
+    if (!p.success || !uuid.safeParse(req.params.id).success || !orgs.length) return reply.code(400).send({ error: "invalid_input" });
+    const [r] = await db
+      .update(reviews)
+      .set({ reply: p.data.text || null, replyAt: p.data.text ? new Date() : null, updatedAt: new Date() })
+      .where(and(eq(reviews.id, req.params.id), inArray(reviews.organizationId, orgs)))
+      .returning({ id: reviews.id, organizationId: reviews.organizationId });
+    if (!r) return reply.code(404).send({ error: "not_found" });
+    await audit(req, "review.reply", req.auth!.user.id, { review: r.id }, r.organizationId);
+    return { ok: true };
   });
 
   app.post<{ Params: { id: string; action: string } }>("/:id/:action", async (req, reply) => {
