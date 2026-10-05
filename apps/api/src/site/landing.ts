@@ -12,11 +12,12 @@ export async function calculatorConfig(): Promise<CalculatorConfig> {
 }
 
 /** The portfolio's numbers the owner changes in the admin (answers 107, 243, 394, 468, 485). */
-export type PortfolioSettings = { prices: PortfolioPrices; placesLeft: number; buildingNow: number };
+/** `live`: the owner's switch «Показати новий сайт усім» (answer 446) — everyone sees the portfolio instead of «скоро». */
+export type PortfolioSettings = { prices: PortfolioPrices; placesLeft: number; buildingNow: number; live: boolean };
 export async function portfolioSettings(): Promise<PortfolioSettings> {
   const [row] = await db.select().from(platformState).where(eq(platformState.key, "portfolio"));
   const v = (row?.value ?? {}) as Partial<PortfolioSettings>;
-  return { prices: { ...DEFAULT_PORTFOLIO_PRICES, ...v.prices }, placesLeft: v.placesLeft ?? 8, buildingNow: v.buildingNow ?? 0 };
+  return { prices: { ...DEFAULT_PORTFOLIO_PRICES, ...v.prices }, placesLeft: v.placesLeft ?? 8, buildingNow: v.buildingNow ?? 0, live: v.live ?? false };
 }
 
 /** /api/site: what the public site oneknight.pro reads (no session, no site key). */

@@ -101,7 +101,7 @@ export function PfTop() {
           <a className="pf-brand" href={withLang(lang, "/")}>
             <KnightMark size={34} />
             <span>
-              <b>Іван</b>
+              <b>{t.header.name}</b>
               <small>ONEKNIGHT</small>
             </span>
           </a>
@@ -179,15 +179,15 @@ export function PfTop() {
 }
 
 /** Phones: «Подзвонити» + «Порахувати ціну» always at hand (answer 211). */
-export function PfMobileBar() {
+export function PfMobileBar({ callOnly = false }: { callOnly?: boolean }) {
   const t = useDict().pf;
   const lang = useLang();
   return (
-    <div className="pf-mobilebar">
+    <div className="pf-mobilebar" data-call-only={callOnly || undefined}>
       <a className="pf-btn pf-btn-ghost" href={contacts.phone.tel}>
         <PhoneIcon /> {t.mobileBar.call}
       </a>
-      <a className="pf-btn pf-btn-amber" href={withLang(lang, "/cina/")}>{t.mobileBar.calc}</a>
+      {!callOnly && <a className="pf-btn pf-btn-amber" href={withLang(lang, "/cina/")}>{t.mobileBar.calc}</a>}
     </div>
   );
 }

@@ -489,3 +489,4 @@ html[data-motion="calm"] .pf-typed { border-right: 0; }
 .pf-footer-services a { text-decoration: none; }
 .pf-footer-services a:hover { color: var(--pf-fg); }
 @media (max-width: 767px) { .pf-service-grid, .pf-examples, .pf-other-services { grid-template-columns: minmax(0, 1fr); } }
+.pf-mobilebar[data-call-only] { grid-template-columns: 1fr; }

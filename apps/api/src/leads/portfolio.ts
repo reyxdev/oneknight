@@ -86,7 +86,8 @@ export const portfolioLeadRoutes: FastifyPluginAsync = async (app) => {
       ...(c?.earn ? [`З клієнта: ${money(c.earn)} грн`] : []),
       ...(b.about ? ["", b.about.slice(0, 800)] : []),
     ].join("\n");
-    void notifyOwner(text, req.log, { buttons: leadButtons(lead!.id) });
+    // Browser tests name their leads «E2E …»: those never reach the owner's Telegram.
+    void notifyOwner(text, req.log, { buttons: leadButtons(lead!.id), testContact: /E2E/.test(b.name) });
     return reply.code(201).send({ number: lead!.number });
   });
 };

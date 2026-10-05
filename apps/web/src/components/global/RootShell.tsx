@@ -24,7 +24,7 @@ export function RootShell({ lang, chapters, children }: { lang: Lang; chapters: 
       </head>
       <body>
         <I18nProvider lang={lang} dict={dict}>
-          {config.siteMode === "soon" ? (
+          {config.siteMode !== "full" ? (
             // «Скоро»: no header, footer, effects or widgets — just the page (owner's decision 348).
             <main id="main">{children}</main>
           ) : (

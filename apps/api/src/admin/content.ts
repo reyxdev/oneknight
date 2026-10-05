@@ -104,6 +104,7 @@ export const contentAdminRoutes: FastifyPluginAsync = async (app) => {
         }),
         placesLeft: z.number().int().min(0).max(100),
         buildingNow: z.number().int().min(0).max(100),
+        live: z.boolean(),
       })
       .safeParse(req.body);
     if (!p.success) return reply.code(400).send({ error: "invalid_input" });

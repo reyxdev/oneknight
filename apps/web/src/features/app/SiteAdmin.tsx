@@ -54,7 +54,7 @@ function CalculatorAdmin() {
   );
 }
 
-type Portfolio = { prices: PortfolioPrices; placesLeft: number; buildingNow: number };
+type Portfolio = { prices: PortfolioPrices; placesLeft: number; buildingNow: number; live: boolean };
 
 /** Admin: the portfolio's numbers (answers 107, 243, 468, 485) — calculator prices, discounted places, sites in work. */
 function PortfolioAdmin() {
@@ -75,6 +75,10 @@ function PortfolioAdmin() {
     <Panel title={t.portfolio}>
       <p className="ok-muted">{t.portfolioLead}</p>
       <form className="grid gap-4" onSubmit={async (e) => { e.preventDefault(); const r = await api<Portfolio>("/admin/site/portfolio", { method: "PUT", body: c }); toast.show(r.ok ? t.portfolioSaved : t.invalid, r.ok ? "ok" : "warn"); }}>
+        <label style={{ display: "flex", gap: "0.6rem", alignItems: "flex-start" }}>
+          <input type="checkbox" checked={c.live} onChange={(e) => setC({ ...c, live: e.target.checked })} />
+          <span><b>{t.live}</b><br /><small className="ok-muted">{t.liveHint}</small></span>
+        </label>
         <div className="app-ch-counts">
           {box(t.places, c.placesLeft, (n) => setC({ ...c, placesLeft: n }))}
           {box(t.building, c.buildingNow, (n) => setC({ ...c, buildingNow: n }))}

@@ -251,14 +251,14 @@ function Faq({ lang }: { lang: Lang }) {
 }
 
 /** Every portfolio page: the same header, footer and phone bar around its own content. */
-export function PortfolioShell({ children }: { children: ReactNode }) {
+export function PortfolioShell({ children, callOnly = false }: { children: ReactNode; callOnly?: boolean }) {
   return (
     <div className="pf" id="top">
       <PfMotion />
       <PfTop />
       {children}
       <PfFooter />
-      <PfMobileBar />
+      <PfMobileBar callOnly={callOnly} />
     </div>
   );
 }
@@ -421,7 +421,7 @@ export function ServicePage({ lang, slug }: { lang: Lang; slug: string }) {
 export function TechPage() {
   const t = getDict("uk").pf.tech;
   return (
-    <PortfolioShell>
+    <PortfolioShell callOnly>
       <section className="pf-section pf-page-head pf-tech" aria-labelledby="pf-page-h1">
         <div className="pf-wrap">
           <h1 id="pf-page-h1" className="pf-h1 pf-page-h1">{t.h1}</h1>
@@ -439,6 +439,28 @@ export function TechPage() {
           </div>
         </div>
       </section>
+    </PortfolioShell>
+  );
+}
+
+/** Privacy in plain words (answers 248, 289, 398, 476): what the form sends, who sees it, how to delete. */
+export function PrivacyPage({ lang }: { lang: Lang }) {
+  const t = getDict(lang).pf.privacy;
+  return (
+    <PortfolioShell>
+      <article className="pf-section pf-page-head pf-privacy" aria-labelledby="pf-page-h1">
+        <div className="pf-wrap">
+          <h1 id="pf-page-h1" className="pf-h1 pf-page-h1">{t.h1}</h1>
+          <p className="pf-service-note">{t.note}</p>
+          {t.sections.map((x) => (
+            <section key={x.h}>
+              <h2 className="pf-h3">{x.h}</h2>
+              <p className="pf-about-text">{x.p}</p>
+            </section>
+          ))}
+          <p className="pf-form-note">{t.updated}</p>
+        </div>
+      </article>
     </PortfolioShell>
   );
 }

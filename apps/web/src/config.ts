@@ -7,9 +7,11 @@ export const config = {
   reviews: { trashRetentionDays: 30 },
   /**
    * «soon»: the public site shows only the «скоро» page while the new portfolio is built (owner's decision 348);
-   * the panel itself is closed to everyone but the admin (API: PANEL_CLOSED). «full»: the site as built.
+   * the panel itself is closed to everyone but the admin (API: PANEL_CLOSED); a signed-in admin sees the new portfolio.
+   * «portfolio»: the new portfolio is the public site (indexed); the old ONEKNIGHT pages stay hidden.
+   * «full»: the old ONEKNIGHT site.
    */
-  siteMode: "soon" as "soon" | "full",
+  siteMode: "soon" as "soon" | "portfolio" | "full",
 } as const;
 
 export type Lang = "uk" | "en";

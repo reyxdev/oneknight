@@ -9,7 +9,7 @@ export const pf: typeof uk = {
   preview: "Hidden preview: only you see the site like this. Everyone else sees the «soon» page.",
   discount: { text: "First 10 clients get 25% off a website", left: "{n} left", close: "Close" },
   nav: { works: "Work", prices: "Prices", about: "About me", faq: "Questions", contacts: "Contacts", label: "Site sections", menu: "Menu", closeMenu: "Close menu" },
-  header: { calc: "Get a price", contact: "Contact", call: "Call", close: "Close", contactTitle: "How would you like to talk?" },
+  header: { name: "Ivan", calc: "Get a price", contact: "Contact", call: "Call", close: "Close", contactTitle: "How would you like to talk?" },
   hero: {
     kicker: "Websites for people who work with their hands, not with slide decks",
     h1: "I build a website around your business, so that people call you",
@@ -386,6 +386,20 @@ export const pf: typeof uk = {
     title: "There's no page here. Just like your competitor has no website — yet.",
     home: "Home",
     calc: "Get a price",
+  },
+  privacy: {
+    title: "Privacy policy — ONEKNIGHT",
+    h1: "What I do with your data",
+    note: "This is a plain-words explanation, not legal advice.",
+    updated: "Updated 6 October 2026",
+    sections: [
+      { h: "Who I am", p: "Ivan, Kuty, Kosiv district, Ukraine. I build websites for small businesses. Phone for any data questions: +380 68 358 75 59." },
+      { h: "What I receive", p: "Only what you send in the form: your name, phone, how you'd like to be contacted, a few words about your business and the calculator answers if you used it. The IP address is stored with the request — to filter out spam." },
+      { h: "Why", p: "To call or message you about the website. I send no newsletters and sell nothing to anyone." },
+      { h: "Who sees it", p: "Only me. The request is stored on this site's server, and a short notice about it comes to my Telegram." },
+      { h: "What stays on your phone", p: "The calculator answers and the closed discount bar are remembered only in your browser, on this device. There is no third-party analytics and no advertising cookies on the site." },
+      { h: "How to delete", p: "Call or message me — I'll delete your request." },
+    ],
   },
   footer: {
     line: "Ivan, Kuty. Websites for small businesses across Ukraine.",

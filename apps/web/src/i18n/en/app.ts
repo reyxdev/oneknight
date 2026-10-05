@@ -1812,6 +1812,8 @@ export const app: Dict["app"] = {
     extraSupport: "Support, UAH/month",
     discount: "Discount for the first clients, %",
     portfolioSaved: "Saved",
+    live: "Show the new site to everyone",
+    liveHint: "Off — everyone sees «soon», only you see the new site. On — everyone sees the new site (search engines get it after the next site update).",
     calculator: "Website cost calculator",
     calculatorLead: "The numbers the site uses for «from — to». A request with an estimate is recalculated on the server with the same numbers.",
     uah: "UAH",

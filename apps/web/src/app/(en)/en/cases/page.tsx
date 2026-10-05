@@ -6,7 +6,7 @@ import { ComingSoon } from "@/features/soon/ComingSoon";
 
 const t = getDict("en").casesPage.meta;
 // Hidden while the panel is closed and the new portfolio is built (owner's answers 1–3, 348): the «скоро» page, not indexed.
-const hidden = config.siteMode === "soon";
+const hidden = config.siteMode !== "full";
 export const metadata: Metadata = hidden
   ? { title: getDict("en").soon.meta.title, robots: { index: false, follow: false } }
   : { title: t.title, description: t.description, alternates: { canonical: "/en/cases/" } };
