@@ -21,8 +21,9 @@ function hexToRgb(hex: string): [number, number, number] {
 }
 const mixRgb = (a: [number, number, number], b: [number, number, number], t: number): [number, number, number] => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
-function readTokens() {
-  const s = getComputedStyle(document.documentElement);
+/** Colours come from CSS tokens on the canvas (inherited), so a page section can give the liquid its own palette. */
+function readTokens(el: Element) {
+  const s = getComputedStyle(el);
   const v = (n: string, d: string) => hexToRgb(s.getPropertyValue(n) || d);
   const ink = v("--ink", "#0b0e13");
   const deep = v("--alby-deep", "#26364a");
@@ -103,7 +104,7 @@ export function createLiquid(o: Opts): LiquidController | null {
   const nav = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
   const weak = (nav.hardwareConcurrency ?? 8) <= 4 || (nav.deviceMemory ?? 8) <= 4 || !!nav.connection?.saveData;
   let quality = weak ? 0.6 : 1;
-  let tokens = readTokens();
+  let tokens = readTokens(canvas);
   let W = 0, H = 0, cssW = 1, cssH = 1;
   let visible = true;
   let stopTick: (() => void) | null = null;
@@ -334,7 +335,7 @@ export function createLiquid(o: Opts): LiquidController | null {
       if (!c) start();
     },
     refreshTheme: () => {
-      tokens = readTokens();
+      tokens = readTokens(canvas);
       dirty = true;
     },
     destroy: () => {

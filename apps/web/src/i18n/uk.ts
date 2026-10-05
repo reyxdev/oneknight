@@ -10,6 +10,7 @@ import { ok } from "./uk/ok";
 import { offer, trust, process, supportPlan, about, final } from "./uk/rest";
 import { app } from "./uk/app";
 import { faq, siteBits, panelPage, statusPage, casesPage, docsPage, soon } from "./uk/site";
+import { pf } from "./uk/portfolio";
 
 export const uk = {
   services,
@@ -30,6 +31,7 @@ export const uk = {
   casesPage,
   docsPage,
   soon,
+  pf,
   app,
   meta: {
     title: "ONEKNIGHT: сайти та система для керування бізнесом",

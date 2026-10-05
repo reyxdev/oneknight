@@ -2,15 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePrefs } from "@/lib/prefs";
-import type { LiquidController } from "./liquid/engine";
+import type { Layout, LiquidController } from "./liquid/engine";
 
-type Props = { parts: readonly [string, string] };
+/** `layout` fixes one or two lines (otherwise two on phones); `dark` keeps the dark palette whatever the site theme. */
+type Props = { parts: readonly [string, string]; layout?: Layout; dark?: boolean };
 
 /**
  * ONEKNIGHT as liquid. Server renders the CSS fallback (real text, no loading state, no layout shift).
  * When WebGL2 is available the canvas fades in over it. The engine is imported on demand.
  */
-export function LiquidWord({ parts }: Props) {
+export function LiquidWord({ parts, layout, dark }: Props) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const ctl = useRef<LiquidController | null>(null);
@@ -24,7 +25,8 @@ export function LiquidWord({ parts }: Props) {
     const family = () => getComputedStyle(document.documentElement).getPropertyValue("--font-geologica");
     const scene = wrap.current?.closest<HTMLElement>("[data-scene]") ?? null;
     let mo: MutationObserver | null = null;
-    const onMq = () => ctl.current?.setLayout(mq.matches ? "two" : "one");
+    const pick = (): Layout => layout ?? (mq.matches ? "two" : "one");
+    const onMq = () => ctl.current?.setLayout(pick());
 
     (async () => {
       try {
@@ -40,7 +42,7 @@ export function LiquidWord({ parts }: Props) {
         lines: (l) => (l === "one" ? [text] : [...parts]),
         family,
         progress: () => Number.parseFloat(scene?.style.getPropertyValue("--p") || "0") || 0,
-        isDarkPage: () => document.documentElement.dataset.theme === "dark",
+        isDarkPage: () => dark || document.documentElement.dataset.theme === "dark",
         onReady: () => setGl("ready"),
         onFail: () => setGl("off"),
       });
@@ -49,7 +51,7 @@ export function LiquidWord({ parts }: Props) {
         return;
       }
       ctl.current = c;
-      c.setLayout(mq.matches ? "two" : "one");
+      c.setLayout(pick());
       c.setCalm(document.documentElement.dataset.motion === "calm");
       mq.addEventListener("change", onMq);
       mo = new MutationObserver(() => c.refreshTheme());
@@ -63,14 +65,14 @@ export function LiquidWord({ parts }: Props) {
       ctl.current?.destroy();
       ctl.current = null;
     };
-  }, [parts, text]);
+  }, [parts, text, layout, dark]);
 
   useEffect(() => {
     ctl.current?.setCalm(motion === "calm");
   }, [motion]);
 
   return (
-    <div ref={wrap} className="liquid" data-gl={gl}>
+    <div ref={wrap} className="liquid" data-gl={gl} data-layout={layout}>
       <span className="liquid-fallback display" aria-hidden="true">
         {parts.map((p, i) => (
           <span key={p + i}>{p}</span>

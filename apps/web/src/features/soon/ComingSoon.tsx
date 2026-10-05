@@ -19,7 +19,7 @@ export function ComingSoon({ lang }: { lang: Lang }) {
   const t = getDict(lang).soon;
   return (
     <div className="soon">
-      <main className="soon-main">
+      <div className="soon-main">
         <span className="soon-mark" aria-hidden="true"><KnightMark size={44} /></span>
         <p className="soon-badge"><span aria-hidden="true" />{t.badge}</p>
         <h1 className="soon-title">{t.title}</h1>
@@ -46,7 +46,7 @@ export function ComingSoon({ lang }: { lang: Lang }) {
             ))}
           </ul>
         </div>
-      </main>
+      </div>
       <footer className="soon-footer">
         <p>{t.footer}</p>
         <nav aria-label={t.privacy}>

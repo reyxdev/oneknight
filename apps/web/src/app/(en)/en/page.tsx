@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { config } from "@/config";
 import { HomePage } from "@/features/page/HomePage";
 import { ComingSoon } from "@/features/soon/ComingSoon";
+import { PortfolioHome } from "@/features/portfolio/PortfolioHome";
+import { PreviewGate } from "@/features/portfolio/PreviewGate";
 import { getDict } from "@/i18n";
 
 const soon = config.siteMode === "soon";
@@ -9,5 +11,12 @@ const soon = config.siteMode === "soon";
 export const metadata: Metadata = soon ? { title: getDict("en").soon.meta.title, description: getDict("en").soon.meta.description, robots: { index: false, follow: false } } : {};
 
 export default function Page() {
-  return soon ? <ComingSoon lang="en" /> : <HomePage lang="en" />;
+  // The admin sees the new portfolio while it is built (answer 474).
+  return soon ? (
+    <PreviewGate soon={<ComingSoon lang="en" />}>
+      <PortfolioHome lang="en" />
+    </PreviewGate>
+  ) : (
+    <HomePage lang="en" />
+  );
 }
