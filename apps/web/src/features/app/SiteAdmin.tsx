@@ -5,7 +5,7 @@ import { useDict } from "@/i18n/provider";
 import { Field } from "@/components/ui/Field";
 import { api } from "@/lib/api";
 import { Panel, useFormat } from "@/features/oneknight/ui/kit";
-import { estimateSite, type CalculatorConfig } from "@oneknight/domain";
+import { estimateSite, type CalculatorConfig, type PortfolioPrices } from "@oneknight/domain";
 import { formatUAH } from "@/data/pricing";
 import { useToast } from "./Toasts";
 
@@ -54,6 +54,62 @@ function CalculatorAdmin() {
   );
 }
 
+type Portfolio = { prices: PortfolioPrices; placesLeft: number; buildingNow: number };
+
+/** Admin: the portfolio's numbers (answers 107, 243, 468, 485) — calculator prices, discounted places, sites in work. */
+function PortfolioAdmin() {
+  const t = useDict().app.siteAdmin;
+  const toast = useToast();
+  const [c, setC] = useState<Portfolio | null>(null);
+  useEffect(() => {
+    void api<Portfolio>("/admin/site/portfolio").then((r) => r.ok && setC(r.data));
+  }, []);
+  if (!c) return null;
+  const num = (v: string) => Math.max(0, Math.round(Number(v) || 0));
+  const p = c.prices;
+  const setP = (x: Partial<PortfolioPrices>) => setC({ ...c, prices: { ...p, ...x } });
+  const box = (label: string, value: number, on: (n: number) => void) => (
+    <Field key={label} label={label}>{(a) => <input {...a} className="input" type="number" min={0} value={value} onChange={(e) => on(num(e.target.value))} />}</Field>
+  );
+  return (
+    <Panel title={t.portfolio}>
+      <p className="ok-muted">{t.portfolioLead}</p>
+      <form className="grid gap-4" onSubmit={async (e) => { e.preventDefault(); const r = await api<Portfolio>("/admin/site/portfolio", { method: "PUT", body: c }); toast.show(r.ok ? t.portfolioSaved : t.invalid, r.ok ? "ok" : "warn"); }}>
+        <div className="app-ch-counts">
+          {box(t.places, c.placesLeft, (n) => setC({ ...c, placesLeft: n }))}
+          {box(t.building, c.buildingNow, (n) => setC({ ...c, buildingNow: n }))}
+          {box(t.discount, p.discountPct, (n) => setP({ discountPct: Math.min(90, n) }))}
+        </div>
+        <div className="app-ch-counts">
+          {box(t.baseCard, p.base.card, (n) => setP({ base: { ...p.base, card: n } }))}
+          {box(t.baseService, p.base.service, (n) => setP({ base: { ...p.base, service: n } }))}
+          {box(t.baseShop, p.base.shop, (n) => setP({ base: { ...p.base, shop: n } }))}
+        </div>
+        <fieldset className="app-q">
+          <legend>{t.shopTiers}</legend>
+          <div className="app-ch-counts">
+            {[0, 1, 2].map((i) => box(`${i + 1}`, p.shopAdd[i] ?? 0, (n) => setP({ shopAdd: p.shopAdd.map((x, j) => (j === i ? n : x)) as PortfolioPrices["shopAdd"] })))}
+            {box(t.bigShop, p.bigShopFrom, (n) => setP({ bigShopFrom: n }))}
+          </div>
+        </fieldset>
+        <fieldset className="app-q">
+          <legend>{t.serviceTiers}</legend>
+          <div className="app-ch-counts">
+            {[0, 1, 2].map((i) => box(`${i + 1}`, p.serviceAdd[i]!, (n) => setP({ serviceAdd: p.serviceAdd.map((x, j) => (j === i ? n : x)) as PortfolioPrices["serviceAdd"] })))}
+          </div>
+        </fieldset>
+        <div className="app-ch-counts">
+          {box(t.extraLogo, p.extras.logo, (n) => setP({ extras: { ...p.extras, logo: n } }))}
+          {box(t.extraAds, p.extras.ads, (n) => setP({ extras: { ...p.extras, ads: n } }))}
+          {box(t.extraSeo, p.extras.seo, (n) => setP({ extras: { ...p.extras, seo: n } }))}
+          {box(t.extraSupport, p.extras.support, (n) => setP({ extras: { ...p.extras, support: n } }))}
+        </div>
+        <button type="submit" className="btn btn-sm" style={{ justifySelf: "start" }}>{t.save}</button>
+      </form>
+    </Panel>
+  );
+}
+
 type Incident = { id: string; service: string; startedAt: string; endedAt: string | null; note: string | null };
 
 /** Admin: incidents of the status page, each with the owner's explanation shown on /status. */
@@ -92,6 +148,7 @@ function IncidentsAdmin() {
 export function SiteAdmin() {
   return (
     <div className="grid gap-4">
+      <PortfolioAdmin />
       <CalculatorAdmin />
       <IncidentsAdmin />
     </div>

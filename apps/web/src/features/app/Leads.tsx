@@ -10,10 +10,10 @@ import { Panel, useFormat } from "@/features/oneknight/ui/kit";
 import { Field } from "@/components/ui/Field";
 import { useToast } from "./Toasts";
 
-export type LeadStatus = "new" | "contacted" | "proposal" | "prepaid" | "in_work" | "done" | "lost";
+export type LeadStatus = "new" | "contacted" | "proposal" | "prepaid" | "in_work" | "done" | "lost" | "thinking" | "agreed" | "no_answer";
 type MyLead = { id: string; number: number; service: string; siteType: string | null; status: LeadStatus; business: string; createdAt: string };
 
-const pill: Record<LeadStatus, string> = { new: "new", contacted: "confirmed", proposal: "confirmed", prepaid: "paid", in_work: "shipped", done: "done", lost: "cancelled" };
+const pill: Record<LeadStatus, string> = { new: "new", contacted: "confirmed", proposal: "confirmed", prepaid: "paid", in_work: "shipped", done: "done", lost: "cancelled", thinking: "confirmed", agreed: "paid", no_answer: "new" };
 
 function useLeads<T>(path: string) {
   const [rows, setRows] = useState<T[] | null>(null);
@@ -80,7 +80,8 @@ type AdminLead = MyLead & {
   lostReason: string | null;
   project: { id: string; number: number } | null;
 };
-export const LEAD_STATUSES: LeadStatus[] = ["new", "contacted", "proposal", "prepaid", "in_work", "done", "lost"];
+/** Portfolio leads (answer 414) use new · no_answer · contacted · thinking · agreed · lost; projects go on from prepaid. */
+export const LEAD_STATUSES: LeadStatus[] = ["new", "no_answer", "contacted", "thinking", "agreed", "proposal", "prepaid", "in_work", "done", "lost"];
 const BRIEF_KEYS = ["business", "about", "audience", "logo", "photos", "features", "references", "special"] as const;
 
 /** One lead: contacts, the brief, the status (a lost one keeps its reason), a reminder, notes, «Почати проєкт». */
@@ -120,6 +121,7 @@ function LeadCard({ lead, onChanged, onClose, openProject }: { lead: AdminLead; 
         <div><span>{t.contact}</span><b><a className="ok-link" href={`tel:${lead.phone.replace(/[^\d+]/g, "")}`}>{lead.phone}</a></b>{lead.email && <a className="ok-link" href={`mailto:${lead.email}`}>{lead.email}</a>}</div>
         <div><span>{t.what}</span><b>{service}</b><small className="ok-muted">{f.dateTime(new Date(lead.createdAt).getTime())} · {t.source[lead.source as keyof typeof t.source] ?? lead.source}</small></div>
       </div>
+      {lead.brief.origin === "portfolio" && <PortfolioBrief brief={lead.brief} />}
       <dl className="app-brief">
         {BRIEF_KEYS.filter((k) => lead.brief[k] !== undefined && lead.brief[k] !== "" && !(Array.isArray(lead.brief[k]) && !(lead.brief[k] as unknown[]).length)).map((k) => (
           <div key={k}><dt>{(t.brief as Record<string, string>)[k]}</dt><dd>{Array.isArray(lead.brief[k]) ? (lead.brief[k] as string[]).join(", ") : String(lead.brief[k])}</dd></div>
@@ -158,6 +160,27 @@ function LeadCard({ lead, onChanged, onClose, openProject }: { lead: AdminLead; 
         </ol>
       )}
     </Panel>
+  );
+}
+
+/** A lead from the portfolio: how to reach and what the calculator gave (computed again on the server). */
+function PortfolioBrief({ brief }: { brief: Record<string, unknown> }) {
+  const d = useDict();
+  const t = d.app.admin;
+  const e = brief.estimate as { big: boolean; total?: number; from?: number; save?: number } | undefined;
+  const c = brief.calc as { kind: string; sprava: string | null; extras: string[]; earn?: number | null } | undefined;
+  const how = brief.contact as keyof typeof t.pfHows | undefined;
+  return (
+    <div className="ok-kv">
+      {how && <div><span>{t.pfHow}</span><b>{t.pfHows[how]}</b></div>}
+      {c && e && (
+        <div>
+          <span>{t.pfCalc}</span>
+          <b className="num">{e.big ? `≥ ${e.from}` : `≈ ${e.total}`} {d.app.siteAdmin.uah}</b>
+          <small className="ok-muted">{[c.kind, c.sprava, ...c.extras, c.earn ? `${c.earn} ${d.app.siteAdmin.uah}` : null].filter(Boolean).join(" · ")}</small>
+        </div>
+      )}
+    </div>
   );
 }
 

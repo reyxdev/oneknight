@@ -72,6 +72,8 @@ export function PfFinal() {
 export function PfFooter() {
   const t = useDict().pf.footer;
   const f = useDict().pf.final;
+  const svc = useDict().pf.services;
+  const tech = useDict().pf.tech.homeCta;
   const lang = useLang();
   const [up, setUp] = useState(false);
   useEffect(() => {
@@ -96,6 +98,10 @@ export function PfFooter() {
             </li>
           ))}
         </ul>
+        <nav className="pf-footer-services" aria-label={svc.footer}>
+          {svc.items.map((x) => <a key={x.slug} href={withLang(lang, `/${x.slug}/`)}>{x.nav}</a>)}
+          {lang === "uk" && <a href="/tekhnika/">{tech}</a>}
+        </nav>
         <nav className="pf-footer-links" aria-label={t.privacy}>
           <a href={withLang(lang, "/legal/privacy/")}>{t.privacy}</a>
           <a href={lang === "uk" ? "/en/" : "/"} hrefLang={lang === "uk" ? "en" : "uk"}>{t.other}</a>
