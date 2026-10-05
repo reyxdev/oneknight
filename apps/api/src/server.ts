@@ -22,6 +22,7 @@ import { ensureContentSeed } from "./content/seed.ts";
 import { runStatusChecks } from "./site/status.ts";
 import { deliverDue, dispatchEvents, purgeWebhooks } from "./webhooks/service.ts";
 import { notifyOwner } from "./notify/telegram.ts";
+import { runLeadNudges, runWeeklyLeads } from "./leads/portfolio.ts";
 
 const app = await buildApp();
 // Starter templates and holidays of «Контент-план» (added once; admin edits are kept).
@@ -32,6 +33,8 @@ const billingTimer = setInterval(() => {
   void runBilling().catch((e) => app.log.error(e));
   // «Ранковий звіт» to Ivan's Telegram at 09:00 Kyiv.
   void runMorningReport((text) => notifyOwner(text, app.log)).catch((e) => app.log.error(e));
+  // Portfolio: the week's leads on Sunday evening.
+  void runWeeklyLeads((text) => notifyOwner(text, app.log)).catch((e) => app.log.error(e));
   // Leads without an answer, lead reminders, project deadlines.
   void runAdminReminders(app.log).catch((e) => app.log.error(e));
   // «Перевірка якості» of every confirmed site once a week.
@@ -44,6 +47,8 @@ const billingTimer = setInterval(() => {
 void runBilling().catch((e) => app.log.error(e));
 void runMorningReport((text) => notifyOwner(text, app.log)).catch((e) => app.log.error(e));
 const stopBot = startBotPolling(app.log);
+// Portfolio leads without an answer for an hour of the owner's day (every 5 minutes).
+const nudgeTimer = setInterval(() => void runLeadNudges((text) => notifyOwner(text, app.log)).catch((e) => app.log.error(e)), 5 * 60_000);
 const tgTimer = setInterval(() => void deliverTelegram(undefined, { skipTestAccounts: true }).catch((e) => app.log.error(e)), 15_000);
 // Webhooks to client sites: changes become deliveries, due deliveries go out (every 15 s); history is purged hourly.
 let webhookBusy = false;
@@ -89,6 +94,7 @@ const shutdown = async () => {
   clearInterval(webhookTimer);
   clearInterval(webhookPurgeTimer);
   clearInterval(tgTimer);
+  clearInterval(nudgeTimer);
   stopBot();
   await app.close();
   await sql.end({ timeout: 5 });

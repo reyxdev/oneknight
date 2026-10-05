@@ -19,8 +19,8 @@ export const orderStatusEnum = pgEnum("order_status", ["new", "confirmed", "ship
 export const paymentStatusEnum = pgEnum("payment_status", ["unpaid", "prepaid", "paid", "refunded"]);
 export const reviewStatusEnum = pgEnum("review_status", ["pending", "published", "trash"]);
 export const moderationEnum = pgEnum("review_moderation", ["off", "manual"]);
-/** Sales funnel of a lead: new → contacted → proposal → prepaid → in_work → done / lost. */
-export const leadStatusEnum = pgEnum("lead_status", ["new", "contacted", "proposal", "prepaid", "in_work", "done", "lost"]);
+/** Sales funnel of a lead: new → contacted → proposal → prepaid → in_work → done / lost. Portfolio leads (answer 414): new · contacted (Передзвонив) · thinking · agreed · lost · no_answer. */
+export const leadStatusEnum = pgEnum("lead_status", ["new", "contacted", "proposal", "prepaid", "in_work", "done", "lost", "thinking", "agreed", "no_answer"]);
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 

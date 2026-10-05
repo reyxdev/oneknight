@@ -20,7 +20,7 @@ const STAGE_UK: Record<string, string> = { brief: "Бриф", design: "Диза�
 const hash = (t: string) => createHash("sha256").update(t).digest("hex");
 type Log = { warn: (o: object, m: string) => void };
 
-const LEAD_STATUSES = ["new", "contacted", "proposal", "prepaid", "in_work", "done", "lost"] as const;
+const LEAD_STATUSES = ["new", "contacted", "proposal", "prepaid", "in_work", "done", "lost", "thinking", "agreed", "no_answer"] as const;
 
 /** The client's view of a project: no invitation token, stages with their approvals. */
 async function projectView(id: string, forAdmin: boolean) {

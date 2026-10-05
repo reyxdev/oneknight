@@ -4,6 +4,7 @@ import { db } from "../db/client.ts";
 import { auditLog, memberships, notifications, organizations, sessions, telegramLinks, users } from "../db/schema.ts";
 import { env } from "../config.ts";
 import { randomToken, sha256 } from "../security/crypto.ts";
+import { handleLeadButton } from "../leads/portfolio.ts";
 
 /**
  * The ONEKNIGHT Telegram bot for clients: a person links their chat with a one-time /start token from the
@@ -73,6 +74,17 @@ const HELP = "Це бот ONEKNIGHT. Щоб отримувати сповіще�
 export async function handleUpdate(u: any, call: TgCall = tgCall) {
   // «Це не я» under «вхід з нового пристрою»: that session ends at once.
   const cb = u?.callback_query;
+  // A state button under a portfolio lead in the owner's chat (answer 471).
+  if (cb && typeof cb.data === "string" && cb.data.startsWith("lead:")) {
+    const chatId = String(cb.message?.chat?.id ?? "");
+    const done = await handleLeadButton(cb.data, chatId, env.TELEGRAM_CHAT_ID);
+    await call("answerCallbackQuery", { callback_query_id: cb.id, text: done ? `#${done.number}: ${done.label}` : "Заявку не знайдено" });
+    if (done && typeof cb.message?.text === "string") {
+      const text = `${cb.message.text.replace(/\n\nСтан: .*$/s, "")}\n\nСтан: ${done.label}`;
+      await call("editMessageText", { chat_id: chatId, message_id: cb.message.message_id, text, disable_web_page_preview: true, reply_markup: cb.message.reply_markup });
+    }
+    return;
+  }
   if (cb && typeof cb.data === "string" && cb.data.startsWith("notme:")) {
     const chatId = String(cb.message?.chat?.id ?? cb.from?.id ?? "");
     const sessionId = cb.data.slice(6);

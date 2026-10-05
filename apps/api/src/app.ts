@@ -4,6 +4,7 @@ import rateLimit from "@fastify/rate-limit";
 import { healthRoutes } from "./routes/health.ts";
 import { authRoutes } from "./auth/routes.ts";
 import { leadRoutes } from "./leads/routes.ts";
+import { portfolioLeadRoutes } from "./leads/portfolio.ts";
 import { adminRoutes } from "./admin/routes.ts";
 import { siteRoutes } from "./sites/routes.ts";
 import { billingRoutes } from "./billing/routes.ts";
@@ -84,6 +85,7 @@ export async function buildApp(opts: FastifyServerOptions = {}, deps: { npCall?:
   await app.register(authRoutes, { prefix: "/api/auth" });
   await app.register(resetRoutes(deps.tgCall), { prefix: "/api/auth/reset" });
   await app.register(leadRoutes, { prefix: "/api/leads" });
+  await app.register(portfolioLeadRoutes, { prefix: "/api/leads" });
   await app.register(adminRoutes, { prefix: "/api/admin" });
   await app.register(siteRoutes, { prefix: "/api" });
   await app.register(billingRoutes, { prefix: "/api/billing" });

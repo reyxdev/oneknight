@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { useDict, useLang } from "@/i18n/provider";
 import { fmt, withLang } from "@/i18n";
 import { contacts } from "@/data/contacts";
-import { portfolio } from "@/data/portfolio";
 import { brandIcons, type Brand } from "@/data/brand-icons";
 import { KnightMark } from "@/components/global/Logo";
+import { usePortfolioSettings } from "./settings";
 
 const BAR_KEY = "pf.discount.closed";
 const MESSENGERS: { brand: Brand; href: string }[] = [
@@ -40,18 +40,17 @@ const ext = (href: string) => (href.startsWith("http") ? { target: "_blank", rel
 export function PfTop() {
   const t = useDict().pf;
   const lang = useLang();
-  const [bar, setBar] = useState(false);
   const [small, setSmall] = useState(false);
   const [sheet, setSheet] = useState<"contact" | "menu" | null>(null);
+  const [closed, setClosed] = useState(true);
+  const { placesLeft } = usePortfolioSettings();
 
   useEffect(() => {
-    let closed = false;
     try {
-      closed = localStorage.getItem(BAR_KEY) === "1";
+      setClosed(localStorage.getItem(BAR_KEY) === "1");
     } catch {
-      /* storage blocked: the bar shows */
+      setClosed(false);
     }
-    setBar(portfolio.placesLeft > 0 && !closed);
     const onScroll = () => setSmall(window.scrollY > 24);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -65,8 +64,9 @@ export function PfTop() {
     return () => document.removeEventListener("keydown", onKey);
   }, [sheet]);
 
+  const bar = placesLeft > 0 && !closed;
   const closeBar = () => {
-    setBar(false);
+    setClosed(true);
     try {
       localStorage.setItem(BAR_KEY, "1");
     } catch {
@@ -74,12 +74,13 @@ export function PfTop() {
     }
   };
   const calc = withLang(lang, "/cina/");
+  const home = withLang(lang, "/");
   const nav = [
-    { href: "#roboty", label: t.nav.works },
-    { href: "#cina", label: t.nav.prices },
-    { href: "#pro-mene", label: t.nav.about },
-    { href: "#pytannia", label: t.nav.faq },
-    { href: "#kontakty", label: t.nav.contacts },
+    { href: `${home}#roboty`, label: t.nav.works },
+    { href: `${home}#cina`, label: t.nav.prices },
+    { href: `${home}#pro-mene`, label: t.nav.about },
+    { href: `${home}#pytannia`, label: t.nav.faq },
+    { href: `${home}#kontakty`, label: t.nav.contacts },
   ];
 
   return (
@@ -88,7 +89,7 @@ export function PfTop() {
         <div className="pf-bar">
           <a href={calc}>
             <b>{t.discount.text}</b>
-            <span>· {fmt(t.discount.left, { n: portfolio.placesLeft })}</span>
+            <span>· {fmt(t.discount.left, { n: placesLeft })}</span>
           </a>
           <button type="button" onClick={closeBar} aria-label={t.discount.close}>
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>

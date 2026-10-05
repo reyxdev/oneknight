@@ -1,9 +1,14 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { Lang } from "@/config";
-import { getDict, withLang } from "@/i18n";
+import { fmt, getDict, withLang } from "@/i18n";
 import { LiquidWord } from "@/features/hero/LiquidWord";
 import { PfMotion } from "./PfMotion";
 import { PfMobileBar, PfTop } from "./PfTop";
+import { PfSolve } from "./PfSolve";
+import { PfWorks } from "./PfWorks";
+import { PfCompare } from "./PfCompare";
+import { PfCalc } from "./PfCalc";
+import { PfFinal, PfFooter } from "./PfFinal";
 
 const WORD = ["ONE", "KNIGHT"] as const;
 
@@ -113,15 +118,236 @@ function WhoFor({ lang }: { lang: Lang }) {
   );
 }
 
+
+function Prices({ lang }: { lang: Lang }) {
+  const d = getDict(lang).pf;
+  return (
+    <section id="cina" className="pf-section pf-prices" aria-labelledby="pf-calc-title">
+      <div className="pf-wrap">
+        <h2 id="pf-calc-title" className="pf-h2" data-reveal="up">{d.calc.title}</h2>
+        <PfCalc />
+        <div className="pf-notfor" data-reveal="up">
+          <h3>{d.notFor.title}</h3>
+          <ul>
+            {d.notFor.items.map((x) => (
+              <li key={x}>
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17" /></svg>
+                {x}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function How({ lang }: { lang: Lang }) {
+  const t = getDict(lang).pf.how;
+  return (
+    <section className="pf-section pf-how" aria-labelledby="pf-how-title">
+      <div className="pf-wrap">
+        <h2 id="pf-how-title" className="pf-h2" data-reveal="up">{t.title}</h2>
+        <ol className="pf-steps">
+          {t.steps.map((x, i) => (
+            <li key={x.t} data-reveal="up" style={{ "--i": i } as CSSProperties}>
+              <span className="pf-step-n">{i + 1}</span>
+              <b>{x.t}</b>
+              <span>{x.d}</span>
+            </li>
+          ))}
+        </ol>
+        <div className="pf-pay" data-reveal="up">
+          <div className="pf-pay-bar" aria-hidden="true"><span>50%</span><span>50%</span></div>
+          <p className="pf-pay-title">{t.pay}</p>
+          <p className="pf-pay-how">{t.payHow}</p>
+          <p className="pf-promise">{t.promise}</p>
+          <p className="pf-fromyou">{t.fromYou}</p>
+        </div>
+        <h3 className="pf-h3" data-reveal="up">{t.callTitle}</h3>
+        <ol className="pf-asks">
+          {t.questions.map((x, i) => (
+            <li key={x.q} data-reveal="up" style={{ "--i": i % 3 } as CSSProperties}>
+              <b>{x.q}</b>
+              <span><em>{t.why}:</em> {x.why}</span>
+            </li>
+          ))}
+        </ol>
+        <div className="pf-after" data-reveal="up">
+          <h3 className="pf-h3">{t.after.title}</h3>
+          <ul>
+            {t.after.items.map((x) => (
+              <li key={x}>
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                {x}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function About({ lang }: { lang: Lang }) {
+  const t = getDict(lang).pf.about;
+  return (
+    <section id="pro-mene" className="pf-section pf-about" aria-labelledby="pf-about-title">
+      <div className="pf-wrap pf-about-grid">
+        <div>
+          <h2 id="pf-about-title" className="pf-h2" data-reveal="up">{t.title}</h2>
+          {t.text.map((x) => <p key={x} className="pf-about-text" data-reveal="up">{x}</p>)}
+        </div>
+        <ul className="pf-facts" data-reveal="up">
+          {t.facts.map((x) => <li key={x}>{x}</li>)}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function Advice({ lang }: { lang: Lang }) {
+  const t = getDict(lang).pf.advice;
+  return (
+    <section className="pf-section pf-advice" aria-labelledby="pf-advice-title">
+      <div className="pf-wrap">
+        <h2 id="pf-advice-title" className="pf-h2" data-reveal="up">{t.title}</h2>
+        <p className="pf-lead" data-reveal="up">{t.lead}</p>
+        <div className="pf-advice-grid">
+          {t.items.map((x, i) => (
+            <details key={x.t} className="pf-advice-card" data-reveal="up" style={{ "--i": i } as CSSProperties}>
+              <summary><span className="pf-step-n">{i + 1}</span>{x.t}</summary>
+              <p>{x.d}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Faq({ lang }: { lang: Lang }) {
+  const t = getDict(lang).pf.faq;
+  return (
+    <section id="pytannia" className="pf-section pf-faq" aria-labelledby="pf-faq-title">
+      <div className="pf-wrap pf-faq-wrap">
+        <h2 id="pf-faq-title" className="pf-h2" data-reveal="up">{t.title}</h2>
+        <div className="pf-faq-list">
+          {t.items.map((x) => (
+            <details key={x.q} className="pf-faq-item">
+              <summary>{x.q}</summary>
+              <p>{x.a}</p>
+            </details>
+          ))}
+        </div>
+        <a className="pf-btn pf-btn-amber" href={withLang(lang, "/cina/")} data-reveal="up">{t.cta}</a>
+      </div>
+    </section>
+  );
+}
+
+/** Every portfolio page: the same header, footer and phone bar around its own content. */
+export function PortfolioShell({ children }: { children: ReactNode }) {
+  return (
+    <div className="pf" id="top">
+      <PfMotion />
+      <PfTop />
+      {children}
+      <PfFooter />
+      <PfMobileBar />
+    </div>
+  );
+}
+
+/** /cina: the calculator on its own page (answer 134). */
+export function PricePage({ lang }: { lang: Lang }) {
+  const d = getDict(lang).pf;
+  return (
+    <PortfolioShell>
+      <section className="pf-section pf-page-head pf-prices" aria-labelledby="pf-page-h1">
+        <div className="pf-wrap">
+          <h1 id="pf-page-h1" className="pf-h1 pf-page-h1">{d.pages.cina.h1}</h1>
+          <p className="pf-lead">{d.pages.cina.lead}</p>
+          <PfCalc standalone />
+          <div className="pf-notfor">
+            <h2 className="pf-notfor-title">{d.notFor.title}</h2>
+            <ul>
+              {d.notFor.items.map((x) => (
+                <li key={x}>
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17" /></svg>
+                  {x}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+      <Faq lang={lang} />
+      <PfFinal />
+    </PortfolioShell>
+  );
+}
+
+/** /roboty and /roboty/{id} (answers 223, 326, 327): screenshots → what I did → open the site → work out yours. */
+export function WorksPage({ lang }: { lang: Lang }) {
+  return (
+    <PortfolioShell>
+      <div className="pf-page-top" />
+      <PfWorks />
+      <PfFinal />
+    </PortfolioShell>
+  );
+}
+
+export function WorkPage({ lang, id }: { lang: Lang; id: string }) {
+  const d = getDict(lang).pf;
+  const w = d.works.items.find((x) => x.id === id)!;
+  return (
+    <PortfolioShell>
+      <section className="pf-section pf-page-head pf-case" aria-labelledby="pf-page-h1">
+        <div className="pf-wrap">
+          <a className="pf-link pf-back" href={withLang(lang, "/roboty/")}>← {d.pages.work.all}</a>
+          <h1 id="pf-page-h1" className="pf-h1 pf-page-h1">{w.host}</h1>
+          <p className="pf-lead">{w.what}</p>
+          <a className="pf-devices pf-case-devices" href={w.url} target="_blank" rel="noopener" aria-label={fmt(d.pages.work.open, { host: w.host })}>
+            <span className="pf-mac">
+              <span className="pf-mac-screen"><img src={`/portfolio/works/${w.id}-desk.webp`} alt="" decoding="async" width={960} height={2250} /></span>
+              <span className="pf-mac-base" />
+            </span>
+            <span className="pf-iphone">
+              <span className="pf-iphone-screen"><img src={`/portfolio/works/${w.id}-phone.webp`} alt="" decoding="async" width={520} height={5400} /></span>
+            </span>
+          </a>
+          <h2 className="pf-h3">{d.works.did}</h2>
+          <ul className="pf-did pf-case-did">
+            {w.did.map((x) => <li key={x}>{x}</li>)}
+          </ul>
+          <p className="pf-work-mine">{fmt(d.works.mine, { list: w.mine.join(", ") })}</p>
+          <div className="pf-actions">
+            <a className="pf-btn pf-btn-ghost pf-btn-lg" href={w.url} target="_blank" rel="noopener">{fmt(d.pages.work.open, { host: w.host })}</a>
+            <a className="pf-btn pf-btn-amber pf-btn-lg" href={withLang(lang, `/cina/?sprava=${w.sprava}`)}>{d.pages.work.calc}</a>
+          </div>
+        </div>
+      </section>
+    </PortfolioShell>
+  );
+}
+
 /** The new portfolio home page (docs/portfolio/answers.md, order of blocks — answer 151). Built block by block. */
 export function PortfolioHome({ lang }: { lang: Lang }) {
   return (
-    <div className="pf">
-      <PfMotion />
-      <PfTop />
+    <PortfolioShell>
       <Hero lang={lang} />
       <WhoFor lang={lang} />
-      <PfMobileBar />
-    </div>
+      <PfSolve />
+      <PfWorks />
+      <PfCompare />
+      <Prices lang={lang} />
+      <How lang={lang} />
+      <About lang={lang} />
+      <Advice lang={lang} />
+      <Faq lang={lang} />
+      <PfFinal />
+    </PortfolioShell>
   );
 }

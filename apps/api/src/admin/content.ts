@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "../db/client.ts";
 import { contentHolidays, contentTemplates, platformState } from "../db/schema.ts";
 import { CHANNELS, rhythmBase } from "../content/engine.ts";
-import { calculatorConfig } from "../site/landing.ts";
+import { calculatorConfig, portfolioSettings } from "../site/landing.ts";
 import { incidentsForAdmin, noteIncident } from "../site/status.ts";
 import { audit } from "../audit.ts";
 import { holidayDate } from "../content/holidays.ts";
@@ -85,6 +85,30 @@ export const contentAdminRoutes: FastifyPluginAsync = async (app) => {
     if (!p.success) return reply.code(400).send({ error: "invalid_input" });
     await db.insert(platformState).values({ key: "calculator", value: p.data }).onConflictDoUpdate({ target: platformState.key, set: { value: p.data, updatedAt: new Date() } });
     await audit(req, "admin.calculator", req.auth!.user.id, p.data);
+    return p.data;
+  });
+
+  /** The portfolio: calculator prices, places left with −25%, sites in work now. */
+  app.get("/site/portfolio", async () => portfolioSettings());
+  app.put("/site/portfolio", async (req, reply) => {
+    const money = z.number().int().min(0).max(1_000_000);
+    const p = z
+      .object({
+        prices: z.object({
+          base: z.object({ card: money, service: money, shop: money }),
+          shopAdd: z.tuple([money, money, money, money.nullable()]),
+          serviceAdd: z.tuple([money, money, money]),
+          extras: z.object({ logo: money, ads: money, seo: money, support: money }),
+          discountPct: z.number().int().min(0).max(90),
+          bigShopFrom: money,
+        }),
+        placesLeft: z.number().int().min(0).max(100),
+        buildingNow: z.number().int().min(0).max(100),
+      })
+      .safeParse(req.body);
+    if (!p.success) return reply.code(400).send({ error: "invalid_input" });
+    await db.insert(platformState).values({ key: "portfolio", value: p.data }).onConflictDoUpdate({ target: platformState.key, set: { value: p.data, updatedAt: new Date() } });
+    await audit(req, "admin.portfolio", req.auth!.user.id, p.data);
     return p.data;
   });
 
