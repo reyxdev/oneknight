@@ -14,6 +14,7 @@ export const app: Dict["app"] = {
     loginTitle: "Log in to ONEKNIGHT",
     registerTitle: "Create an account",
     lead: "Your website, requests and orders in one place.",
+    closedLead: "The account area is open to the administrator only for now.",
     name: "Name",
     phone: "Phone",
     email: "Email",
@@ -55,6 +56,8 @@ export const app: Dict["app"] = {
     errors: {
       invalid_input: "Check the form fields.",
       invalid_credentials: "Wrong email or password.",
+      panel_closed: "The account area is open to the administrator only for now.",
+      registration_closed: "Sign-up is closed for now.",
       email_taken: "An account with this email already exists.",
       too_many_attempts: "Too many attempts. Try again in 15 minutes.",
       too_many_requests: "Too many requests. Wait a minute.",

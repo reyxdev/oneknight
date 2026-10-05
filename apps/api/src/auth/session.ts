@@ -2,7 +2,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { sessions, users } from "../db/schema.ts";
-import { env } from "../config.ts";
+import { env, panelClosed } from "../config.ts";
 import { randomToken, sha256 } from "../security/crypto.ts";
 import { noteDevice } from "../security/devices.ts";
 
@@ -50,6 +50,8 @@ export async function loadAuth(req: FastifyRequest): Promise<Auth | null> {
     .where(and(eq(sessions.idHash, idHash), isNull(sessions.revokedAt), gt(sessions.expiresAt, new Date())))
     .limit(1);
   if (!row) return null;
+  // Closed panel: only admins keep their sessions (everyone else is simply signed out).
+  if (panelClosed() && !row.u.isAdmin) return null;
   if (Date.now() - row.s.lastSeenAt.getTime() > 60_000) {
     await db.update(sessions).set({ lastSeenAt: new Date() }).where(eq(sessions.idHash, idHash));
   }

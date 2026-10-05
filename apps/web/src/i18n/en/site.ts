@@ -170,3 +170,18 @@ export const docsPage: Dict["docsPage"] = {
   fields: "Fields",
   tabs: { js: "JavaScript", curl: "curl", php: "PHP" },
 };
+
+export const soon: Dict["soon"] = {
+  meta: { title: "Ivan — websites for small businesses · new site soon", description: "I am rebuilding my website. Meanwhile, call or message me any day from 9 to 21." },
+  badge: "Rebuilding the site",
+  title: "A new website is coming soon",
+  text: "I am rebuilding my own website so it is as clear as yours will be. Meanwhile, call or message me — I answer every day from 9:00 to 21:00 (Kyiv time).",
+  name: "Ivan",
+  role: "Websites for small businesses, made by hand",
+  call: "Call",
+  write: "Or message me",
+  hours: "Every day 9:00–21:00 (Kyiv)",
+  footer: "Ivan, Kuty, Ukraine. Websites for small businesses across Ukraine.",
+  privacy: "Privacy policy",
+  other: "Українською",
+};

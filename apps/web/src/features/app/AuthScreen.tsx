@@ -46,6 +46,16 @@ export function AuthScreen({ initial, onDone, onMfa, note }: { initial: Mode; on
   const [withInvite, setWithInvite] = useState(false);
   const [forgot, setForgot] = useState<"closed" | "open" | "sent">("closed");
   const [busy, setBusy] = useState(false);
+  // The panel may be closed to everyone but admins: then only «Увійти», no sign-up and no demo link.
+  const [closed, setClosed] = useState(false);
+  useEffect(() => {
+    void api<{ closed: boolean }>("/auth/config").then((r) => {
+      if (r.ok && r.data.closed) {
+        setClosed(true);
+        setMode("login");
+      }
+    });
+  }, []);
   const e2 = t.errors as Record<string, string>;
 
   const switchTo = (m: Mode) => {
@@ -114,15 +124,15 @@ export function AuthScreen({ initial, onDone, onMfa, note }: { initial: Mode; on
           <KnightMark size={36} />
           <b>ONEKNIGHT</b>
         </a>
-        <div className="ok-seg" role="tablist" aria-label="ONEKNIGHT">
+        {!closed && <div className="ok-seg" role="tablist" aria-label="ONEKNIGHT">
           {(["login", "register"] as const).map((m) => (
             <button key={m} type="button" role="tab" aria-selected={mode === m} aria-checked={mode === m} onClick={() => switchTo(m)}>
               {m === "login" ? t.loginTab : t.registerTab}
             </button>
           ))}
-        </div>
+        </div>}
         <h1 className="h3">{mode === "login" ? t.loginTitle : t.registerTitle}</h1>
-        <p className="small">{t.lead}</p>
+        <p className="small">{closed ? t.closedLead : t.lead}</p>
         {note && <p className="ok-note" role="status"><Icon name="person" size={15} />{note}</p>}
         <form className="grid gap-4" onSubmit={submit} noValidate>
           {mode === "register" && (
@@ -184,7 +194,7 @@ export function AuthScreen({ initial, onDone, onMfa, note }: { initial: Mode; on
           )}
         </form>
         {mode === "login" && forgot === "closed" && <button type="button" className="ok-link" style={{ justifySelf: "start" }} onClick={() => { setForgot("open"); setErr({}); }}>{t.forgot}</button>}
-        <a href={withLang(lang, "/#playground")} className="btn btn-secondary">{t.demo}</a>
+        {!closed && <a href={withLang(lang, "/#playground")} className="btn btn-secondary">{t.demo}</a>}
         <a href={withLang(lang, "/")} className="small underline underline-offset-4">{t.back}</a>
       </div>
     </main>

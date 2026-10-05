@@ -12,6 +12,7 @@ export const app = {
     loginTitle: "Вхід в ONEKNIGHT",
     registerTitle: "Створення акаунта",
     lead: "Ваш сайт, заявки й замовлення в одному місці.",
+    closedLead: "Кабінет зараз доступний лише адміністратору.",
     name: "Ім'я",
     phone: "Телефон",
     email: "Електронна пошта",
@@ -53,6 +54,8 @@ export const app = {
     errors: {
       invalid_input: "Перевірте поля форми.",
       invalid_credentials: "Невірна пошта або пароль.",
+      panel_closed: "Кабінет зараз доступний лише адміністратору.",
+      registration_closed: "Реєстрація зараз закрита.",
       email_taken: "Акаунт із такою поштою вже є.",
       too_many_attempts: "Забагато спроб. Спробуйте через 15 хвилин.",
       too_many_requests: "Забагато запитів. Зачекайте хвилину.",

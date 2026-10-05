@@ -236,7 +236,7 @@ test("content plan, part 2: the team (assign, comments with @, own photos), repe
   // Results and learning: 12 published ideas; «Довіра» brings visits and orders, «Настрій» nothing.
   const pub: string[] = [];
   for (let i = 0; i < 12; i++) {
-    const x = await own(addDays(today, -20 + i), `Опубліковане ${i}`);
+    const x = await own(addDays(today, -12 + i), `Опубліковане ${i}`); // the last one yesterday: the streak always has this or last week
     await db.update(contentIdeas).set({ status: "published", publishedAt: new Date(Date.now() - (20 - i) * 86_400_000), bucket: i < 6 ? "trust" : "fun" }).where(eq(contentIdeas.id, x.id));
     pub.push(x.id);
   }

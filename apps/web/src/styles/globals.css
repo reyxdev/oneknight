@@ -14,6 +14,7 @@
 @import "./closing.css";
 @import "./app.css";
 @import "./site.css";
+@import "./soon.css";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .scheme-dark, .scheme-dark *));
 

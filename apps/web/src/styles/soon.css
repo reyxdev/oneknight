@@ -1,0 +1,45 @@
+/* «Скоро» — the first piece of the new portfolio style: dark, warm amber, Unbounded headings (answers 109, 153, 251). */
+.soon {
+  --soon-bg: #0e0f12;
+  --soon-surface: #17191e;
+  --soon-line: #2a2d34;
+  --soon-fg: #f3efe8;
+  --soon-muted: #b9b3a9;
+  --soon-amber: #f2a93b;
+  --soon-amber-ink: #1a1206;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  background: radial-gradient(60rem 40rem at 85% -10%, rgb(242 169 59 / 0.12), transparent 60%), var(--soon-bg);
+  color: var(--soon-fg);
+  font-size: 18px;
+  line-height: 1.6;
+}
+.soon-main { width: min(100% - 2rem, 44rem); margin: 0 auto; padding: clamp(3rem, 10vh, 7rem) 0 3rem; display: grid; gap: 1.25rem; justify-items: start; }
+.soon-mark { color: var(--soon-fg); }
+.soon-badge { display: inline-flex; align-items: center; gap: 0.55rem; margin: 0; padding: 0.35rem 0.85rem; border: 1px solid rgb(242 169 59 / 0.45); border-radius: 999px; color: var(--soon-amber); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.02em; }
+.soon-badge span { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--soon-amber); animation: soon-pulse 1.6s ease-in-out infinite; }
+@keyframes soon-pulse { 50% { opacity: 0.35; } }
+.soon-title { margin: 0; font-family: var(--font-unbounded), var(--font-geologica), sans-serif; font-weight: 700; font-size: clamp(2.1rem, 6.5vw, 3.6rem); line-height: 1.08; letter-spacing: -0.02em; }
+.soon-text { margin: 0; max-width: 36rem; color: var(--soon-muted); font-size: 1.15rem; }
+.soon-card { width: 100%; display: grid; gap: 1rem; margin-top: 1rem; padding: clamp(1.25rem, 4vw, 2rem); border: 1px solid var(--soon-line); border-radius: 20px; background: var(--soon-surface); }
+.soon-who { display: grid; gap: 0.1rem; }
+.soon-who b { font-family: var(--font-unbounded), sans-serif; font-weight: 500; font-size: 1.35rem; }
+.soon-who span { color: var(--soon-muted); font-size: 0.95rem; }
+.soon-call { display: flex; align-items: center; gap: 0.9rem; min-height: 4rem; padding: 0.9rem 1.25rem; border-radius: 16px; background: var(--soon-amber); color: var(--soon-amber-ink); font-weight: 700; font-size: clamp(1.25rem, 4.5vw, 1.6rem); text-decoration: none; letter-spacing: 0.01em; transition: transform 0.15s ease, filter 0.15s ease; }
+.soon-call small { display: block; font-size: 0.8rem; font-weight: 600; opacity: 0.8; letter-spacing: 0; }
+.soon-call:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.soon-call:focus-visible, .soon-messengers a:focus-visible, .soon-footer a:focus-visible { outline: 3px solid var(--soon-fg); outline-offset: 3px; }
+.soon-hours { margin: -0.4rem 0 0; color: var(--soon-muted); font-size: 0.95rem; }
+.soon-write { margin: 0.4rem 0 0; font-weight: 600; }
+.soon-messengers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
+@media (min-width: 640px) { .soon-messengers { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.soon-messengers a { display: flex; align-items: center; justify-content: center; gap: 0.55rem; min-height: 3.4rem; padding: 0.7rem; border-radius: 14px; border: 1px solid var(--soon-line); background: #121418; color: var(--soon-fg); font-weight: 600; font-size: 1rem; text-decoration: none; transition: border-color 0.15s ease, background-color 0.15s ease; }
+.soon-messengers a svg { color: var(--brand); flex: none; }
+.soon-messengers a:hover { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 12%, #121418); }
+.soon-footer { width: min(100% - 2rem, 44rem); margin: 0 auto; padding: 1.5rem 0 2rem; border-top: 1px solid var(--soon-line); display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; justify-content: space-between; color: var(--soon-muted); font-size: 0.9rem; }
+.soon-footer p { margin: 0; }
+.soon-footer nav { display: flex; gap: 1.25rem; }
+.soon-footer a { color: var(--soon-muted); text-decoration: underline; text-underline-offset: 4px; }
+.soon-footer a:hover { color: var(--soon-fg); }
+@media (prefers-reduced-motion: reduce) { .soon-badge span { animation: none; } .soon-call { transition: none; } }

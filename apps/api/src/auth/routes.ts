@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { claimLead } from "../leads/routes.ts";
+import { panelClosed } from "../config.ts";
 import { and, desc, eq, isNull, ne } from "drizzle-orm";
 import QRCode from "qrcode";
 import { z } from "zod";
@@ -109,7 +110,11 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
 }
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
+  /** What the sign-in screen may offer (the panel can be closed to everyone but admins). */
+  app.get("/config", async () => ({ registration: !panelClosed(), closed: panelClosed() }));
+
   app.post("/register", strict, async (req, reply) => {
+    if (panelClosed()) return bad(reply, 403, "registration_closed");
     const p = Register.safeParse(req.body);
     if (!p.success) return bad(reply, 400, "invalid_input");
     const { name, phone, email: mail, password: pw } = p.data;
@@ -148,6 +153,10 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     if (!user || !ok) {
       await logAttempt(req, mail, user?.id ?? null, false, user ? "bad_password" : "unknown_email");
       return bad(reply, 401, "invalid_credentials");
+    }
+    if (panelClosed() && !user.isAdmin) {
+      await logAttempt(req, mail, user.id, false, "panel_closed");
+      return bad(reply, 403, "panel_closed");
     }
     await createSession(req, reply, user.id, !user.totpEnabled);
     await logAttempt(req, mail, user.id, true, user.totpEnabled ? "password_ok_mfa_pending" : "ok");

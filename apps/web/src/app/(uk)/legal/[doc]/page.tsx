@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { legalDocs, type LegalDoc } from "@/data/legal";
 import { getDict, withLang } from "@/i18n";
 import { LegalPage } from "@/features/page/LegalPage";
+import { ComingSoon } from "@/features/soon/ComingSoon";
+import { config } from "@/config";
 
 const lang = "uk" as const;
 export const dynamicParams = false;
@@ -26,5 +28,7 @@ export async function generateMetadata({ params }: { params: Promise<{ doc: stri
 export default async function Page({ params }: { params: Promise<{ doc: string }> }) {
   const { doc } = await params;
   if (!legalDocs.includes(doc as LegalDoc)) notFound();
+  // While the portfolio is rebuilt only the privacy and cookies texts stay; the ONEKNIGHT terms are hidden (answer 399).
+  if (config.siteMode === "soon" && !["privacy", "cookies"].includes(doc)) return <ComingSoon lang={lang} />;
   return <LegalPage lang={lang} doc={doc as LegalDoc} />;
 }

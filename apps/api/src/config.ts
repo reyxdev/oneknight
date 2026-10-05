@@ -14,6 +14,11 @@ const Env = z.object({
   TELEGRAM_BOT_TOKEN: z.string().optional().transform((v) => v || undefined),
   TELEGRAM_CHAT_ID: z.string().optional().transform((v) => v || undefined),
   /** Minutes between monitoring rounds. 0 disables the in-process monitor. */
+  /**
+   * The panel is closed to everyone except ONEKNIGHT admins (owner's decision, October 2026): no sign-ups, non-admin
+   * sign-in refused, existing non-admin sessions ignored. Automated tests always run with the panel open.
+   */
+  PANEL_CLOSED: z.enum(["0", "1"]).default("0"),
   MONITOR_INTERVAL_MIN: z.coerce.number().int().min(0).default(5),
   /** Days the service keeps working after a failed renewal (product range 3-7). */
   GRACE_DAYS: z.coerce.number().int().min(3).max(7).default(5),
@@ -28,3 +33,5 @@ const Env = z.object({
 
 export const env = Env.parse(process.env);
 export const isProd = env.NODE_ENV === "production";
+/** Tests check the closed panel by setting OK_TEST_PANEL_CLOSED=1 for a moment. */
+export const panelClosed = () => (env.PANEL_CLOSED === "1" && env.NODE_ENV !== "test") || process.env.OK_TEST_PANEL_CLOSED === "1";
