@@ -15,6 +15,48 @@ const EMPTY: State = { kind: null, sprava: null, tier: 0, extras: [], touched: f
 const isSprava = (v: unknown): v is Sprava => SPRAVY.includes(v as Sprava);
 const money = (n: number) => n.toLocaleString("uk-UA");
 
+/** A tiny drawing of each kind of site, so the choice is seen, not read (owner's idea, October 2026). */
+function SiteSketch({ kind }: { kind: string }) {
+  const ink = { fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  return (
+    <svg className="pf-sketch" viewBox="0 0 96 68" aria-hidden="true">
+      <rect x="2" y="2" width="92" height="64" rx="3" {...ink} />
+      {kind !== "unsure" && <path d="M2 11h92" {...ink} />}
+      {kind === "card" && (
+        <>
+          <circle cx="48" cy="26" r="7" {...ink} />
+          <path d="M33 40h30M37 46h22" {...ink} />
+          <rect x="36" y="52" width="24" height="7" rx="2" className="pf-sketch-fill" />
+        </>
+      )}
+      {kind === "service" && (
+        <>
+          {[19, 31, 43].map((y) => (
+            <g key={y}>
+              <path d={`M10 ${y}h40`} {...ink} />
+              <rect x="66" y={y - 4} width="20" height="8" rx="2" className="pf-sketch-fill" />
+            </g>
+          ))}
+          <rect x="10" y="53" width="30" height="7" rx="2" {...ink} />
+        </>
+      )}
+      {kind === "shop" && (
+        <>
+          {[10, 32, 54].map((x) => (
+            <g key={x}>
+              <rect x={x} y="17" width="18" height="16" rx="2" {...ink} />
+              <path d={`M${x} 39h18M${x} 44h11`} {...ink} />
+            </g>
+          ))}
+          <path d="M78 52h8l-2 7h-6zM79 52l-1-3" {...ink} />
+          <rect x="10" y="52" width="26" height="7" rx="2" className="pf-sketch-fill" />
+        </>
+      )}
+      {kind === "unsure" && <path d="M38 24c0-7 5-11 10-11s10 4 10 9c0 7-10 8-10 15M48 47v3" {...ink} strokeWidth={3} />}
+    </svg>
+  );
+}
+
 /** The price runs up to the sum in 0.6 s (answers 196, 237); instantly with «less motion». */
 function useCountUp(target: number) {
   const [v, setV] = useState(target);
@@ -143,6 +185,7 @@ export function PfCalc({ standalone = false }: { standalone?: boolean }) {
               <div className="pf-options pf-options-4">
                 {t.types.items.map((o) => (
                   <button key={o.id} type="button" className="pf-option" aria-pressed={s.kind === o.id} onClick={() => setS((x) => ({ ...x, kind: o.id as Kind, tier: 0, step: x.step + 1 }))}>
+                    <SiteSketch kind={o.id} />
                     <b>{o.title}</b>
                     {o.id !== "unsure" && <em>{fmt(t.types.from, { sum: money(prices.base[o.id as SiteKind]) })}</em>}
                     <span>{o.hint}</span>

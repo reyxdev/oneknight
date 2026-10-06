@@ -1,17 +1,13 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { useDict, useLang } from "@/i18n/provider";
 import { withLang } from "@/i18n";
 
-/**
- * «Чому не шаблон»: the honey story as a chat (answers 167, 215, 261, 477) and the honest table Tilda/Wix · Prom ·
- * nephew · Ivan (168–171, 478, 479); on phones Ivan against one chosen column (429).
- */
+/** «Чому не шаблон»: the honey story as a chat (answers 167, 215, 261, 477). The comparison lives on /cina (578). */
 export function PfCompare() {
   const t = useDict().pf.compare;
   const lang = useLang();
-  const [pick, setPick] = useState(0);
   const s = t.story;
   return (
     <section className="pf-section pf-compare" aria-labelledby="pf-compare-title">
@@ -37,35 +33,34 @@ export function PfCompare() {
           <p className="pf-moral" data-reveal="up">{s.moral}</p>
         </div>
 
-        <div className="pf-table-pick" role="radiogroup" aria-label={t.pick}>
-          <span>{t.pick}</span>
-          {t.cols.slice(0, 3).map((c, i) => (
-            <button key={c} type="button" role="radio" aria-checked={pick === i} className="pf-chip" onClick={() => setPick(i)}>{c}</button>
+        <a className="pf-btn pf-compare-cta" href={`${withLang(lang, "/cina/")}#sposoby`} data-reveal="up">{t.cta} →</a>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * «Чотири способи отримати сайт» (answers 168–171, 478, 479, 533, 578): instead of a table, each way in plain words —
+ * what's good (a pen tick) and what's not (a pen cross). Clear to someone who never heard of Tilda.
+ */
+export function PfWays() {
+  const t = useDict().pf.ways;
+  return (
+    <section id="sposoby" className="pf-section pf-ways" aria-labelledby="pf-ways-title">
+      <div className="pf-wrap">
+        <h2 id="pf-ways-title" className="pf-h2">{t.title}</h2>
+        <ol className="pf-ways-list">
+          {t.items.map((w) => (
+            <li key={w.who} className="pf-way" data-mine={"mine" in w && w.mine ? "" : undefined}>
+              <h3>{w.who}<small>{w.note}</small></h3>
+              <ul>
+                {w.plus.map((x) => <li key={x} data-good="">{x}</li>)}
+                {w.minus.map((x) => <li key={x} data-bad="">{x}</li>)}
+              </ul>
+            </li>
           ))}
-        </div>
-        <div className="pf-table-wrap" data-reveal="up">
-          <table className="pf-table" data-pick={pick}>
-            <thead>
-              <tr>
-                <td />
-                {t.cols.map((c, i) => <th key={c} scope="col" data-c={i}>{c}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {t.rows.map((r) => (
-                <tr key={r.q}>
-                  <th scope="row">{r.q}</th>
-                  {r.v.map((v, i) => <td key={i} data-c={i}>{v}</td>)}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="pf-honest" data-reveal="up">{t.honest}</p>
-        <div className="pf-compare-foot" data-reveal="up">
-          <p>{t.nephew}</p>
-          <a className="pf-btn pf-btn-amber" href={withLang(lang, "/cina/")}>{t.cta}</a>
-        </div>
+        </ol>
+        <p className="pf-honest">{t.honest}</p>
       </div>
     </section>
   );

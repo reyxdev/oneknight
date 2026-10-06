@@ -103,8 +103,8 @@ html:has(.pf) { background: #f4eee3; color-scheme: light; }
 .pf-menu-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem 1rem; margin: 1.5rem 0 0; padding-top: 1rem; border-top: 1.5px dashed var(--pf-line); font-weight: 700; }
 
 /* First screen: copy left, the phone right, ONEKNIGHT ink across the width under both (answers 653, 553) */
-.pf-hero { --p: 0; position: relative; height: 150vh; height: 150svh; }
-.pf-hero-stage { position: sticky; top: 0; display: grid; align-content: center; min-height: 100svh; padding-top: 68px; overflow: hidden; }
+.pf-hero { position: relative; }
+.pf-hero-stage { display: grid; align-content: center; min-height: 100svh; padding-top: 68px; overflow: hidden; }
 .pf-hero-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 2.5rem; align-items: center; padding-block: 1.5rem 0.5rem; }
 .pf-kicker { margin: 0 0 0.8rem; font-size: clamp(1.7rem, 2.4vw, 2.1rem); transform: rotate(-1.5deg); transform-origin: left; }
 .pf-h1 { margin: 0; font-family: var(--pf-display); font-weight: 700; font-size: clamp(2rem, 4vw, 3.4rem); line-height: 1.1; letter-spacing: -0.03em; text-wrap: balance; }
@@ -120,21 +120,19 @@ html:has(.pf) { background: #f4eee3; color-scheme: light; }
 .pf-hero-word .liquid-fallback { flex-direction: row !important; align-items: center !important; }
 .pf-hero-word .liquid-fallback > span { display: inline !important; }
 
-/* The phone with karpatu.shop assembling while scrolling (answers 111, 238, 381) */
+/* The phone: karpatu.shop is already whole; its pieces settle in once, right after the page opens (answers 111, 691) */
 .pf-phone-wrap { position: relative; width: clamp(220px, 19vw, 270px); }
 .pf-phone { position: relative; aspect-ratio: 300 / 640; padding: 10px; border-radius: 42px; background: #16110d; box-shadow: 0 0 0 1.5px #3b2a1e, 8px 10px 0 rgb(59 42 30 / 0.18); }
 .pf-phone-island { position: absolute; top: 18px; left: 50%; z-index: 5; width: 30%; height: 20px; border-radius: 20px; background: #000; translate: -50% 0; }
-.pf-phone-screen { position: relative; height: 100%; padding-top: 28px; border-radius: 33px; background: #0f0d0a; }
-.pf-skeleton { position: absolute; inset: 28px 12px 12px; z-index: 1; border-radius: 6px; background: repeating-linear-gradient(180deg, #2a231b 0 12px, transparent 12px 30px); opacity: 0.6; }
-.pf-piece, .pf-card { --k: clamp(0, calc((var(--p) - var(--s)) / 0.3), 1); }
-.pf-piece { position: relative; z-index: 2; display: block; width: 100%; height: auto; opacity: calc(0.85 + 0.15 * var(--k)); transform: translate(calc(var(--x) * (1 - var(--k))), calc(var(--y) * (1 - var(--k)))) rotate(calc(var(--r) * (1 - var(--k)))); box-shadow: calc(6px * (1 - var(--k))) calc(8px * (1 - var(--k))) 0 rgb(59 42 30 / 0.25); will-change: transform; }
-.pf-piece:last-child { border-radius: 0 0 28px 28px; }
-.pf-card { position: absolute; z-index: 6; width: 44%; height: auto; border-radius: var(--pf-r); border: 2px solid #fff; opacity: var(--k); box-shadow: 4px 5px 0 rgb(59 42 30 / 0.3); will-change: transform; }
-.pf-card1 { left: -36%; bottom: 10%; transform: translateY(calc(140px * (1 - var(--k)))) rotate(-7deg); }
-.pf-card2 { right: -36%; bottom: 28%; transform: translateY(calc(180px * (1 - var(--k)))) rotate(6deg); }
+.pf-phone-screen { position: relative; height: 100%; padding-top: 32px; overflow: hidden; border-radius: 33px; background: #0f0d0a; }
+.pf-piece { position: relative; z-index: 2; display: block; width: 100%; height: auto; animation: pf-piece-in 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) calc(0.15s + var(--s) * 2.2s) both; }
+@keyframes pf-piece-in { from { opacity: 0; translate: calc(var(--x) * 0.5) calc(var(--y) * 0.5); rotate: calc(var(--r) * 0.6); } }
+.pf-card { position: absolute; z-index: 6; width: 44%; height: auto; border-radius: var(--pf-r); border: 2px solid #fff; box-shadow: 4px 5px 0 rgb(59 42 30 / 0.3); animation: pf-card-in 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) calc(0.35s + var(--s) * 1.6s) both; }
+@keyframes pf-card-in { from { opacity: 0; translate: 0 40px; } }
+.pf-card1 { left: -36%; bottom: 10%; rotate: -7deg; }
+.pf-card2 { right: -36%; bottom: 28%; rotate: 6deg; }
 .pf-phone-note { margin: 0.3rem 0 0; font-size: 1.35rem; transform: rotate(-2deg); }
-html[data-motion="calm"] .pf-piece, html[data-motion="calm"] .pf-card { --k: 1; }
-html[data-motion="calm"] .pf-mark-draw { animation: none; }
+html[data-motion="calm"] .pf-piece, html[data-motion="calm"] .pf-card, html[data-motion="calm"] .pf-mark-draw { animation: none; }
 
 /* The −25% sticker: paper price tag, tilted 5–8°, ten boxes crossed out in pen (answers 536, 537, 654, 655, 692) */
 .pf-sticker { display: inline-grid; justify-items: center; gap: 0.3rem; padding: 0.7rem 0.9rem 0.6rem; border: 2px solid var(--pf-fg); border-radius: var(--pf-r); background: #fffaf0; box-shadow: 4px 4px 0 var(--pf-shadow); text-decoration: none; transform: rotate(7deg); transition: transform 0.15s ease; }
@@ -149,12 +147,10 @@ html[data-motion="calm"] .pf-mark-draw { animation: none; }
 html[data-motion="calm"] .pf-hero-sticker { animation: none; }
 
 @media (max-width: 899px) {
-  .pf-hero { height: auto; }
-  .pf-hero-stage { position: relative; min-height: 0; padding-top: 68px; }
+  .pf-hero-stage { min-height: 0; }
   .pf-hero-grid { grid-template-columns: minmax(0, 1fr); gap: 2rem; padding-block: 1.75rem 0; }
   .pf-hero-visual { min-height: 0; padding: 1rem 0 0.5rem; }
   .pf-phone-wrap { width: min(54vw, 240px); }
-  .pf-piece, .pf-card { --k: 1; }
   .pf-card1 { left: -22%; }
   .pf-card2 { right: -22%; }
   .pf-card { width: 40%; }
@@ -218,7 +214,7 @@ html[data-motion="calm"] .pf-who-item img, html[data-motion="calm"] .pf-btn, htm
 .pf-typed { display: inline-block; max-width: 100%; overflow: hidden; vertical-align: bottom; white-space: nowrap; border-right: 2px solid #1b1b1b; animation: pf-type 1.6s steps(18) 0.4s both, pf-caret 0.8s step-end infinite; }
 @keyframes pf-type { from { max-width: 0; } }
 @keyframes pf-caret { 50% { border-color: transparent; } }
-.pf-mini-result { display: grid; gap: 0.2rem; padding: 0.5rem 0.55rem; border-radius: var(--pf-r); background: #fff; box-shadow: 0 0 0 2px var(--tint); }
+.pf-mini-result { position: relative; display: grid; gap: 0.2rem; padding: 0.5rem 0.55rem; border-radius: var(--pf-r); background: #fff; box-shadow: 0 0 0 2px var(--tint); }
 .pf-mini-result i { width: 40%; height: 5px; border-radius: 3px; background: #3d8b5a; opacity: 0.6; }
 .pf-mini-result b { color: #1a0dab; font-size: 0.78rem; }
 .pf-mini-result s, .pf-mini-row s { display: block; height: 5px; border-radius: 3px; background: #e2dccf; }
@@ -256,6 +252,7 @@ html[data-motion="calm"] .pf-who-item img, html[data-motion="calm"] .pf-btn, htm
 .pf-mac-base { display: block; height: 12px; margin: 0 -6%; border-radius: 0 0 14px 14px; background: linear-gradient(#c9ccd2, #8f939a); }
 .pf-iphone { position: absolute; right: 1.25rem; bottom: 1rem; width: 27%; aspect-ratio: 300 / 640; padding: 5px; border-radius: var(--pf-r); background: #0a0b0d; box-shadow: 0 0 0 1px #3a3d44, 0 20px 40px -12px rgb(0 0 0 / 0.8); }
 .pf-iphone-screen { display: block; height: 100%; border-radius: var(--pf-r); overflow: hidden; background: #000; }
+.pf-devices video { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
 .pf-devices img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; animation: pf-scroll 26s ease-in-out infinite alternate; }
 .pf-iphone img { animation-duration: 32s; animation-delay: -6s; }
 @keyframes pf-scroll { 0%, 8% { object-position: 50% 0; } 92%, 100% { object-position: 50% 100%; } }
@@ -513,3 +510,35 @@ html[data-motion="calm"] .pf-typed { border-right: 0; }
 .pf-footer-services a:hover { color: var(--pf-fg); }
 @media (max-width: 767px) { .pf-service-grid, .pf-examples, .pf-other-services { grid-template-columns: minmax(0, 1fr); } }
 .pf-mobilebar[data-call-only] { grid-template-columns: 1fr; }
+
+/* «це ви» next to the found result in «Чи вирішить» */
+.pf-you { position: absolute; right: -4.2rem; top: 50%; translate: 0 -50%; font-size: 1.35rem; font-style: normal; white-space: nowrap; transform: rotate(-6deg); }
+@media (max-width: 899px) { .pf-you { right: -3.6rem; } }
+
+/* Calculator: a tiny drawing of each kind of site */
+.pf-sketch { width: 100%; max-width: 9rem; height: auto; margin-bottom: 0.4rem; color: var(--pf-fg); }
+.pf-sketch-fill { fill: var(--pf-amber); }
+.pf-option[aria-pressed="true"] .pf-sketch { color: var(--pf-pen); }
+
+/* «Чи вирішить»: hang-up icon on the red button */
+.pf-mini-btns i { color: #fff; }
+.pf-end svg { rotate: 135deg; }
+
+/* Story → button to the four ways */
+.pf-compare-cta { margin-top: 2rem; }
+
+/* «Чотири способи отримати сайт»: each way with pen ticks and crosses (answers 533, 578) */
+.pf-ways-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin: 0; padding: 0; list-style: none; }
+.pf-way { padding: 1.25rem 1.2rem 1.3rem; border: 1.5px solid var(--pf-line); border-radius: var(--pf-r); background: var(--pf-surface); }
+.pf-way[data-mine] { border: 2px solid var(--pf-fg); background: #fff8e6; box-shadow: 5px 5px 0 var(--pf-shadow); transform: rotate(-1deg); }
+.pf-way h3 { margin: 0 0 0.9rem; font-family: var(--pf-display); font-weight: 700; font-size: 1.12rem; line-height: 1.25; }
+.pf-way h3 small { display: block; margin-top: 0.25rem; font-family: var(--pf-hand-font); font-weight: 500; font-size: 1.25rem; color: var(--pf-pen); }
+.pf-way ul { display: grid; gap: 0.55rem; margin: 0; padding: 0; list-style: none; }
+.pf-way li { position: relative; padding-left: 1.8rem; line-height: 1.4; }
+.pf-way li::before { position: absolute; left: 0; top: -0.2rem; font-family: var(--pf-hand-font); font-weight: 700; font-size: 1.6rem; line-height: 1; }
+.pf-way li[data-good]::before { content: "✓"; color: var(--pf-good); }
+.pf-way li[data-bad] { color: var(--pf-muted); }
+.pf-way li[data-bad]::before { content: "✗"; color: var(--pf-bad); }
+.pf-ways .pf-honest { margin: 1.5rem 0 0; color: var(--pf-muted); }
+@media (max-width: 999px) { .pf-ways-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 599px) { .pf-ways-list { grid-template-columns: minmax(0, 1fr); } .pf-way[data-mine] { order: -1; } }

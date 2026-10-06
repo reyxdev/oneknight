@@ -36,7 +36,7 @@ export function PfSolve() {
               <div className="pf-mini-google">
                 <span className="pf-g">G</span>
                 <span className="pf-mini-search"><span className="pf-typed">{c.q}</span></span>
-                <span className="pf-mini-result"><i /><b>{c.name}</b><s /></span>
+                <span className="pf-mini-result"><i /><b>{c.name}</b><s /><em className="pf-hand pf-you">← {t.you}</em></span>
                 <span className="pf-mini-result pf-dim"><i /><s /><s /></span>
                 <span className="pf-mini-result pf-dim"><i /><s /><s /></span>
               </div>
@@ -59,10 +59,10 @@ export function PfSolve() {
           <li data-reveal="up" style={{ "--i": 2 } as CSSProperties}>
             <div className="pf-mini" aria-hidden="true">
               <div className="pf-mini-calling">
-                <span className="pf-avatar">{c.name.replace(/[«»"]/g, "").slice(0, 1)}</span>
+                <span className="pf-avatar"><PhoneIcon size={26} /></span>
                 <b>{c.name}</b>
                 <small>{t.calling}</small>
-                <span className="pf-mini-btns"><i className="pf-end" /><i className="pf-accept"><PhoneIcon size={16} /></i></span>
+                <span className="pf-mini-btns"><i className="pf-end"><PhoneIcon size={16} /></i><i className="pf-accept"><PhoneIcon size={16} /></i></span>
               </div>
             </div>
             <p><span className="pf-num">3</span>{t.steps[2]}</p>

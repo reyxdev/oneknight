@@ -36,8 +36,11 @@ try {
   await home.locator(".pf-h1").first().waitFor();
   assert.equal(await home.locator("h1").first().innerText(), "Роблю сайт під вашу справу, щоб вам дзвонили");
   for (const id of ["roboty", "cina", "pro-mene", "pytannia", "kontakty"]) assert.equal(await home.locator(`#${id}`).count(), 1, id);
-  assert.equal(await home.locator(".pf-who-card").count(), 8);
-  assert.match(await home.locator(".pf-bar").innerText(), /лишилось \d+/);
+  assert.equal(await home.locator(".pf-who-item").count(), 4, "four businesses first");
+  await home.getByRole("button", { name: /ще 4 справи/ }).click();
+  assert.equal(await home.locator(".pf-who-item").count(), 8);
+  assert.match(await home.locator(".pf-sticker").innerText(), /лишилось \d+/);
+  assert.match(await home.locator(".pf-mini-result b").first().innerText(), /^Ваше СТО$/, "the found result is «yours»");
 
   // Calculator: services site → СТО → up to 30 → logo → 800 per client → one price with the discount → a lead.
   const c = home.locator(".pf-calc");
@@ -77,11 +80,17 @@ try {
   for (const name of ["Viber", "WhatsApp", "Telegram"]) assert.equal(await m.getByRole("dialog").getByRole("link", { name }).count(), 1, name);
   await m.keyboard.press("Escape");
   assert.equal(await m.locator(".pf-mobilebar a").count(), 2);
+  await m.getByRole("button", { name: "Меню", exact: true }).click();
+  assert.equal(await m.getByRole("dialog").getByRole("link", { name: "Інтернет-магазин" }).count(), 1, "services in the menu");
+  await m.keyboard.press("Escape");
 
   // Inner pages and 404.
   const svc = await open("/internet-magazyn/", { admin: true });
   assert.equal(await svc.locator("h1").first().innerText(), "Інтернет-магазин, який не тоне серед тисяч інших");
   assert.equal(await svc.locator(".pf-examples li").count(), 2, "real examples only");
+  const cina = await open("/cina/", { admin: true });
+  assert.equal(await cina.locator(".pf-way").count(), 4, "four ways instead of the table");
+  assert.equal(await cina.locator(".pf-sketch").count(), 4, "a drawing on each kind of site");
   const g = await open("/google-karty/", { admin: true });
   assert.equal(await g.locator(".pf-examples").count(), 0, "no example without a real one");
   const nf = await open("/nema-takoi-storinky/");

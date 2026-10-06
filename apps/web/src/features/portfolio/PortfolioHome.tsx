@@ -6,8 +6,8 @@ import { PfMotion } from "./PfMotion";
 import { DiscountSticker, PfMobileBar, PfTop } from "./PfTop";
 import { PfWho } from "./PfWho";
 import { PfSolve } from "./PfSolve";
-import { PfWorks } from "./PfWorks";
-import { PfCompare } from "./PfCompare";
+import { PfWorks, WorkScreens } from "./PfWorks";
+import { PfCompare, PfWays } from "./PfCompare";
 import { PfCalc } from "./PfCalc";
 import { PfFinal, PfFooter } from "./PfFinal";
 import { contacts } from "@/data/contacts";
@@ -18,8 +18,8 @@ const contactsDisplay = contacts.phone.display;
 const WORD = ["ONE", "KNIGHT"] as const;
 
 /**
- * Pieces of a real client site (karpatu.shop, first screen on a phone) that fly into the phone while the first
- * screen scrolls (answers 111, 238, 381). `s` = where on the scroll the piece starts, `x/y/r` = where it comes from.
+ * Pieces of a real client site (karpatu.shop, first screen on a phone) that settle into the phone right after the page
+ * opens, within a second (answers 111, 238, 691). `s` = delay step, `x/y/r` = where the piece comes from.
  */
 const PIECES = [
   { id: "header", w: 600, h: 131, s: 0, x: "0%", y: "-70%", r: "0deg" },
@@ -61,7 +61,7 @@ function Marked({ text, mark, draw = false }: { text: string; mark: string; draw
 function Hero({ lang }: { lang: Lang }) {
   const t = getDict(lang).pf.hero;
   return (
-    <section className="pf-hero" data-scene aria-labelledby="pf-h1">
+    <section className="pf-hero" aria-labelledby="pf-h1">
       <div className="pf-hero-stage">
         <div className="pf-wrap pf-hero-grid">
           <div className="pf-hero-copy">
@@ -91,7 +91,6 @@ function Hero({ lang }: { lang: Lang }) {
               <div className="pf-phone">
                 <span className="pf-phone-island" />
                 <div className="pf-phone-screen">
-                  <span className="pf-skeleton" />
                   {PIECES.map((p) => (
                     <img
                       key={p.id}
@@ -285,6 +284,7 @@ export function PricePage({ lang }: { lang: Lang }) {
           </div>
         </div>
       </section>
+      <PfWays />
       <Faq lang={lang} />
       <PfFinal />
     </PortfolioShell>
@@ -313,13 +313,7 @@ export function WorkPage({ lang, id }: { lang: Lang; id: string }) {
           <h1 id="pf-page-h1" className="pf-h1 pf-page-h1">{w.host}</h1>
           <p className="pf-lead">{w.what}</p>
           <a className="pf-devices pf-case-devices" href={w.url} target="_blank" rel="noopener" aria-label={fmt(d.pages.work.open, { host: w.host })}>
-            <span className="pf-mac">
-              <span className="pf-mac-screen"><img src={`/portfolio/works/${w.id}-desk.webp`} alt="" decoding="async" width={960} height={2250} /></span>
-              <span className="pf-mac-base" />
-            </span>
-            <span className="pf-iphone">
-              <span className="pf-iphone-screen"><img src={`/portfolio/works/${w.id}-phone.webp`} alt="" decoding="async" width={520} height={5400} /></span>
-            </span>
+            <WorkScreens id={w.id} />
           </a>
           <h2 className="pf-h3">{d.works.did}</h2>
           <ul className="pf-did pf-case-did">
