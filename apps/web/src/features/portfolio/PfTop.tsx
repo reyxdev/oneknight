@@ -5,7 +5,6 @@ import { useDict, useLang } from "@/i18n/provider";
 import { fmt, withLang } from "@/i18n";
 import { contacts } from "@/data/contacts";
 import { brandIcons, type Brand } from "@/data/brand-icons";
-import { KnightMark } from "@/components/global/Logo";
 import { usePortfolioSettings } from "./settings";
 
 const MESSENGERS: { brand: Brand; href: string }[] = [
@@ -95,8 +94,7 @@ export function PfTop() {
       <header className="pf-header">
         <div className="pf-wrap pf-header-row">
           <a className="pf-brand" href={home}>
-            <KnightMark size={32} />
-            <b>{t.header.name}</b>
+            <b><mark className="pf-mark">{t.header.name}</mark></b>
           </a>
           <div className="pf-header-actions">
             <a className="pf-header-phone" href={contacts.phone.tel}>{contacts.phone.display}</a>

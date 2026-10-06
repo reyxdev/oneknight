@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { Lang } from "@/config";
 import { fmt, getDict, withLang } from "@/i18n";
-import { LiquidWord } from "@/features/hero/LiquidWord";
+import { AmberWord } from "./AmberWord";
 import { PfMotion } from "./PfMotion";
 import { DiscountSticker, PfMobileBar, PfTop } from "./PfTop";
 import { PfWho } from "./PfWho";
@@ -14,8 +14,6 @@ import { contacts } from "@/data/contacts";
 
 const contactsTel = contacts.phone.tel;
 const contactsDisplay = contacts.phone.display;
-
-const WORD = ["ONE", "KNIGHT"] as const;
 
 /**
  * Pieces of a real client site (karpatu.shop, first screen on a phone) that settle into the phone right after the page
@@ -56,7 +54,7 @@ function Marked({ text, mark, draw = false }: { text: string; mark: string; draw
 /**
  * The first screen on paper (answers 503–516, 552–560, 594, 653–660): a handwritten hello, the headline with
  * «дзвонили» under the marker, sticker buttons, the trust line; the phone where karpatu.shop assembles, the −25%
- * sticker on its corner; under both, ONEKNIGHT as ink across the whole width.
+ * sticker on its corner; under both, ONEKNIGHT filled with honey across the whole width.
  */
 function Hero({ lang }: { lang: Lang }) {
   const t = getDict(lang).pf.hero;
@@ -114,7 +112,7 @@ function Hero({ lang }: { lang: Lang }) {
           </div>
         </div>
         <div className="pf-wrap pf-hero-word" aria-hidden="true">
-          <LiquidWord parts={WORD} layout="one" still />
+          <AmberWord />
         </div>
       </div>
     </section>

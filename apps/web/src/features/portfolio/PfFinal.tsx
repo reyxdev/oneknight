@@ -5,7 +5,6 @@ import { useDict, useLang } from "@/i18n/provider";
 import { fmt, withLang } from "@/i18n";
 import { contacts } from "@/data/contacts";
 import { brandIcons, type Brand } from "@/data/brand-icons";
-import { KnightMark } from "@/components/global/Logo";
 import { BrandIcon, PhoneIcon } from "./PfTop";
 import { PfLeadForm } from "./PfLeadForm";
 import { usePortfolioSettings } from "./settings";
@@ -106,7 +105,7 @@ export function PfFooter() {
           <a href={withLang(lang, "/legal/privacy/")}>{t.privacy}</a>
           <a href={lang === "uk" ? "/en/" : "/"} hrefLang={lang === "uk" ? "en" : "uk"}>{t.other}</a>
         </nav>
-        <p className="pf-footer-sign"><KnightMark size={20} /> {t.sign}</p>
+        <p className="pf-footer-sign">{t.sign}</p>
       </div>
       <a href="#top" className="pf-totop" data-show={up || undefined} aria-label={t.top} tabIndex={up ? 0 : -1}>
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6" /></svg>

@@ -71,7 +71,7 @@ html:has(.pf) { background: #f4eee3; color-scheme: light; }
 .pf-header { border-bottom: 1.5px solid var(--pf-fg); background: var(--pf-bg); }
 .pf-header-row { display: flex; align-items: center; gap: 1rem; height: 68px; }
 .pf-brand { --bg: var(--pf-bg); display: flex; align-items: center; gap: 0.6rem; color: var(--pf-fg); text-decoration: none; }
-.pf-brand b { font-family: var(--pf-display); font-size: 1.15rem; font-weight: 700; }
+.pf-brand b { font-family: var(--pf-display); font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; }
 .pf-header-actions { display: flex; align-items: center; gap: 0.7rem; margin-left: auto; }
 .pf-header-phone { display: none; margin-right: 0.4rem; font-weight: 700; font-size: 1.05rem; text-decoration: none; white-space: nowrap; }
 .pf-header-phone:hover { text-decoration: underline; text-underline-offset: 4px; }
@@ -116,9 +116,13 @@ html:has(.pf) { background: #f4eee3; color-scheme: light; }
 .pf-place { margin: 0.5rem 0 0; color: var(--pf-muted); font-size: 0.95rem; }
 .pf-hero-visual { position: relative; display: grid; justify-items: center; align-content: center; gap: 0.6rem; min-height: min(68svh, 600px); }
 .pf-hero-word { margin-top: clamp(0.5rem, 2vw, 1.5rem); }
-.pf-hero-word .liquid { aspect-ratio: 6.15 / 1; --fs-k: 0.1626; }
-.pf-hero-word .liquid-fallback { flex-direction: row !important; align-items: center !important; }
-.pf-hero-word .liquid-fallback > span { display: inline !important; }
+/* ONEKNIGHT filled with honey to 80%, the empty top outlined (owner's request) */
+.pf-amber-word { display: block; width: 100%; height: auto; overflow: visible; }
+.pf-amber-word text { font-family: var(--font-geologica), sans-serif; font-weight: 900; font-style: oblique 10deg; letter-spacing: -0.02em; }
+.pf-amber-wave { animation: pf-honey 7s linear infinite; }
+.pf-amber-shine { animation-duration: 7s; }
+@keyframes pf-honey { to { transform: translateX(-125px); } }
+html[data-motion="calm"] .pf-amber-wave { animation: none; }
 
 /* The phone: karpatu.shop is already whole; its pieces settle in once, right after the page opens (answers 111, 691) */
 .pf-phone-wrap { position: relative; width: clamp(220px, 19vw, 270px); }
