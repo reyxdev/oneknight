@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { Lang } from "@/config";
 import { fmt, getDict, withLang } from "@/i18n";
-import { AmberWord } from "./AmberWord";
+import { HoneyWord } from "@/features/honey/HoneyWord";
 import { PfMotion } from "./PfMotion";
 import { DiscountSticker, PfMobileBar, PfTop } from "./PfTop";
 import { PfWho } from "./PfWho";
@@ -54,7 +54,7 @@ function Marked({ text, mark, draw = false }: { text: string; mark: string; draw
 /**
  * The first screen on paper (answers 503–516, 552–560, 594, 653–660): a handwritten hello, the headline with
  * «дзвонили» under the marker, sticker buttons, the trust line; the phone where karpatu.shop assembles, the −25%
- * sticker on its corner; under both, ONEKNIGHT filled with honey across the whole width.
+ * sticker on its corner.
  */
 function Hero({ lang }: { lang: Lang }) {
   const t = getDict(lang).pf.hero;
@@ -110,9 +110,6 @@ function Hero({ lang }: { lang: Lang }) {
             <DiscountSticker className="pf-hero-sticker" />
             <p className="pf-hand pf-phone-note" aria-hidden="true">{t.phoneNote} ↑</p>
           </div>
-        </div>
-        <div className="pf-wrap pf-hero-word" aria-hidden="true">
-          <AmberWord />
         </div>
       </div>
     </section>
@@ -456,6 +453,17 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
   );
 }
 
+/** ONEKNIGHT in glass jars of honey, a screen of its own after the first one (owner's honey answers 33, 34, 46). */
+function HoneyScreen({ lang }: { lang: Lang }) {
+  const t = getDict(lang).pf.honey;
+  return (
+    <section className="pf-honey-screen" aria-label="ONEKNIGHT">
+      <HoneyWord />
+      <p className="pf-hand pf-honey-note" aria-hidden="true">{t.note}</p>
+    </section>
+  );
+}
+
 /** The home page row about computer help (uk only, answers 147, 343). */
 function TechRow() {
   const t = getDict("uk").pf.tech;
@@ -474,6 +482,7 @@ export function PortfolioHome({ lang }: { lang: Lang }) {
   return (
     <PortfolioShell>
       <Hero lang={lang} />
+      <HoneyScreen lang={lang} />
       <PfWho />
       <PfSolve />
       <PfWorks />

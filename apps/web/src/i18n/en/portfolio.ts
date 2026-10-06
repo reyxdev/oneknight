@@ -40,6 +40,7 @@ export const pf: typeof uk = {
     specialCta: "Tell me, I'll work it out",
   },
   mobileBar: { call: "Call", calc: "Get a price" },
+  honey: { note: "tap it and it sloshes" },
   solve: {
     title: "Here's what happens once you have a website",
     lead: "A website is your shop sign inside people's phones. Someone searches, finds you, your prices and a «Call» button.",

@@ -6,7 +6,8 @@ import { chromium } from "playwright-core";
 import { cleanupTestData } from "./cleanup.mjs";
 
 const BASE = process.env.BASE ?? "http://localhost:8080";
-const b = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox"] });
+// WebGL off: without a GPU the honey word would render in software for seconds; it shows its still picture instead.
+const b = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox", "--disable-webgl", "--disable-3d-apis"] });
 const errors = [];
 cleanupTestData();
 
@@ -36,6 +37,7 @@ try {
   await home.locator(".pf-h1").first().waitFor();
   assert.equal(await home.locator("h1").first().innerText(), "Роблю сайт під вашу справу, щоб вам дзвонили");
   for (const id of ["roboty", "cina", "pro-mene", "pytannia", "kontakty"]) assert.equal(await home.locator(`#${id}`).count(), 1, id);
+  assert.equal(await home.locator(".pf-honey[data-state=off] .pf-honey-poster").count(), 1, "no WebGL: the honey's still picture");
   assert.equal(await home.locator(".pf-who-item").count(), 4, "four businesses first");
   await home.getByRole("button", { name: /ще 4 справи/ }).click();
   assert.equal(await home.locator(".pf-who-item").count(), 8);
@@ -71,7 +73,7 @@ try {
   assert.match(await c.locator(".pf-form-thanks").innerText(), /^Дякую, E2E Портфоліо! Передзвоню/);
 
   // The answers are remembered on this device.
-  await home.reload({ waitUntil: "networkidle" });
+  await home.reload({ waitUntil: "domcontentloaded" });
   await home.locator(".pf-price").waitFor();
 
   // Phones: the contact sheet and the call/price bar.

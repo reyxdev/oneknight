@@ -22,12 +22,6 @@
   --pf-r: 6px;
   --pf-display: var(--font-unbounded), var(--font-geologica), sans-serif;
   --pf-hand-font: var(--font-caveat), "Comic Sans MS", cursive;
-  /* Liquid ONEKNIGHT as a drop of ink with an amber glint (answer 552): the engine reads these from the canvas. */
-  --ink: #2b1c12;
-  --alby-deep: #3a2416;
-  --alby: #93601f;
-  --alby-mist: #d9a45a;
-  --paper: #fff8ec;
   min-height: 100dvh;
   overflow-x: clip;
   background: url("/portfolio/grain.png") repeat, var(--pf-bg);
@@ -115,14 +109,6 @@ html:has(.pf) { background: #f4eee3; color-scheme: light; }
 .pf-trust svg { flex: none; color: var(--pf-pen); }
 .pf-place { margin: 0.5rem 0 0; color: var(--pf-muted); font-size: 0.95rem; }
 .pf-hero-visual { position: relative; display: grid; justify-items: center; align-content: center; gap: 0.6rem; min-height: min(68svh, 600px); }
-.pf-hero-word { margin-top: clamp(0.5rem, 2vw, 1.5rem); }
-/* ONEKNIGHT filled with honey to 80%, the empty top outlined (owner's request) */
-.pf-amber-word { display: block; width: 100%; height: auto; overflow: visible; }
-.pf-amber-word text { font-family: var(--font-geologica), sans-serif; font-weight: 900; font-style: oblique 10deg; letter-spacing: -0.02em; }
-.pf-amber-wave { animation: pf-honey 7s linear infinite; }
-.pf-amber-shine { animation-duration: 7s; }
-@keyframes pf-honey { to { transform: translateX(-125px); } }
-html[data-motion="calm"] .pf-amber-wave { animation: none; }
 
 /* The phone: karpatu.shop is already whole; its pieces settle in once, right after the page opens (answers 111, 691) */
 .pf-phone-wrap { position: relative; width: clamp(220px, 19vw, 270px); }
@@ -546,3 +532,24 @@ html[data-motion="calm"] .pf-typed { border-right: 0; }
 .pf-ways .pf-honest { margin: 1.5rem 0 0; color: var(--pf-muted); }
 @media (max-width: 999px) { .pf-ways-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 599px) { .pf-ways-list { grid-template-columns: minmax(0, 1fr); } .pf-way[data-mine] { order: -1; } }
+
+/* ONEKNIGHT in glass jars of honey (three.js); a still picture first, then it comes alive */
+.pf-honey { position: relative; width: 100%; aspect-ratio: 3.1 / 1; touch-action: pan-y; }
+.pf-honey[data-lines="2"] { aspect-ratio: 1.35 / 1; }
+.pf-honey-canvas, .pf-honey-poster { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pf-honey-poster { object-fit: cover; transition: opacity 0.6s ease; }
+.pf-honey-canvas { opacity: 0; transition: opacity 0.6s ease; }
+.pf-honey[data-state="ready"] .pf-honey-canvas { opacity: 1; }
+.pf-honey[data-state="ready"] .pf-honey-poster { opacity: 0; }
+.pf-honey-note { margin: -0.5rem 0 0; text-align: center; font-size: 1.5rem; transform: rotate(-2deg); }
+.pf-lab { display: grid; gap: 1.5rem; }
+.pf-lab-stage { width: 100%; }
+.pf-lab-panel { width: min(100% - 2rem, 1180px); margin-inline: auto; display: grid; gap: 1rem; }
+.pf-lab-actions { display: flex; flex-wrap: wrap; gap: 0.7rem; }
+.pf-lab-sliders { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.8rem 1.5rem; align-items: end; }
+.pf-lab-sliders label { display: grid; gap: 0.3rem; font-size: 0.95rem; }
+.pf-lab-sliders input[type="range"] { width: 100%; accent-color: var(--pf-amber); }
+.pf-lab-check { display: flex !important; align-items: center; gap: 0.5rem; }
+.pf-lab-json { margin: 0; padding: 0.8rem 1rem; border: 1.5px dashed var(--pf-line); border-radius: var(--pf-r); font-size: 0.8rem; white-space: pre-wrap; word-break: break-all; }
+
+.pf-honey-screen { padding-block: clamp(1rem, 4vw, 3rem) clamp(2rem, 5vw, 4rem); }
