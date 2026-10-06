@@ -1,6 +1,6 @@
 import "@/styles/globals.css";
 import type { Metadata } from "next";
-import { geologica, unbounded } from "./fonts";
+import { caveat, geologica, unbounded } from "./fonts";
 import { bootScript } from "@/lib/prefs";
 import { uk } from "@/i18n/uk";
 import { en } from "@/i18n/en";
@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "404 | ONEKNIGHT", robots: { index: f
 export default function GlobalNotFound() {
   const langScript = `(function(){var en=/^\\/en(\\/|$)/.test(location.pathname);document.documentElement.lang=en?'en':'uk';document.querySelectorAll('[data-l]').forEach(function(n){n.hidden=n.dataset.l!==(en?'en':'uk')});})();`;
   return (
-    <html lang="uk" className={`${geologica.variable} ${unbounded.variable}`} suppressHydrationWarning>
+    <html lang="uk" className={`${geologica.variable} ${unbounded.variable} ${caveat.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: bootScript }} />
       </head>

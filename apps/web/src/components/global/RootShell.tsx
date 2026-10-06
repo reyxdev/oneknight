@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { Lang } from "@/config";
 import { getDict } from "@/i18n";
 import { I18nProvider } from "@/i18n/provider";
-import { geologica, jetbrains, unbounded } from "@/app/fonts";
+import { caveat, geologica, jetbrains, unbounded } from "@/app/fonts";
 import { config } from "@/config";
 import { bootScript } from "@/lib/prefs";
 import { Header } from "./Header";
@@ -18,7 +18,7 @@ import { ContactFab, CookieNotice, InviteStrip } from "./SiteBits";
 export function RootShell({ lang, chapters, children }: { lang: Lang; chapters: readonly ChapterId[]; children: ReactNode }) {
   const dict = getDict(lang);
   return (
-    <html lang={lang} suppressHydrationWarning className={`${geologica.variable} ${jetbrains.variable} ${unbounded.variable}`}>
+    <html lang={lang} suppressHydrationWarning className={`${geologica.variable} ${jetbrains.variable} ${unbounded.variable} ${caveat.variable}`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: bootScript }} />
       </head>

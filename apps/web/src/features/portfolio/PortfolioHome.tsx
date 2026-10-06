@@ -3,7 +3,8 @@ import type { Lang } from "@/config";
 import { fmt, getDict, withLang } from "@/i18n";
 import { LiquidWord } from "@/features/hero/LiquidWord";
 import { PfMotion } from "./PfMotion";
-import { PfMobileBar, PfTop } from "./PfTop";
+import { DiscountSticker, PfMobileBar, PfTop } from "./PfTop";
+import { PfWho } from "./PfWho";
 import { PfSolve } from "./PfSolve";
 import { PfWorks } from "./PfWorks";
 import { PfCompare } from "./PfCompare";
@@ -30,6 +31,33 @@ const CARDS = [
   { id: "card2", w: 360, h: 473, s: 0.34 },
 ] as const;
 
+/** A wobbly pen underline (answers 516, 633). */
+function PenLine({ className = "" }: { className?: string }) {
+  return (
+    <svg className={`pf-penline ${className}`} viewBox="0 0 300 12" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M2 8 C 40 3, 70 11, 110 6 S 190 3, 230 7 S 280 9, 298 4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Puts the first `mark` inside `text` under the amber marker (answers 557, 607, 659, 697). */
+function Marked({ text, mark, draw = false }: { text: string; mark: string; draw?: boolean }) {
+  const i = text.indexOf(mark);
+  if (i < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, i)}
+      <mark className={`pf-mark${draw ? " pf-mark-draw" : ""}`}>{mark}</mark>
+      {text.slice(i + mark.length)}
+    </>
+  );
+}
+
+/**
+ * The first screen on paper (answers 503–516, 552–560, 594, 653–660): a handwritten hello, the headline with
+ * «дзвонили» under the marker, sticker buttons, the trust line; the phone where karpatu.shop assembles, the −25%
+ * sticker on its corner; under both, ONEKNIGHT as ink across the whole width.
+ */
 function Hero({ lang }: { lang: Lang }) {
   const t = getDict(lang).pf.hero;
   return (
@@ -37,30 +65,29 @@ function Hero({ lang }: { lang: Lang }) {
       <div className="pf-hero-stage">
         <div className="pf-wrap pf-hero-grid">
           <div className="pf-hero-copy">
-            <p className="pf-kicker">{t.kicker}</p>
-            <h1 id="pf-h1" className="pf-h1">{t.h1}</h1>
+            <p className="pf-hand pf-kicker">{t.kicker}<PenLine /></p>
+            <h1 id="pf-h1" className="pf-h1"><Marked text={t.h1} mark={t.h1Mark} draw /></h1>
             <p className="pf-lead">{t.sub}</p>
             <div className="pf-actions">
               <a className="pf-btn pf-btn-amber pf-btn-lg" href={withLang(lang, "/cina/")}>
                 {t.calc}
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
               </a>
-              <a className="pf-btn pf-btn-ghost pf-btn-lg" href="#roboty">{t.works}</a>
+              <a className="pf-btn pf-btn-lg" href="#roboty">{t.works}</a>
             </div>
             <ul className="pf-trust">
               {t.trust.map((x) => (
                 <li key={x}>
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
-                  {x}
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 13c2 1.5 3.5 3 5 5 3-5 6.5-9 11-12" /></svg>
+                  <span><Marked text={x} mark={t.trustMark} /></span>
                 </li>
               ))}
             </ul>
             <p className="pf-place">{t.place}</p>
           </div>
 
-          <div className="pf-hero-visual" aria-hidden="true">
-            <div className="pf-liquid"><LiquidWord parts={WORD} layout="two" dark /></div>
-            <div className="pf-phone-wrap">
+          <div className="pf-hero-visual">
+            <div className="pf-phone-wrap" aria-hidden="true">
               <div className="pf-phone">
                 <span className="pf-phone-island" />
                 <div className="pf-phone-screen">
@@ -83,45 +110,17 @@ function Hero({ lang }: { lang: Lang }) {
                 <img key={c.id} className={`pf-card pf-${c.id}`} src={`/portfolio/karpatu/${c.id}.webp`} width={c.w} height={c.h} alt="" decoding="async" loading="lazy" style={{ "--s": c.s } as CSSProperties} />
               ))}
             </div>
-            <p className="pf-phone-note">{t.phoneNote}</p>
+            <DiscountSticker className="pf-hero-sticker" />
+            <p className="pf-hand pf-phone-note" aria-hidden="true">{t.phoneNote} ↑</p>
           </div>
         </div>
-      </div>
-    </section>
-  );
-}
-
-function WhoFor({ lang }: { lang: Lang }) {
-  const t = getDict(lang).pf.who;
-  const calc = withLang(lang, "/cina/");
-  return (
-    <section className="pf-section pf-who" aria-labelledby="pf-who-title">
-      <div className="pf-wrap">
-        <h2 id="pf-who-title" className="pf-h2" data-reveal="up">{t.title}</h2>
-        <ul className="pf-who-grid">
-          {t.items.map((it, i) => (
-            <li key={it.id} data-reveal="up" style={{ "--i": i % 4 } as CSSProperties}>
-              <a className="pf-who-card" href={`${calc}?sprava=${it.id}`}>
-                <img src={`/portfolio/icons/${it.id}.webp`} width={96} height={96} alt="" loading="lazy" decoding="async" />
-                <b>{it.title}</b>
-                <span>{it.text}</span>
-                <em>
-                  {t.calc}
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-                </em>
-              </a>
-            </li>
-          ))}
-        </ul>
-        <div className="pf-who-special" data-reveal="up">
-          <p>{t.special}</p>
-          <a className="pf-btn pf-btn-ghost" href={calc}>{t.specialCta}</a>
+        <div className="pf-wrap pf-hero-word" aria-hidden="true">
+          <LiquidWord parts={WORD} layout="one" still />
         </div>
       </div>
     </section>
   );
 }
-
 
 function Prices({ lang }: { lang: Lang }) {
   const d = getDict(lang).pf;
@@ -483,7 +482,7 @@ export function PortfolioHome({ lang }: { lang: Lang }) {
   return (
     <PortfolioShell>
       <Hero lang={lang} />
-      <WhoFor lang={lang} />
+      <PfWho />
       <PfSolve />
       <PfWorks />
       <PfCompare />

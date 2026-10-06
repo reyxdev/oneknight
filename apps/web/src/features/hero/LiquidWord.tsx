@@ -4,14 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import { usePrefs } from "@/lib/prefs";
 import type { Layout, LiquidController } from "./liquid/engine";
 
-/** `layout` fixes one or two lines (otherwise two on phones); `dark` keeps the dark palette whatever the site theme. */
-type Props = { parts: readonly [string, string]; layout?: Layout; dark?: boolean };
+/**
+ * `layout` fixes one or two lines (otherwise two on phones); `dark` keeps the dark palette whatever the site theme;
+ * `still` ignores the page scroll (no dissolving, one palette).
+ */
+type Props = { parts: readonly [string, string]; layout?: Layout; dark?: boolean; still?: boolean };
 
 /**
  * ONEKNIGHT as liquid. Server renders the CSS fallback (real text, no loading state, no layout shift).
  * When WebGL2 is available the canvas fades in over it. The engine is imported on demand.
  */
-export function LiquidWord({ parts, layout, dark }: Props) {
+export function LiquidWord({ parts, layout, dark, still }: Props) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const ctl = useRef<LiquidController | null>(null);
@@ -41,7 +44,7 @@ export function LiquidWord({ parts, layout, dark }: Props) {
         canvas: canvas.current,
         lines: (l) => (l === "one" ? [text] : [...parts]),
         family,
-        progress: () => Number.parseFloat(scene?.style.getPropertyValue("--p") || "0") || 0,
+        progress: () => (still ? 0 : Number.parseFloat(scene?.style.getPropertyValue("--p") || "0") || 0),
         isDarkPage: () => dark || document.documentElement.dataset.theme === "dark",
         onReady: () => setGl("ready"),
         onFail: () => setGl("off"),
@@ -65,7 +68,7 @@ export function LiquidWord({ parts, layout, dark }: Props) {
       ctl.current?.destroy();
       ctl.current = null;
     };
-  }, [parts, text, layout, dark]);
+  }, [parts, text, layout, dark, still]);
 
   useEffect(() => {
     ctl.current?.setCalm(motion === "calm");

@@ -1,4 +1,4 @@
-import { Geologica, JetBrains_Mono, Unbounded } from "next/font/google";
+import { Caveat, Geologica, JetBrains_Mono, Unbounded } from "next/font/google";
 
 /** Geologica: Cyrillic, variable weight + true oblique (slnt). One family for display, UI and body. */
 export const geologica = Geologica({
@@ -22,4 +22,12 @@ export const unbounded = Unbounded({
   weight: ["500", "700"],
   display: "swap",
   variable: "--font-unbounded",
+});
+
+/** Caveat: the portfolio's handwritten notes in blue ballpoint (answers 507, 508, 558). */
+export const caveat = Caveat({
+  subsets: ["latin", "cyrillic"],
+  weight: ["500", "700"],
+  display: "swap",
+  variable: "--font-caveat",
 });
